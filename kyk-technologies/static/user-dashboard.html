@@ -125,7 +125,15 @@
       shell.hidden = false;
     }
 
-    document.getElementById('userLogoutBtn').addEventListener('click', () => {
+    document.getElementById('userLogoutBtn').addEventListener('click', async () => {
+      if (token) {
+        try {
+          await fetch('/api/auth/user-logout', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token }
+          });
+        } catch(e) {}
+      }
       localStorage.removeItem(tokenKey);
       location.replace('/index.html');
     });
@@ -138,14 +146,19 @@
     fetch('/api/auth/user/dashboard', { headers: { Authorization: 'Bearer ' + token } })
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Please login again.');
+        if (!response.ok) {
+          if (response.status === 401) {
+            sessionStorage.setItem('kyk_session_notice', data.error || 'Your session expired or you were logged in from another device.');
+          }
+          throw new Error(data.error || 'Please login again.');
+        }
         return data;
       })
       .then(render)
       .catch((error) => {
         localStorage.removeItem(tokenKey);
         showMessage(error.message);
-        setTimeout(() => location.replace('/login.html?redirect=%2Fuser-dashboard.html'), 700);
+        setTimeout(() => location.replace('/login.html?redirect=%2Fuser-dashboard.html'), 800);
       });
   })();
 </script>

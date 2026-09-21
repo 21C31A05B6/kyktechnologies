@@ -90,7 +90,15 @@ async function updateAuthNavigation() {
   dashboardLink = navCta.querySelector(".dashboard-link");
   setAuthControlVisible(dashboardLink, loggedIn);
 
-  const logoutButton = addLogoutButton(navCta, loginLink, () => {
+  const logoutButton = addLogoutButton(navCta, loginLink, async () => {
+    const at = getAdminToken();
+    const ut = getUserToken();
+    if (at) {
+      try { await fetch(`${API}/auth/logout`, { method: "POST", headers: { Authorization: `Bearer ${at}` } }); } catch(e){}
+    }
+    if (ut) {
+      try { await fetch(`${API}/auth/user-logout`, { method: "POST", headers: { Authorization: `Bearer ${ut}` } }); } catch(e){}
+    }
     localStorage.removeItem(USER_TOKEN_KEY);
     localStorage.removeItem(ADMIN_TOKEN_KEY);
   });

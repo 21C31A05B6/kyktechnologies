@@ -83,7 +83,13 @@ def _sign(payload_b64: str) -> str:
 
 
 def make_token(payload: dict) -> str:
-    body = {**payload, "exp": int(time.time()) + TOKEN_TTL}
+    """Issue a signed token.  A unique `jti` (session ID) is added so
+    individual browser sessions can be tracked and revoked independently."""
+    body = {
+        **payload,
+        "jti": secrets.token_hex(16),   # unique per browser session
+        "exp": int(time.time()) + TOKEN_TTL,
+    }
     payload_b64 = _b64(json.dumps(body, separators=(",", ":")).encode())
     return f"{payload_b64}.{_sign(payload_b64)}"
 

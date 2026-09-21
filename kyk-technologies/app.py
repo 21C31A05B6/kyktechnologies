@@ -157,7 +157,96 @@ _build_admin_idx()
 _build_user_idx()
 
 
+# ─────────────────────────────────────────── session management
+#
+# Each browser login is given a unique `jti` (stored in the signed token
+# and in the `sessions` collection).  Validation checks that the jti still
+# exists — if it was evicted (session limit exceeded) the browser gets 401.
+#
+# Session limits:
+#   admin       → 3 simultaneous browsers
+#   user/other  → 1 simultaneous browser
+#
+# When the limit is exceeded the OLDEST session is evicted so the new
+# login always succeeds and the stale browser is the one that gets kicked.
+
+SESSION_LIMIT_ADMIN = 3
+SESSION_LIMIT_USER  = 1
+
+# Friendly error payload that the frontend can detect to show a specific message
+_SESSION_KICKED_MSG = "You were logged in from another device. Please sign in again."
+
+
+def _create_session(owner_type: str, owner_id, jti: str, max_sessions: int,
+                    ip: str = "", ua: str = "", exp: int = 0) -> None:
+    """Insert a new session row and evict the oldest if we exceed max_sessions."""
+    _purge_expired_sessions()
+    # Load current sessions for this owner
+    all_sessions = db.read("sessions")
+    owner_sessions = sorted(
+        [s for s in all_sessions
+         if s.get("owner_type") == owner_type and s.get("owner_id") == owner_id],
+        key=lambda s: s.get("createdAt", ""),
+    )
+    # Evict oldest sessions until we are within the limit (leaving room for new one)
+    while len(owner_sessions) >= max_sessions:
+        oldest = owner_sessions.pop(0)
+        db.remove("sessions", oldest["id"])
+
+    db.insert("sessions", {
+        "jti":        jti,
+        "owner_type": owner_type,
+        "owner_id":   owner_id,
+        "ip":         ip,
+        "ua":         ua[:200],
+        "exp":        exp,
+    })
+
+
+def _revoke_session(jti: str) -> None:
+    """Delete a specific session (used by logout)."""
+    if not jti:
+        return
+    all_sessions = db.read("sessions")
+    for s in all_sessions:
+        if s.get("jti") == jti:
+            db.remove("sessions", s["id"])
+            return
+
+
+def _session_valid(jti: str) -> bool:
+    """Return True if the jti is still in the active sessions table."""
+    if not jti:
+        return False
+    now = time.time()
+    for s in db.read("sessions"):
+        if s.get("jti") == jti:
+            exp = s.get("exp", 0)
+            if exp and exp < now:
+                try:
+                    db.remove("sessions", s["id"])
+                except Exception:
+                    pass
+                return False
+            return True
+    return False
+
+
+def _purge_expired_sessions() -> None:
+    """Remove sessions whose JWT has expired (background cleanup, best-effort)."""
+    now = time.time()
+    try:
+        all_sessions = db.read("sessions")
+        for s in all_sessions:
+            exp = s.get("exp", 0)
+            if exp and exp < now:
+                db.remove("sessions", s["id"])
+    except Exception:
+        pass
+
+
 # ─────────────────────────────────────────── helpers
+
 
 def error(message, status=400):
     return jsonify({"error": message}), status
@@ -274,17 +363,22 @@ def rate_limit(max_requests=8, window_seconds=900):
 # ─────────────────────────────────────────── RBAC
 
 def current_admin():
-    """Read the bearer token from the Authorization header only.
-    Bug 12 note: ?token= for file downloads kept for simplicity but the
-    header route is preferred; tokens in URLs appear in server logs."""
+    """Read the bearer token; validate signature, expiry, AND active session.
+    Returns None for any failure (invalid token, expired, or session was evicted)."""
     header = request.headers.get("Authorization", "")
     token = header[7:] if header.startswith("Bearer ") else request.args.get("token", "")
     payload = read_token(token)
     if not payload:
         return None
+    # Session gate: jti must still exist in the sessions table
+    jti = payload.get("jti", "")
+    if not _session_valid(jti):
+        return None  # session was evicted (another browser logged in) or never created
     admin = db.find("admins", payload.get("adminId"))
     if admin and admin.get("status", "active") in {"suspended", "terminated", "inactive"}:
-        return None  # Revoked mid-session: existing 8h token is rejected immediately.
+        return None  # account disabled mid-session
+    if admin:
+        request._session_jti = jti   # stash for logout endpoint
     return admin
 
 
@@ -294,7 +388,8 @@ def admin_required(view):
     def wrapper(*args, **kwargs):
         admin = current_admin()
         if not admin:
-            return error("Session expired. Please sign in again.", 401)
+            return jsonify({"error": "Session expired. Please sign in again.",
+                            "kicked": True}), 401
         request.admin = admin
         return view(*args, **kwargs)
     return wrapper
@@ -308,7 +403,8 @@ def role_required(*allowed_roles):
         def wrapper(*args, **kwargs):
             admin = current_admin()
             if not admin:
-                return error("Session expired. Please sign in again.", 401)
+                return jsonify({"error": "Session expired. Please sign in again.",
+                                "kicked": True}), 401
             role = admin.get("role", "viewer")
             if role != "super_admin" and role not in allowed_roles:
                 return error("You don't have permission to do that.", 403)
@@ -332,7 +428,8 @@ def attendance_required(view):
     def wrapper(*args, **kwargs):
         admin = current_admin()
         if not admin:
-            return error("Session expired. Please sign in again.", 401)
+            return jsonify({"error": "Session expired. Please sign in again.",
+                            "kicked": True}), 401
         if admin.get("role") not in ATTENDANCE_ROLES:
             return error("Attendance check-in isn't available for your role.", 403)
         request.admin = admin
@@ -685,12 +782,19 @@ def assistant_reply():
 # ─────────────────────────────────────────── auth
 
 def current_user():
+    """Read the bearer token; validate signature, expiry, AND active session."""
     header = request.headers.get("Authorization", "")
     token = header[7:] if header.startswith("Bearer ") else request.args.get("token", "")
     payload = read_token(token)
     if not payload or "userId" not in payload:
         return None
-    return db.find("users", payload.get("userId"))
+    jti = payload.get("jti", "")
+    if not _session_valid(jti):
+        return None  # session evicted by a newer login on another browser
+    user = db.find("users", payload.get("userId"))
+    if user:
+        request._session_jti = jti
+    return user
 
 
 def user_required(view):
@@ -698,7 +802,8 @@ def user_required(view):
     def wrapper(*args, **kwargs):
         user = current_user()
         if not user:
-            return error("Please login to continue.", 401)
+            return jsonify({"error": "Please login to continue.",
+                            "kicked": True}), 401
         request.user = user
         return view(*args, **kwargs)
     return wrapper
@@ -738,18 +843,32 @@ def user_login():
     data = request.get_json(silent=True) or {}
     email = clean(data.get("email"), 160).lower()
     password = str(data.get("password") or "")
-    # O(1) lookup via in-memory index — avoids full table scan under load
+    # O(1) lookup via in-memory index
     with _user_idx_lock:
         user = _user_idx.get(email)
     if not user:
-        # Fallback: rebuild index and retry (handles new workers with empty idx)
         _build_user_idx()
         with _user_idx_lock:
             user = _user_idx.get(email)
     if not user or not verify_password(password, user.get("passwordHash", "")):
         return error("Those credentials don't match a user account.", 401)
+    # Build token first to extract jti, then register the session
+    token = make_token({"userId": user["id"]})
+    from security import read_token as _rt
+    payload = _rt(token) or {}
+    jti = payload.get("jti", "")
+    exp = payload.get("exp", 0)
+    _create_session(
+        owner_type="user",
+        owner_id=user["id"],
+        jti=jti,
+        max_sessions=SESSION_LIMIT_USER,
+        ip=request.remote_addr or "",
+        ua=request.headers.get("User-Agent", ""),
+        exp=exp,
+    )
     return jsonify({
-        "token": make_token({"userId": user["id"]}),
+        "token": token,
         "name": user.get("name", "User"),
         "email": user.get("email"),
         "role": user.get("role", "user"),
@@ -762,11 +881,10 @@ def login():
     data     = request.get_json(silent=True) or {}
     email    = clean(data.get("email"), 160).lower()
     password = str(data.get("password") or "")
-    # O(1) index lookup — avoids serialising 80 concurrent requests on a full scan
+    # O(1) index lookup
     with _admin_idx_lock:
         admin = _admin_idx.get(email)
     if not admin:
-        # Rebuild index for newly spawned worker processes that have an empty idx
         _build_admin_idx()
         with _admin_idx_lock:
             admin = _admin_idx.get(email)
@@ -780,12 +898,57 @@ def login():
     audit(admin, "login")
     role  = admin.get("role", "viewer")
     tabs  = ROLES.get(role, {}).get("tabs", [])
+    # Build token, extract jti, register session
+    # Admin (super_admin / admin) gets 3 simultaneous browsers;
+    # All other accounts (employee, hr_manager, recruiter, etc.) get 1 browser session only.
+    token = make_token({"adminId": admin["id"]})
+    from security import read_token as _rt
+    payload = _rt(token) or {}
+    jti = payload.get("jti", "")
+    exp = payload.get("exp", 0)
+    is_admin = role in ("super_admin", "admin")
+    max_sess = SESSION_LIMIT_ADMIN if is_admin else SESSION_LIMIT_USER
+    _create_session(
+        owner_type="admin",
+        owner_id=admin["id"],
+        jti=jti,
+        max_sessions=max_sess,
+        ip=request.remote_addr or "",
+        ua=request.headers.get("User-Agent", ""),
+        exp=exp,
+    )
     return jsonify({
-        "token": make_token({"adminId": admin["id"]}),
+        "token": token,
         "name":  admin.get("name", "Admin"),
         "role":  role,
         "tabs":  tabs,
     })
+
+
+@app.post("/api/auth/logout")
+def logout():
+    """Revoke the current admin session (browser calls this on logout)."""
+    header = request.headers.get("Authorization", "")
+    token  = header[7:] if header.startswith("Bearer ") else ""
+    payload = read_token(token)
+    if payload:
+        jti = payload.get("jti", "")
+        if jti:
+            _revoke_session(jti)
+    return jsonify({"message": "Logged out."})
+
+
+@app.post("/api/auth/user-logout")
+def user_logout():
+    """Revoke the current user session (browser calls this on logout)."""
+    header = request.headers.get("Authorization", "")
+    token  = header[7:] if header.startswith("Bearer ") else ""
+    payload = read_token(token)
+    if payload:
+        jti = payload.get("jti", "")
+        if jti:
+            _revoke_session(jti)
+    return jsonify({"message": "Logged out."})
 
 
 @app.get("/api/auth/me")

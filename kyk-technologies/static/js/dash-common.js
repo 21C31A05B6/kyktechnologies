@@ -29,8 +29,16 @@ function goToLogin(){ if(currentPage()!==LOGIN_PAGE) location.replace('/'+LOGIN_
 
 async function api(path,opts={}){
   const res=await fetch('/api'+path,{...opts,headers:{...(opts.headers||{}),Authorization:'Bearer '+gToken}});
-  const d=await res.json();
-  if(!res.ok) throw new Error(d.error||'Request failed');
+  let d;
+  try { d = await res.json(); } catch(e) { d = {}; }
+  if(!res.ok){
+    if(res.status === 401 && gToken){
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.setItem('kyk_session_notice', d.error || 'Your session expired or you were logged in from another device.');
+      goToLogin();
+    }
+    throw new Error(d.error||'Request failed');
+  }
   return d;
 }
 function setFormMsg(el,msg,ok){ if(!el) return; el.textContent=msg; el.className='form-msg show '+(ok?'ok':'err'); }
@@ -64,7 +72,25 @@ on('loginBtn','click',async()=>{
 });
 on('loginEmail','keydown',e=>e.key==='Enter'&&$('loginBtn').click());
 on('loginPassword','keydown',e=>e.key==='Enter'&&$('loginBtn').click());
-on('logoutBtn','click',()=>{ localStorage.removeItem(TOKEN_KEY); location.replace('/'+LOGIN_PAGE); });
+on('logoutBtn','click',async()=>{
+  if(gToken){
+    try{
+      await fetch('/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+gToken}});
+    }catch(e){}
+  }
+  localStorage.removeItem(TOKEN_KEY);
+  location.replace('/'+LOGIN_PAGE);
+});
+
+/* Check and show notice if redirected after being logged out / kicked */
+document.addEventListener('DOMContentLoaded',()=>{
+  const notice = sessionStorage.getItem('kyk_session_notice');
+  if(notice){
+    sessionStorage.removeItem('kyk_session_notice');
+    const msg = $('loginMsg');
+    if(msg) setFormMsg(msg, notice, false);
+  }
+});
 
 /* ────── tab definitions (icons + labels) ────── */
 const TAB_META={
