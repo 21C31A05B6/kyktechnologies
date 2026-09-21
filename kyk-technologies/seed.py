@@ -130,42 +130,45 @@ ATTENDANCE_ROLES = {"hr_manager", "recruiter", "content_manager", "team_lead", "
 
 
 def seed():
-    if not db.read("jobs"):
-        for job in JOBS:
-            db.insert("jobs", job)
-        print("Seeded jobs.")
+    try:
+        if not db.read("jobs"):
+            for job in JOBS:
+                db.insert("jobs", job)
+            print("Seeded jobs.")
 
-    if not db.read("insights"):
-        for insight in INSIGHTS:
-            db.insert("insights", insight)
-        print("Seeded insights.")
+        if not db.read("insights"):
+            for insight in INSIGHTS:
+                db.insert("insights", insight)
+            print("Seeded insights.")
 
-    if not db.read("admins"):
-        email = os.environ.get("ADMIN_EMAIL", "")
-        password = os.environ.get("ADMIN_PASSWORD", "")
+        if not db.read("admins"):
+            email = os.environ.get("ADMIN_EMAIL", "")
+            password = os.environ.get("ADMIN_PASSWORD", "")
 
-        if not email or not password:
-            # No env vars set — generate random credentials and print once.
-            email = "admin@kyktechnologies.com"
-            password = secrets.token_urlsafe(18)
-            print("=" * 60)
-            print("  First-run admin credentials (save these now):")
-            print(f"  Email:    {email}")
-            print(f"  Password: {password}")
-            print("  Set ADMIN_EMAIL + ADMIN_PASSWORD env vars to choose your own.")
-            print("=" * 60)
-        else:
-            print(f"Seeded admin from environment: {email}")
+            if not email or not password:
+                # No env vars set — generate random credentials and print once.
+                email = "admin@kyktechnologies.com"
+                password = secrets.token_urlsafe(18)
+                print("=" * 60)
+                print("  First-run admin credentials (save these now):")
+                print(f"  Email:    {email}")
+                print(f"  Password: {password}")
+                print("  Set ADMIN_EMAIL + ADMIN_PASSWORD env vars to choose your own.")
+                print("=" * 60)
+            else:
+                print(f"Seeded admin from environment: {email}")
 
-        db.insert(
-            "admins",
-            {
-                "email": email,
-                "passwordHash": hash_password(password),
-                "name": "KYK Admin",
-                "role": "super_admin",
-            },
-        )
+            db.insert(
+                "admins",
+                {
+                    "email": email,
+                    "passwordHash": hash_password(password),
+                    "name": "KYK Admin",
+                    "role": "super_admin",
+                },
+            )
+    except Exception as e:
+        print(f"Warning: Database seeding skipped or failed during startup: {e}")
 
 
 if __name__ == "__main__":

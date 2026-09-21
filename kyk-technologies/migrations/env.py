@@ -18,6 +18,8 @@ except ImportError:
 # instead of hard-coding a connection string in alembic.ini.
 if os.environ.get("DATABASE_URL"):
     config_db_url = os.environ["DATABASE_URL"]
+    if config_db_url.startswith("postgres://"):
+        config_db_url = config_db_url.replace("postgres://", "postgresql://", 1)
 else:
     config_db_url = None
 

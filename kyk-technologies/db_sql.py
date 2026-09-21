@@ -51,6 +51,9 @@ from models import (
 )
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
+# Render and other PaaS providers supply 'postgres://' which SQLAlchemy 1.4+ rejects
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 _engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
 _Session = sessionmaker(bind=_engine, future=True)
@@ -68,8 +71,16 @@ class Record(Base):
     updated_at = Column(DateTime(timezone=True))
 
 
-Base.metadata.create_all(_engine)
-ModelsBase.metadata.create_all(_engine)
+def init_db():
+    """Create database tables if they do not exist."""
+    try:
+        Base.metadata.create_all(_engine)
+        ModelsBase.metadata.create_all(_engine)
+    except Exception as e:
+        print(f"Warning: Database table creation failed: {e}")
+
+
+init_db()
 
 
 def now_iso():
