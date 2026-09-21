@@ -6,7 +6,8 @@ import sys
 import psycopg2
 from dotenv import load_dotenv
 
-load_dotenv()
+dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+load_dotenv(dotenv_path)
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     sys.exit("DATABASE_URL missing")
@@ -112,8 +113,8 @@ def test_flask_endpoints_and_sync():
     assert matching_emp is not None, "New user was not synced into employees table!"
     print(f"  [OK] Verified employee table sync: Code={matching_emp.get('employeeCode')}, Name='{matching_emp.get('name')}'")
 
-    # Clean up test user
-    del_res = client.delete(f"/api/admin/users/{created_id}", headers=headers)
+    # Clean up test user (hard delete to test cascade removal)
+    del_res = client.delete(f"/api/admin/users/{created_id}?hard=true", headers=headers)
     assert del_res.status_code == 200, f"Delete failed: {del_res.data}"
     print(f"  [OK] Cleaned up test user ID={created_id}.")
 

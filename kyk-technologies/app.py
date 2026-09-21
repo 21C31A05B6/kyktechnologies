@@ -889,6 +889,9 @@ def user_login():
         ua=request.headers.get("User-Agent", ""),
         exp=exp,
     )
+    if hasattr(db, "record_login"):
+        db.record_login(user["id"], role="user", ip=request.remote_addr or "")
+    audit(user, "login")
     return jsonify({
         "token": token,
         "name": user.get("name", "User"),
@@ -917,9 +920,11 @@ def login():
     if status in {"suspended", "terminated", "inactive"}:
         audit(admin, "login_blocked", f"account status: {status}")
         return error("This account is no longer active. Contact an administrator.", 403)
-    audit(admin, "login")
     role  = admin.get("role", "viewer")
     tabs  = ROLES.get(role, {}).get("tabs", [])
+    if hasattr(db, "record_login"):
+        db.record_login(admin["id"], role=role, ip=request.remote_addr or "")
+    audit(admin, "login")
     # Build token, extract jti, register session
     # Admin (super_admin / admin) gets 3 simultaneous browsers;
     # All other accounts (employee, hr_manager, recruiter, etc.) get 1 browser session only.
@@ -1842,6 +1847,8 @@ def admin_create_user():
         "passwordHash": hash_password(password),
         "role":         role,
     })
+    invalidate_admin_idx(email)
+    invalidate_user_idx(email)
     audit(request.admin, "user_created", f"{email} ({role})")
     return jsonify({"id": user["id"], "name": name, "email": email, "role": role}), 201
 
@@ -1872,6 +1879,10 @@ def admin_update_user(user_id):
     if not patch:
         return error("Nothing to update.")
     updated = db.update("admins", user_id, patch)
+    invalidate_admin_idx(user.get("email"))
+    invalidate_admin_idx(updated.get("email"))
+    invalidate_user_idx(user.get("email"))
+    invalidate_user_idx(updated.get("email"))
     audit(request.admin, "user_updated", f"user {user_id}")
     return jsonify({"id": updated["id"], "name": updated.get("name"), "email": updated.get("email"), "role": updated.get("role")})
 
@@ -1889,13 +1900,18 @@ def admin_delete_user(user_id):
     user = db.find("admins", user_id)
     if not user:
         return error("User not found.", 404)
+    email = user.get("email", "")
     hard = request.args.get("hard", "").lower() == "true"
     if hard:
         db.remove("admins", user_id)
-        audit(me, "user_deleted_hard", user.get("email", "") or str(user_id))
+        invalidate_admin_idx(email)
+        invalidate_user_idx(email)
+        audit(me, "user_deleted_hard", email or str(user_id))
         return jsonify({"message": "User permanently deleted."})
     updated = db.update("admins", user_id, {"status": "terminated"})
-    audit(me, "user_terminated", user.get("email", "") or str(user_id))
+    invalidate_admin_idx(email)
+    invalidate_user_idx(email)
+    audit(me, "user_terminated", email or str(user_id))
     return jsonify({"message": "User deactivated (soft-deleted).", "user": updated})
 
 

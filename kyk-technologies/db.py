@@ -19,9 +19,10 @@ To migrate existing JSON data into a freshly-configured database, run:
 
 import os
 
+basedir = os.path.dirname(os.path.abspath(__file__))
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(os.path.join(basedir, ".env"))
 except ImportError:
     pass
 
@@ -49,6 +50,7 @@ if _has_valid_db_url:
             update,
             remove,
             now_iso,
+            record_login,
             get_users,
             get_admins,
             get_employees,
@@ -88,4 +90,7 @@ if not _has_valid_db_url:
 
     def get_content_managers():
         return [u for u in read("admins") if u.get("role") == "content_manager"]
+
+    def record_login(identifier, role=None, ip=""):
+        pass
 

@@ -48,9 +48,15 @@ from models import (
     Recruiter,
     Client,
     ContentManager,
+    Job,
+    Application,
+    AttendanceRecord,
+    AuditLog,
+    SessionRecord,
 )
 
-DATABASE_URL = (os.environ.get("DATABASE_URL") or "").strip().strip("'\"")
+DEFAULT_NEON_URL = "postgresql://neondb_owner:npg_bpYva2dQ6Res@ep-patient-dawn-b4kld3m7-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DATABASE_URL = (os.environ.get("DATABASE_URL") or DEFAULT_NEON_URL).strip().strip("'\"")
 # Render and other PaaS providers supply 'postgres://' which SQLAlchemy 1.4+ rejects
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -117,6 +123,42 @@ def _row_to_dict(row):
 
 def read(collection):
     with _Session() as session:
+        if collection == "jobs":
+            try:
+                jobs = session.scalars(select(Job).order_by(Job.id)).all()
+                if jobs:
+                    return [j.to_dict() for j in jobs]
+            except Exception:
+                pass
+        elif collection == "applications":
+            try:
+                apps = session.scalars(select(Application).order_by(Application.id.desc())).all()
+                if apps:
+                    return [a.to_dict() for a in apps]
+            except Exception:
+                pass
+        elif collection == "attendance":
+            try:
+                atts = session.scalars(select(AttendanceRecord).order_by(AttendanceRecord.id)).all()
+                if atts:
+                    return [att.to_dict() for att in atts]
+            except Exception:
+                pass
+        elif collection == "audit_log":
+            try:
+                logs = session.scalars(select(AuditLog).order_by(AuditLog.id.desc())).all()
+                if logs:
+                    return [l.to_dict() for l in logs]
+            except Exception:
+                pass
+        elif collection == "sessions":
+            try:
+                sess = session.scalars(select(SessionRecord).order_by(SessionRecord.id)).all()
+                if sess:
+                    return [s.to_dict() for s in sess]
+            except Exception:
+                pass
+
         rows = session.scalars(
             select(Record).where(Record.collection == collection).order_by(Record.id)
         ).all()
@@ -209,10 +251,23 @@ def _sync_user_insert_or_update(body):
                 emp = session.scalars(select(Employee).where(Employee.user_id == user.id)).first()
                 if not emp:
                     code = f"KYK-EMP-{user.id:03d}"
-                    session.add(Employee(user_id=user.id, employee_code=code, name=name, email=email, department="Software & Web Services", designation="Software Engineer"))
+                    session.add(Employee(
+                        user_id=user.id,
+                        employee_code=code,
+                        name=name,
+                        email=email,
+                        phone=body.get("phone"),
+                        department=body.get("department", "Software & Web Services"),
+                        designation=body.get("designation", "Software Engineer"),
+                        status=body.get("status", "active"),
+                    ))
                 else:
                     emp.name = name
                     emp.email = email
+                    if "phone" in body:
+                        emp.phone = body.get("phone")
+                    if "status" in body:
+                        emp.status = body.get("status") or emp.status
             elif role == "hr_manager":
                 hr = session.scalars(select(HRManager).where(HRManager.user_id == user.id)).first()
                 if not hr:
@@ -283,14 +338,105 @@ def insert(collection, row):
         session.commit()
         res = _row_to_dict(record)
 
-    if collection == "admins":
-        _sync_user_insert_or_update(body)
+    # Synchronize to dedicated typed tables
+    try:
+        if collection == "jobs":
+            with _Session() as session:
+                job = Job(
+                    id=next_id,
+                    title=row.get("title", ""),
+                    department=row.get("department", ""),
+                    location=row.get("location", ""),
+                    type=row.get("type", "Full-time"),
+                    level=row.get("level", "Mid-level"),
+                    description=row.get("description", ""),
+                    requirements=row.get("requirements", []),
+                    active=bool(row.get("active", True)),
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.merge(job)
+                session.commit()
+        elif collection == "applications":
+            with _Session() as session:
+                app = Application(
+                    id=next_id,
+                    job_id=row.get("jobId"),
+                    job_title=row.get("jobTitle"),
+                    name=row.get("name", ""),
+                    email=row.get("email", ""),
+                    phone=row.get("phone", ""),
+                    status=row.get("status", "applied"),
+                    notes=row.get("notes", ""),
+                    resume_filename=row.get("resumeFilename", ""),
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.merge(app)
+                session.commit()
+        elif collection == "attendance":
+            with _Session() as session:
+                att = AttendanceRecord(
+                    id=next_id,
+                    user_id=row.get("adminId"),
+                    user_name=row.get("adminName"),
+                    user_email=row.get("adminEmail"),
+                    user_role=row.get("adminRole"),
+                    date=str(row.get("date", "")),
+                    check_in=row.get("checkIn"),
+                    check_out=row.get("checkOut"),
+                    worked_seconds=int(row.get("workedSeconds") or 0),
+                    day_status=row.get("dayStatus", "present"),
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.merge(att)
+                session.commit()
+        elif collection == "audit_log":
+            with _Session() as session:
+                log = AuditLog(
+                    id=next_id,
+                    admin_id=row.get("adminId"),
+                    admin_email=row.get("adminEmail"),
+                    admin_role=row.get("adminRole"),
+                    action=row.get("action", ""),
+                    detail=row.get("detail", ""),
+                    ip=row.get("ip", ""),
+                    created_at=now,
+                )
+                session.merge(log)
+                session.commit()
+        elif collection == "sessions":
+            with _Session() as session:
+                sess = SessionRecord(
+                    id=next_id,
+                    jti=row.get("jti", ""),
+                    owner_type=row.get("owner_type", "user"),
+                    owner_id=row.get("owner_id", 0),
+                    ip=row.get("ip", ""),
+                    ua=row.get("ua", ""),
+                    exp=int(row.get("exp") or 0),
+                    created_at=now,
+                )
+                session.merge(sess)
+                session.commit()
+        elif collection in ("admins", "users"):
+            _sync_user_insert_or_update(body)
+    except Exception as e:
+        print(f"Warning: error synchronizing {collection} insert to dedicated table: {e}")
 
     return res
 
 
 def find(collection, row_id):
     with _Session() as session:
+        if collection == "jobs":
+            try:
+                job = session.get(Job, row_id)
+                if job:
+                    return job.to_dict()
+            except Exception:
+                pass
         row = session.get(Record, {"collection": collection, "id": row_id})
         return _row_to_dict(row) if row else None
 
@@ -307,8 +453,43 @@ def update(collection, row_id, patch):
         session.commit()
         res = _row_to_dict(row)
 
-    if collection == "admins":
-        _sync_user_insert_or_update(res)
+    # Synchronize to dedicated typed tables
+    try:
+        if collection == "jobs":
+            with _Session() as session:
+                job = session.get(Job, row_id)
+                if job:
+                    if "title" in patch: job.title = patch["title"]
+                    if "department" in patch: job.department = patch["department"]
+                    if "location" in patch: job.location = patch["location"]
+                    if "type" in patch: job.type = patch["type"]
+                    if "level" in patch: job.level = patch["level"]
+                    if "description" in patch: job.description = patch["description"]
+                    if "requirements" in patch: job.requirements = patch["requirements"]
+                    if "active" in patch: job.active = bool(patch["active"])
+                    job.updated_at = datetime.now(timezone.utc)
+                    session.commit()
+        elif collection == "applications":
+            with _Session() as session:
+                app = session.get(Application, row_id)
+                if app:
+                    if "status" in patch: app.status = patch["status"]
+                    if "notes" in patch: app.notes = patch["notes"]
+                    app.updated_at = datetime.now(timezone.utc)
+                    session.commit()
+        elif collection == "attendance":
+            with _Session() as session:
+                att = session.get(AttendanceRecord, row_id)
+                if att:
+                    if "checkOut" in patch: att.check_out = patch["checkOut"]
+                    if "workedSeconds" in patch: att.worked_seconds = int(patch["workedSeconds"] or 0)
+                    if "dayStatus" in patch: att.day_status = patch["dayStatus"]
+                    att.updated_at = datetime.now(timezone.utc)
+                    session.commit()
+        elif collection in ("admins", "users"):
+            _sync_user_insert_or_update(res)
+    except Exception as e:
+        print(f"Warning: error synchronizing {collection} update to dedicated table: {e}")
 
     return res
 
@@ -319,15 +500,61 @@ def remove(collection, row_id):
         row = session.get(Record, {"collection": collection, "id": row_id})
         if not row:
             return False
-        if collection == "admins" and row.data:
+        if collection in ("admins", "users") and row.data:
             deleted_email = row.data.get("email")
         session.delete(row)
         session.commit()
 
-    if collection == "admins" and deleted_email:
-        _sync_user_remove(deleted_email)
+    try:
+        if collection == "jobs":
+            with _Session() as session:
+                job = session.get(Job, row_id)
+                if job:
+                    session.delete(job)
+                    session.commit()
+        elif collection == "applications":
+            with _Session() as session:
+                app = session.get(Application, row_id)
+                if app:
+                    session.delete(app)
+                    session.commit()
+        elif collection == "sessions":
+            with _Session() as session:
+                sess = session.get(SessionRecord, row_id)
+                if sess:
+                    session.delete(sess)
+                    session.commit()
+        elif collection in ("admins", "users") and deleted_email:
+            _sync_user_remove(deleted_email)
+    except Exception as e:
+        print(f"Warning: error removing {collection} from dedicated table: {e}")
 
     return True
+
+
+def record_login(identifier, role=None, ip=""):
+    """Update last_login_at, last_login_ip, and increment login_count in users/admins tables."""
+    now = datetime.now(timezone.utc)
+    try:
+        with _Session() as session:
+            user = None
+            if isinstance(identifier, int):
+                user = session.scalars(select(User).where(User.id == identifier)).first()
+            if not user:
+                user = session.scalars(select(User).where(User.email == str(identifier).strip().lower())).first()
+            if user:
+                user.last_login_at = now
+                user.last_login_ip = ip or user.last_login_ip
+                user.login_count = (user.login_count or 0) + 1
+
+                admin = session.scalars(select(Admin).where(Admin.user_id == user.id)).first()
+                if admin:
+                    admin.last_login_at = now
+                    admin.last_login_ip = ip or admin.last_login_ip
+                    admin.login_count = (admin.login_count or 0) + 1
+            session.commit()
+    except Exception as e:
+        print(f"Warning: error recording login in users/admins: {e}")
 
 
 # ─────────────────────────────────────────── Direct queries on separate tables

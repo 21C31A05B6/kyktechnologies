@@ -249,6 +249,112 @@ def create_and_populate_separate_tables():
             CREATE INDEX IF NOT EXISTS idx_content_managers_email ON content_managers (email);
         """)
 
+        # 9. Add login tracking columns to users and admins
+        print("Ensuring login tracking columns on users & admins...")
+        cur.execute("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_ip VARCHAR(50);
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INTEGER DEFAULT 0;
+            ALTER TABLE admins ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+            ALTER TABLE admins ADD COLUMN IF NOT EXISTS last_login_ip VARCHAR(50);
+            ALTER TABLE admins ADD COLUMN IF NOT EXISTS login_count INTEGER DEFAULT 0;
+        """)
+
+        # 10. Create dedicated jobs table
+        print("Creating table: jobs...")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS jobs (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(200) NOT NULL,
+                department VARCHAR(120) NOT NULL,
+                location VARCHAR(120) NOT NULL,
+                type VARCHAR(50) DEFAULT 'Full-time',
+                level VARCHAR(50) DEFAULT 'Mid-level',
+                description TEXT,
+                requirements JSONB,
+                active BOOLEAN DEFAULT TRUE NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_jobs_department ON jobs (department);
+            CREATE INDEX IF NOT EXISTS idx_jobs_active ON jobs (active);
+        """)
+
+        # 11. Create dedicated applications table
+        print("Creating table: applications...")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS applications (
+                id SERIAL PRIMARY KEY,
+                job_id INTEGER,
+                job_title VARCHAR(200),
+                name VARCHAR(150) NOT NULL,
+                email VARCHAR(255) NOT NULL,
+                phone VARCHAR(50),
+                status VARCHAR(50) DEFAULT 'applied',
+                notes TEXT,
+                resume_filename VARCHAR(255),
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_applications_email ON applications (email);
+            CREATE INDEX IF NOT EXISTS idx_applications_status ON applications (status);
+        """)
+
+        # 12. Create dedicated attendance table
+        print("Creating table: attendance...")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS attendance (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                user_name VARCHAR(150),
+                user_email VARCHAR(255),
+                user_role VARCHAR(50),
+                date VARCHAR(20) NOT NULL,
+                check_in VARCHAR(50),
+                check_out VARCHAR(50),
+                worked_seconds INTEGER DEFAULT 0,
+                day_status VARCHAR(50) DEFAULT 'present',
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_attendance_user_email ON attendance (user_email);
+            CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance (date);
+        """)
+
+        # 13. Create dedicated audit_logs table
+        print("Creating table: audit_logs...")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id SERIAL PRIMARY KEY,
+                admin_id INTEGER,
+                admin_email VARCHAR(255),
+                admin_role VARCHAR(50),
+                action VARCHAR(100) NOT NULL,
+                detail TEXT,
+                ip VARCHAR(50),
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs (action);
+            CREATE INDEX IF NOT EXISTS idx_audit_logs_admin_email ON audit_logs (admin_email);
+        """)
+
+        # 14. Create dedicated sessions table
+        print("Creating table: sessions...")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                id SERIAL PRIMARY KEY,
+                jti VARCHAR(100) UNIQUE NOT NULL,
+                owner_type VARCHAR(50) NOT NULL,
+                owner_id INTEGER NOT NULL,
+                ip VARCHAR(50),
+                ua VARCHAR(255),
+                exp BIGINT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_sessions_jti ON sessions (jti);
+            CREATE INDEX IF NOT EXISTS idx_sessions_owner ON sessions (owner_type, owner_id);
+        """)
+
         # 9. Migrate accounts from `records` where collection = 'admins' into `users` and specific tables
         print("Migrating and synchronizing accounts into separate tables...")
         cur.execute("SELECT id, data FROM records WHERE collection = 'admins';")
@@ -394,11 +500,99 @@ def create_and_populate_separate_tables():
                 """, (user_id, name, email, info.get("phone", "+91 98765 43214"),
                       info.get("department", "Marketing & Content")))
 
+        # 10. Populate jobs table from records if empty
+        cur.execute("SELECT COUNT(*) FROM jobs;")
+        if cur.fetchone()[0] == 0:
+            cur.execute("SELECT id, data, created_at, updated_at FROM records WHERE collection = 'jobs' ORDER BY id;")
+            job_records = cur.fetchall()
+            print(f"Populating {len(job_records)} jobs into jobs table...")
+            for jid, data, c_at, u_at in job_records:
+                d = data if isinstance(data, dict) else json.loads(data or "{}")
+                cur.execute("""
+                    INSERT INTO jobs (id, title, department, location, type, level, description, requirements, active, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        title = EXCLUDED.title,
+                        department = EXCLUDED.department,
+                        location = EXCLUDED.location,
+                        type = EXCLUDED.type,
+                        level = EXCLUDED.level,
+                        description = EXCLUDED.description,
+                        requirements = EXCLUDED.requirements,
+                        active = EXCLUDED.active,
+                        updated_at = EXCLUDED.updated_at;
+                """, (
+                    jid,
+                    d.get("title", "Job Title"),
+                    d.get("department", "General"),
+                    d.get("location", "Remote"),
+                    d.get("type", "Full-time"),
+                    d.get("level", "Mid-level"),
+                    d.get("description", ""),
+                    json.dumps(d.get("requirements", [])),
+                    d.get("active", True),
+                    c_at or datetime.now(timezone.utc),
+                    u_at or datetime.now(timezone.utc),
+                ))
+            cur.execute("SELECT setval('jobs_id_seq', (SELECT COALESCE(MAX(id), 1) FROM jobs));")
+
+        # 11. Populate attendance table from records if empty
+        cur.execute("SELECT COUNT(*) FROM attendance;")
+        if cur.fetchone()[0] == 0:
+            cur.execute("SELECT id, data, created_at, updated_at FROM records WHERE collection = 'attendance' ORDER BY id;")
+            att_records = cur.fetchall()
+            print(f"Populating {len(att_records)} attendance records into attendance table...")
+            for aid, data, c_at, u_at in att_records:
+                d = data if isinstance(data, dict) else json.loads(data or "{}")
+                cur.execute("""
+                    INSERT INTO attendance (id, user_id, user_name, user_email, user_role, date, check_in, check_out, worked_seconds, day_status, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO NOTHING;
+                """, (
+                    aid,
+                    d.get("adminId"),
+                    d.get("adminName"),
+                    d.get("adminEmail"),
+                    d.get("adminRole"),
+                    str(d.get("date", "")),
+                    d.get("checkIn"),
+                    d.get("checkOut"),
+                    int(d.get("workedSeconds") or 0),
+                    d.get("dayStatus", "present"),
+                    c_at or datetime.now(timezone.utc),
+                    u_at or datetime.now(timezone.utc),
+                ))
+            cur.execute("SELECT setval('attendance_id_seq', (SELECT COALESCE(MAX(id), 1) FROM attendance));")
+
+        # 12. Populate audit_logs table from records if empty
+        cur.execute("SELECT COUNT(*) FROM audit_logs;")
+        if cur.fetchone()[0] == 0:
+            cur.execute("SELECT id, data, created_at FROM records WHERE collection = 'audit_log' ORDER BY id;")
+            audit_records = cur.fetchall()
+            print(f"Populating {len(audit_records)} audit logs into audit_logs table...")
+            for lid, data, c_at in audit_records:
+                d = data if isinstance(data, dict) else json.loads(data or "{}")
+                cur.execute("""
+                    INSERT INTO audit_logs (id, admin_id, admin_email, admin_role, action, detail, ip, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO NOTHING;
+                """, (
+                    lid,
+                    d.get("adminId"),
+                    d.get("adminEmail"),
+                    d.get("adminRole"),
+                    d.get("action", "action"),
+                    d.get("detail", ""),
+                    d.get("ip", ""),
+                    c_at or datetime.now(timezone.utc),
+                ))
+            cur.execute("SELECT setval('audit_logs_id_seq', (SELECT COALESCE(MAX(id), 1) FROM audit_logs));")
+
         conn.commit()
         print("Successfully committed all separate tables and initial records!")
 
-        # 10. Print Table Count Summary
-        tables = ["users", "admins", "employees", "hr_managers", "team_leads", "recruiters", "clients", "content_managers"]
+        # 13. Print Table Count Summary
+        tables = ["users", "admins", "employees", "hr_managers", "team_leads", "recruiters", "clients", "content_managers", "jobs", "applications", "attendance", "audit_logs", "sessions"]
         print("\n" + "=" * 50)
         print("DATABASE SUMMARY (Separate Individual Tables):")
         print("=" * 50)
