@@ -89,7 +89,10 @@ DEMO_USERS = {
 def setup_database():
     print("=" * 70)
     print("Connecting to Neon PostgreSQL...")
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = psycopg2.connect(
+        DATABASE_URL,
+        connect_timeout=20,
+    )
     conn.autocommit = False
     cur = conn.cursor()
 
@@ -106,7 +109,6 @@ def setup_database():
                 PRIMARY KEY (collection, id)
             );
 
-            ALTER TABLE records ALTER COLUMN data TYPE JSONB USING data::jsonb;
             CREATE INDEX IF NOT EXISTS idx_records_collection ON records (collection);
             CREATE INDEX IF NOT EXISTS idx_records_created_at ON records (created_at);
             CREATE INDEX IF NOT EXISTS idx_records_data ON records USING gin (data);
