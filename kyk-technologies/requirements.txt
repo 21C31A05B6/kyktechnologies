@@ -12,6 +12,8 @@ tzdata>=2024.1
 # Production WSGI server (required for Render deployment):
 gunicorn>=21
 
+# Optional hosted AI assistant uses the Groq HTTP API from app.py.
+
 # Cross-worker rate limiting — install and set REDIS_URL before running
 # with multiple Gunicorn workers (see app.py's rate_limit()):
 # redis>=5.0

@@ -8,6 +8,10 @@ services:
     envVars:
       - key: SECRET_KEY
         generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
       - key: DATABASE_URL
         sync: false
       - key: ADMIN_EMAIL

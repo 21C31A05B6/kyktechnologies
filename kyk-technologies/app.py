@@ -29,11 +29,14 @@ RBAC   Role-based access: super_admin / hr_manager / recruiter / team_lead /
 import csv
 import html
 import io
+import json
 import os
 import re
 import time
 import uuid
 from functools import wraps
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 import threading
 
@@ -518,16 +521,96 @@ _ASSISTANT_RULES = [
      "KYK stands for Key to Your Kognitio — Knowledge, Yield, Kognitio — representing our philosophy of building knowledge into useful outcomes toward intelligent systems."),
 ]
 
+_COMPANY_SOURCES = (
+    "https://kyktechnologies.com/",
+    "https://www.linkedin.com/company/kyktechnologies?originalSubdomain=in",
+    "https://www.instagram.com/kyktechnologies/",
+)
+_company_context = {"expires": 0, "text": ""}
+_company_context_lock = threading.Lock()
+
+
+def _company_web_context():
+    """Fetch short public source excerpts for the optional Groq assistant."""
+    now = time.time()
+    with _company_context_lock:
+        if _company_context["expires"] > now:
+            return _company_context["text"]
+
+    excerpts = []
+    for source in _COMPANY_SOURCES:
+        try:
+            source_request = Request(source, headers={"User-Agent": "KYK-AI/1.0"})
+            with urlopen(source_request, timeout=4) as response:
+                raw = response.read(120_000).decode("utf-8", errors="ignore")
+            text = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", " ", raw, flags=re.I)
+            text = re.sub(r"<[^>]+>", " ", text)
+            text = re.sub(r"\s+", " ", html.unescape(text)).strip()
+            if text:
+                excerpts.append(f"Source: {source}\n{text[:4_000]}")
+        except (OSError, URLError, UnicodeError):
+            continue
+
+    context = "\n\n".join(excerpts)
+    with _company_context_lock:
+        _company_context.update(text=context, expires=now + 900)
+    return context
+
+
+def _groq_reply(message):
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not api_key:
+        return None
+
+    source_context = _company_web_context()
+    prompt = (
+        "You are KYK Technologies' website assistant. Answer accurately and concisely "
+        "about KYK Technologies, its services, careers, and public company information. "
+        "Use the supplied source excerpts when relevant. Never invent facts, credentials, "
+        "pricing, staff, partnerships, or capabilities. If the sources do not answer the "
+        "question, say that clearly and point the user to the relevant source URL. "
+        "Do not claim to have browsed anything beyond these sources.\n\n"
+        f"Trusted source excerpts:\n{source_context or '(Sources unavailable; use only the known KYK context.)'}"
+    )
+    payload = json.dumps({
+        "model": os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
+        "temperature": 0.2,
+        "max_tokens": 450,
+        "messages": [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": message},
+        ],
+    }).encode("utf-8")
+    groq_request = Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(groq_request, timeout=20) as response:
+            body = json.loads(response.read().decode("utf-8"))
+        return body["choices"][0]["message"]["content"].strip()
+    except (OSError, URLError, ValueError, KeyError, IndexError):
+        return None
+
 
 @app.post("/api/assistant")
 @rate_limit(max_requests=30, window_seconds=600)
 def assistant_reply():
     data    = request.get_json(silent=True) or {}
-    message = clean(data.get("message"), 500).lower()
+    message = clean(data.get("message"), 500)
     if not message:
         return jsonify({"reply": "Ask me about our services, open roles, or how to get in touch."})
+    groq_reply = _groq_reply(message)
+    if groq_reply:
+        return jsonify({"reply": groq_reply})
+    normalized_message = message.lower()
     for keywords, reply in _ASSISTANT_RULES:
-        if any(k in message for k in keywords):
+        if any(k in normalized_message for k in keywords):
             return jsonify({"reply": reply})
     return jsonify({"reply": "I can help with questions about KYK's services, open roles, recruitment, or how to contact the team."})
 
