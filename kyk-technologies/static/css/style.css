@@ -26,6 +26,8 @@
   --radius-sm:8px;
   --container:1180px;
   --shadow-soft: 0 12px 32px rgba(11,13,16,.08);
+  --on-dark:#F7F6F3;
+  --on-dark-muted:#C4CBD1;
 }
 
 *,*::before,*::after{box-sizing:border-box;}
@@ -370,6 +372,14 @@ ul{margin:0; padding:0; list-style:none;}
   --mx:50%; --my:30%;
 }
 :root[data-theme="light"]{
+  --ink:#182027;
+  --paper:#182027;
+  --paper-dim:#F0F2F3;
+  --line:#D4DADF;
+  --line-dark:#B8C1C8;
+  --steel:#53616D;
+  --steel-light:#43515D;
+  --orange-dark:#B94418;
   --glass-bg: rgba(11,13,16,.045);
   --glass-bg-strong: rgba(11,13,16,.07);
   --glass-border: rgba(11,13,16,.10);
@@ -378,6 +388,9 @@ ul{margin:0; padding:0; list-style:none;}
 :root[data-theme="aurora"]{
   --glow: 122,214,255;
   --bg-app:#060814;
+  --steel:#AEBBC7;
+  --steel-light:#D2DCE5;
+  --glass-border:rgba(210,220,229,.2);
 }
 body{ background:var(--bg-app); transition:background .4s ease; }
 body.theme-ready{ } /* hook, no-op */
@@ -470,6 +483,113 @@ body.theme-ready{ } /* hook, no-op */
 .page-hero{ background:rgba(6,7,10,.5) !important; }
 .hero{ background:transparent; }
 .hero::after{ mix-blend-mode:screen; }
+
+/* ---------- Theme contrast guardrails ---------- */
+/* Dark surfaces always own their light text, independent of page theme. */
+.hero, .section--dark, .site-footer, .cta-banner, .page-hero,
+.site-header, .kyk-assistant, .article-modal, #applyModal{
+  color:var(--on-dark);
+}
+.hero p, .section--dark p, .site-footer p, .cta-banner p, .page-hero p,
+.hero .hero-note, .page-hero .breadcrumbs, .page-hero .breadcrumbs a,
+.site-footer a{ color:var(--on-dark-muted); }
+.hero h1, .hero h2, .hero h3, .hero h4, .section--dark h1,
+.section--dark h2, .section--dark h3, .section--dark h4, .site-footer h1,
+.site-footer h2, .site-footer h3, .site-footer h4, .site-footer h5,
+.cta-banner h1, .cta-banner h2, .cta-banner h3, .cta-banner h4,
+.page-hero h1, .page-hero h2, .page-hero h3, .page-hero h4{ color:var(--on-dark); }
+.hero [style*="color:var(--paper)"], .section--dark [style*="color:var(--paper)"],
+.site-footer [style*="color:var(--paper)"], .cta-banner [style*="color:var(--paper)"],
+.page-hero [style*="color:var(--paper)"]{ color:var(--on-dark) !important; }
+.hero [style*="color:var(--steel-light)"], .section--dark [style*="color:var(--steel-light)"],
+.site-footer [style*="color:var(--steel-light)"], .cta-banner [style*="color:var(--steel-light)"],
+.page-hero [style*="color:var(--steel-light)"]{ color:var(--on-dark-muted) !important; }
+
+/* Forms and modals must remain readable in the default dark theme. */
+.form-card, #applyModal .form-card{ color:var(--paper); }
+.form-card h1, .form-card h2, .form-card h3, .form-card h4,
+.form-card label, .form-card .wiz-review .ok-row{ color:var(--paper); }
+.form-card p, .form-card .wizard-labels, .form-card .wiz-review dt,
+.form-card .field-file, .form-card .dz-info{ color:var(--steel-light); }
+.form-card input, .form-card select, .form-card textarea{
+  background:rgba(255,255,255,.1); color:var(--paper); border-color:var(--glass-border);
+}
+.form-card input::placeholder, .form-card textarea::placeholder{ color:var(--steel-light); }
+
+:root[data-theme="light"] .site-header{
+  background:rgba(247,246,243,.92);
+  border-bottom-color:var(--line);
+}
+:root[data-theme="light"] .site-header .nav-links a,
+:root[data-theme="light"] .site-header .nav-toggle{ color:var(--ink); }
+:root[data-theme="light"] .site-header .btn-outline-light{
+  color:var(--ink); border-color:rgba(24,32,39,.35);
+}
+:root[data-theme="light"] .nav-links{ background:var(--bg-app); border-bottom-color:var(--line); }
+:root[data-theme="light"] .page-hero{
+  background:rgba(240,242,243,.94) !important;
+  color:var(--ink);
+  border-bottom:1px solid var(--line);
+}
+:root[data-theme="light"] .page-hero h1,
+:root[data-theme="light"] .page-hero h2,
+:root[data-theme="light"] .page-hero h3{ color:var(--ink); }
+:root[data-theme="light"] .page-hero p,
+:root[data-theme="light"] .page-hero .breadcrumbs,
+:root[data-theme="light"] .page-hero .breadcrumbs a{ color:var(--steel); }
+:root[data-theme="light"] .cap-card, :root[data-theme="light"] .ai-card,
+:root[data-theme="light"] .why-card, :root[data-theme="light"] .job-card,
+:root[data-theme="light"] .insight-card, :root[data-theme="light"] .form-card,
+:root[data-theme="light"] .stat-card, :root[data-theme="light"] .vm-card,
+:root[data-theme="light"] .why-item, :root[data-theme="light"] .value-card{
+  background:rgba(255,255,255,.82) !important;
+  color:var(--ink);
+  border-color:var(--line) !important;
+  box-shadow:0 12px 32px rgba(24,32,39,.08), inset 0 1px 0 rgba(255,255,255,.8);
+}
+:root[data-theme="light"] .cap-card h3, :root[data-theme="light"] .ai-card h4,
+:root[data-theme="light"] .why-card h4, :root[data-theme="light"] .job-card h3,
+:root[data-theme="light"] .insight-card h4, :root[data-theme="light"] .form-card h1,
+:root[data-theme="light"] .form-card h2, :root[data-theme="light"] .form-card h3,
+:root[data-theme="light"] .form-card h4, :root[data-theme="light"] .vm-card h3,
+:root[data-theme="light"] .value-card h4{ color:var(--ink) !important; }
+:root[data-theme="light"] .cap-card p, :root[data-theme="light"] .ai-card p,
+:root[data-theme="light"] .why-card p, :root[data-theme="light"] .job-card p,
+:root[data-theme="light"] .insight-card p, :root[data-theme="light"] .vm-card p,
+:root[data-theme="light"] .value-card p{ color:var(--steel) !important; }
+:root[data-theme="light"] .form-card label,
+:root[data-theme="light"] .form-card .wiz-review .ok-row{ color:var(--ink) !important; }
+:root[data-theme="light"] .form-card input,
+:root[data-theme="light"] .form-card select,
+:root[data-theme="light"] .form-card textarea{
+  background:#fff; color:var(--ink); border-color:var(--line);
+}
+:root[data-theme="light"] #applyModal{ background:rgba(24,32,39,.52) !important; }
+:root[data-theme="light"] .cta-banner{ background:var(--ink) !important; }
+:root[data-theme="light"] .section-title,
+:root[data-theme="light"] .section-lede{ color:var(--ink); }
+
+/* Explicit inline dark tokens on light sections should not wash out. */
+:root[data-theme="light"] .section:not(.section--dark) > .wrap > .eyebrow[style*="color:var(--ink)"],
+:root[data-theme="light"] .section:not(.section--dark) .eyebrow[style*="color:var(--ink)"]{
+  color:var(--orange) !important; opacity:1 !important;
+}
+:root[data-theme="light"] .process-pill[style*="color:var(--ink)"]{ color:var(--ink) !important; }
+
+/* Aurora keeps the cinematic dark surfaces but strengthens secondary text. */
+:root[data-theme="aurora"] .ai-card, :root[data-theme="aurora"] .form-card,
+:root[data-theme="aurora"] .job-card, :root[data-theme="aurora"] .insight-card{
+  border-color:rgba(210,220,229,.24) !important;
+}
+:root[data-theme="aurora"] .ai-card p, :root[data-theme="aurora"] .form-card p,
+:root[data-theme="aurora"] .form-card .wizard-labels,
+:root[data-theme="aurora"] .form-card .field-file{ color:var(--steel-light); }
+
+/* AI page cards contain inline colors from the original light layout. */
+:root:not([data-theme="light"]) .ai-card h4[style*="color:var(--ink)"],
+:root:not([data-theme="light"]) .ai-card h4[style*="color:var(--ink)"]{ color:var(--on-dark) !important; }
+:root:not([data-theme="light"]) .ai-card p[style*="color:var(--steel)"],
+:root:not([data-theme="light"]) .ai-card p[style*="color:var(--steel)"]{ color:var(--on-dark-muted) !important; }
 
 /* Light theme keeps text readable on glass panels */
 :root[data-theme="light"] .cap-card, :root[data-theme="light"] .why-card,

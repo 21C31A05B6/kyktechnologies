@@ -80,6 +80,41 @@ tr:hover td{background:rgba(255,255,255,.025);}
 .badge-interview{background:rgba(99,140,255,.12);color:#638CFF;}
 .badge-hired{background:rgba(56,210,115,.18);color:#38D273;}
 .badge-rejected{background:rgba(226,92,92,.12);color:#e25c5c;}
+
+/* Theme contrast: dashboard panels and controls follow the active theme. */
+:root[data-theme="light"] .admin-page{color:var(--ink);}
+:root[data-theme="light"] .admin-page h1,
+:root[data-theme="light"] .admin-page h2,
+:root[data-theme="light"] .admin-page h3,
+:root[data-theme="light"] .admin-page h4,
+:root[data-theme="light"] .admin-page h5,
+:root[data-theme="light"] .admin-page h6,
+:root[data-theme="light"] .admin-page td,
+:root[data-theme="light"] .admin-page table{color:var(--ink);}
+:root[data-theme="light"] .admin-page p,
+:root[data-theme="light"] .admin-page .field label,
+:root[data-theme="light"] .admin-page th{color:var(--steel);}
+:root[data-theme="light"] .sidebar{
+  background:rgba(247,246,243,.94); border-right-color:var(--line);
+}
+:root[data-theme="light"] .sidebar nav button{color:var(--steel);}
+:root[data-theme="light"] .sidebar nav button:hover{color:var(--ink);background:rgba(24,32,39,.05);}
+:root[data-theme="light"] .sidebar-footer .admin-name{color:var(--ink);}
+:root[data-theme="light"] .admin-page .field input,
+:root[data-theme="light"] .admin-page .field select,
+:root[data-theme="light"] .admin-page .field textarea{
+  background:#fff;color:var(--ink);border-color:var(--line);
+}
+:root[data-theme="light"] .admin-page .field input::placeholder,
+:root[data-theme="light"] .admin-page .field textarea::placeholder{color:var(--steel);}
+:root[data-theme="light"] .admin-page .form-card,
+:root[data-theme="light"] .admin-page .stat-card,
+:root[data-theme="light"] .admin-page .kanban-card{
+  color:var(--ink);background:rgba(255,255,255,.84);
+}
+:root[data-theme="light"] .admin-page .stat-card b{color:var(--ink);}
+:root[data-theme="light"] .admin-page .stat-card span,
+:root[data-theme="light"] .admin-page .kanban-card span{color:var(--steel);}
 /* ── chart ── */
 .chart-card{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:20px;}
 /* ── notes textarea ── */
