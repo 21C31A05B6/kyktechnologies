@@ -8,8 +8,8 @@ SQLAlchemy>=2.0
 psycopg2-binary>=2.9
 python-dotenv>=1.0
 
-# Production WSGI server (required for Gunicorn deployment):
-# gunicorn>=21
+# Production WSGI server (required for Render deployment):
+gunicorn>=21
 
 # Cross-worker rate limiting — install and set REDIS_URL before running
 # with multiple Gunicorn workers (see app.py's rate_limit()):
