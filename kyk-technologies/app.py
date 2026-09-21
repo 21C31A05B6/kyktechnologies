@@ -71,6 +71,27 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES + (1024 * 1024)
 # This keeps per-IP rate limiting accurate under concurrent load.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
+
+@app.after_request
+def _add_perf_headers(response):
+    """Add Cache-Control and essential security headers to every response."""
+    path = request.path
+    # Static assets (CSS, JS, images, fonts) — cache 7 days, revalidate
+    if path.startswith(("/css/", "/js/")) or path.endswith(
+        (".webp", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".woff2", ".woff")
+    ):
+        response.headers["Cache-Control"] = "public, max-age=604800, stale-while-revalidate=86400"
+    # HTML pages — always revalidate (so auth changes show immediately)
+    elif path.endswith(".html") or path == "/":
+        response.headers["Cache-Control"] = "no-cache"
+    # API — never cache
+    elif path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    # Security headers
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    return response
+
 # ── Company-wide attendance configuration ──────────────────────────────
 # Critical fix: attendance dates/times were previously computed in UTC,
 # which can roll a punch over to the wrong business date for non-UTC
@@ -180,7 +201,8 @@ _SESSION_KICKED_MSG = "You were logged in from another device. Please sign in ag
 def _create_session(owner_type: str, owner_id, jti: str, max_sessions: int,
                     ip: str = "", ua: str = "", exp: int = 0) -> None:
     """Insert a new session row and evict the oldest if we exceed max_sessions."""
-    _purge_expired_sessions()
+    # Purge expired sessions asynchronously so login isn't slowed by cleanup
+    threading.Thread(target=_purge_expired_sessions, daemon=True).start()
     # Load current sessions for this owner
     all_sessions = db.read("sessions")
     owner_sessions = sorted(

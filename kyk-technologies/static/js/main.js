@@ -69,15 +69,38 @@ async function updateAuthNavigation() {
   let dashboardPath = userToken ? "user-dashboard.html" : "";
 
   if (adminToken) {
-    try {
-      const response = await fetch(`${API}/auth/me`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
-      });
-      if (!response.ok) throw new Error("Admin session expired");
-      const data = await response.json();
-      dashboardPath = PUBLIC_ROLE_HOME[data.admin && data.admin.role] || "admin.html";
-    } catch (error) {
-      localStorage.removeItem(ADMIN_TOKEN_KEY);
+    // Use cached role if available (avoids an API round-trip on every page)
+    const ROLE_CACHE_KEY = "kyk_admin_role_cache";
+    const cached = (() => { try { return JSON.parse(localStorage.getItem(ROLE_CACHE_KEY) || "null"); } catch(e) { return null; } })();
+    const tokenSig = adminToken.slice(-12); // last 12 chars as a cheap token fingerprint
+
+    if (cached && cached.sig === tokenSig && cached.role) {
+      dashboardPath = PUBLIC_ROLE_HOME[cached.role] || "admin.html";
+      // Silently refresh in background — doesn't block UI
+      fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${adminToken}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && data.admin) {
+            localStorage.setItem(ROLE_CACHE_KEY, JSON.stringify({ sig: tokenSig, role: data.admin.role }));
+          } else {
+            localStorage.removeItem(ADMIN_TOKEN_KEY);
+            localStorage.removeItem(ROLE_CACHE_KEY);
+          }
+        }).catch(() => {});
+    } else {
+      try {
+        const response = await fetch(`${API}/auth/me`, {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        if (!response.ok) throw new Error("Admin session expired");
+        const data = await response.json();
+        const role = data.admin && data.admin.role;
+        dashboardPath = PUBLIC_ROLE_HOME[role] || "admin.html";
+        localStorage.setItem(ROLE_CACHE_KEY, JSON.stringify({ sig: tokenSig, role }));
+      } catch (error) {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        localStorage.removeItem("kyk_admin_role_cache");
+      }
     }
   }
 
@@ -101,6 +124,7 @@ async function updateAuthNavigation() {
     }
     localStorage.removeItem(USER_TOKEN_KEY);
     localStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem("kyk_admin_role_cache");
   });
   setAuthControlVisible(logoutButton, loggedIn);
 }
@@ -215,20 +239,22 @@ function scatterDots(container, count = 26) {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const fine = window.matchMedia("(hover:hover) and (pointer:fine)").matches;
 
-  /* ---------- Loading screen ---------- */
+  /* ---------- Loading screen (fast: 600ms safety net) ---------- */
   const loader = document.createElement("div");
   loader.className = "kyk-loader";
   loader.innerHTML = `<div class="mark">K</div><div class="word">KYK TECHNOLOGIES</div><div class="bar"><i></i></div>`;
   document.body.prepend(loader);
   const bar = loader.querySelector("i");
-  requestAnimationFrame(() => { bar.style.width = "70%"; });
-  window.addEventListener("load", () => {
+  requestAnimationFrame(() => { bar.style.width = "60%"; });
+  function _hideLoader() {
+    if (!document.body.contains(loader)) return;
     bar.style.width = "100%";
-    setTimeout(() => loader.classList.add("is-hidden"), 220);
-    setTimeout(() => loader.remove(), 700);
-  });
-  // Safety net in case 'load' is slow/blocked
-  setTimeout(() => { if (document.body.contains(loader)) { bar.style.width = "100%"; loader.classList.add("is-hidden"); setTimeout(() => loader.remove(), 700); } }, 1400);
+    loader.classList.add("is-hidden");
+    setTimeout(() => loader.remove(), 350);
+  }
+  window.addEventListener("load", () => { setTimeout(_hideLoader, 80); });
+  // Safety net: hide within 600ms no matter what
+  setTimeout(_hideLoader, 600);
 
   /* ---------- Animated backdrop + particles ---------- */
   const bg = document.createElement("div");
@@ -237,15 +263,18 @@ function scatterDots(container, count = 26) {
   if (!reduceMotion) {
     const particles = document.createElement("div");
     particles.className = "kyk-particles";
-    const count = window.innerWidth < 700 ? 12 : 26;
+    // Reduced: 10 desktop / 5 mobile — enough visual without perf hit
+    const count = window.innerWidth < 700 ? 5 : 10;
+    const frag = document.createDocumentFragment();
     for (let i = 0; i < count; i++) {
       const p = document.createElement("span");
       p.style.left = Math.random() * 100 + "vw";
       p.style.bottom = "-10px";
-      p.style.animationDuration = 14 + Math.random() * 16 + "s";
-      p.style.animationDelay = Math.random() * -20 + "s";
-      particles.appendChild(p);
+      p.style.animationDuration = 16 + Math.random() * 14 + "s";
+      p.style.animationDelay = Math.random() * -22 + "s";
+      frag.appendChild(p);
     }
+    particles.appendChild(frag);
     document.body.prepend(particles);
   }
 
@@ -265,50 +294,61 @@ function scatterDots(container, count = 26) {
     }
   });
 
-  /* ---------- Custom cursor ---------- */
+  /* ---------- Custom cursor (RAF stops when tab hidden) ---------- */
   if (fine && !reduceMotion) {
     const dot = document.createElement("div");
     const ring = document.createElement("div");
     dot.className = "kyk-cursor-dot";
     ring.className = "kyk-cursor-ring";
     document.body.append(dot, ring);
-    let rx = 0, ry = 0, tx = 0, ty = 0;
+    let rx = 0, ry = 0, tx = 0, ty = 0, rafId = 0;
     window.addEventListener("mousemove", (e) => {
-      dot.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%,-50%)`;
+      dot.style.transform = `translate(${e.clientX}px,${e.clientY}px) translate(-50%,-50%)`;
       tx = e.clientX; ty = e.clientY;
-      document.documentElement.style.setProperty("--mx", e.clientX + "px");
-      document.documentElement.style.setProperty("--my", e.clientY + "px");
-    });
-    (function loop() {
+    }, { passive: true });
+    function cursorLoop() {
+      if (document.hidden) { rafId = 0; return; }
       rx += (tx - rx) * 0.18; ry += (ty - ry) * 0.18;
-      ring.style.transform = `translate(${rx}px, ${ry}px) translate(-50%,-50%)`;
-      requestAnimationFrame(loop);
-    })();
+      ring.style.transform = `translate(${rx}px,${ry}px) translate(-50%,-50%)`;
+      rafId = requestAnimationFrame(cursorLoop);
+    }
+    cursorLoop();
+    // Resume loop when tab becomes visible again
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && !rafId) cursorLoop();
+    });
     document.addEventListener("mouseover", (e) => {
       ring.classList.toggle("is-active", !!e.target.closest("a,button,.tilt,.cap-card,.ai-card,.job-card"));
-    });
+    }, { passive: true });
   } else {
-    // Still drive the per-card mouse-glow variable on touch/coarse devices via a no-op default.
     document.documentElement.style.setProperty("--mx", "50%");
     document.documentElement.style.setProperty("--my", "30%");
   }
 
-  /* ---------- Mouse-follow glow + 3D tilt for cards ---------- */
+  /* ---------- Mouse-follow glow + 3D tilt (deferred to idle time) ---------- */
   const tiltSelectors = ".cap-card, .ai-card, .why-card, .job-card, .insight-card, .tile, .stat-card";
-  document.querySelectorAll(tiltSelectors).forEach((card) => {
-    card.classList.add("glass-glow");
-    if (reduceMotion) return;
-    card.classList.add("tilt");
-    card.addEventListener("mousemove", (e) => {
-      const r = card.getBoundingClientRect();
-      const px = ((e.clientX - r.left) / r.width) - 0.5;
-      const py = ((e.clientY - r.top) / r.height) - 0.5;
-      card.style.transform = `perspective(700px) rotateY(${px * 7}deg) rotateX(${-py * 7}deg) translateY(-2px)`;
-      card.style.setProperty("--mx", (e.clientX - r.left) + "px");
-      card.style.setProperty("--my", (e.clientY - r.top) + "px");
+  const _initTilt = () => {
+    document.querySelectorAll(tiltSelectors).forEach((card) => {
+      card.classList.add("glass-glow");
+      if (reduceMotion) return;
+      card.classList.add("tilt");
+      card.addEventListener("mousemove", (e) => {
+        const r = card.getBoundingClientRect();
+        const px = ((e.clientX - r.left) / r.width) - 0.5;
+        const py = ((e.clientY - r.top) / r.height) - 0.5;
+        card.style.transform = `perspective(700px) rotateY(${px*7}deg) rotateX(${-py*7}deg) translateY(-2px)`;
+        card.style.setProperty("--mx", (e.clientX - r.left) + "px");
+        card.style.setProperty("--my", (e.clientY - r.top) + "px");
+      }, { passive: true });
+      card.addEventListener("mouseleave", () => { card.style.transform = ""; });
     });
-    card.addEventListener("mouseleave", () => { card.style.transform = ""; });
-  });
+  };
+  // Defer tilt setup until browser is idle so it doesn't block first paint
+  if (typeof requestIdleCallback === "function") {
+    requestIdleCallback(_initTilt, { timeout: 1200 });
+  } else {
+    setTimeout(_initTilt, 300);
+  }
 
   /* ---------- Magnetic buttons ---------- */
   if (!reduceMotion && fine) {
