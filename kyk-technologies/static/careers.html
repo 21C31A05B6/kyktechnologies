@@ -266,7 +266,12 @@ document.getElementById('applyForm').addEventListener('submit', async (e) => {
   const btn = form.querySelector('button[type=submit]');
   btn.disabled = true; btn.textContent = 'Submitting…';
   try {
-    const res = await fetch('/api/applications', { method: 'POST', body: new FormData(form) });
+    const token = localStorage.getItem('kyk_user_token') || '';
+    const res = await fetch('/api/applications', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: new FormData(form),
+    });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Something went wrong.');
     setFormMsg(msg, data.message, true);

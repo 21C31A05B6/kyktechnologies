@@ -54,10 +54,10 @@ on('loginBtn','click',async()=>{
     if(!res.ok) throw new Error(d.error || 'Login failed');
     if (isAdminLogin || d.role && ROLE_HOME[d.role]) {
       gToken=d.token; localStorage.setItem(TOKEN_KEY,gToken);
-      location.replace('/index.html');
+      location.replace(loginBtn.dataset.redirect || '/index.html');
     } else {
       localStorage.setItem(LOGIN_USER_TOKEN_KEY, d.token);
-      location.replace('/index.html');
+      location.replace(loginBtn.dataset.redirect || '/index.html');
     }
   } catch(e){ setFormMsg(msg,e.message,false); }
 });
