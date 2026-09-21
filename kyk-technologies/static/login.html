@@ -58,7 +58,7 @@
     const loginBtn = document.getElementById('loginBtn');
     const signupBtn = document.getElementById('signupBtn');
     const params = new URLSearchParams(location.search);
-    const redirect = params.get('redirect') || '/user-dashboard.html';
+    const redirect = params.get('redirect');
     const forcedMode = params.get('mode');
 
     function setAuthMode(mode, adminMode) {
@@ -110,7 +110,7 @@
       }
     });
 
-    if (redirect && redirect !== '/index.html') {
+    if (redirect) {
       document.getElementById('loginBtn').dataset.redirect = redirect;
     }
   })();
