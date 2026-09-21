@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>KYK Technologies - My Dashboard</title>
+<link rel="stylesheet" href="/css/style.css"/>
+<link rel="stylesheet" href="/css/dashboard.css"/>
+<style>
+  .user-page { min-height:100vh; background:var(--ink); color:var(--paper); }
+  .user-header { border-bottom:1px solid var(--line-dark); }
+  .user-header .wrap { display:flex; align-items:center; justify-content:space-between; gap:20px; min-height:78px; }
+  .user-header .logo { display:flex; align-items:center; gap:10px; }
+  .user-header .logo img { width:42px; height:42px; }
+  .user-main { padding:52px 0 80px; }
+  .user-intro { margin-bottom:28px; }
+  .user-intro h1 { font-family:var(--font-display); font-size:clamp(2rem,5vw,3.4rem); margin:0 0 8px; }
+  .user-intro p { color:var(--steel-light); margin:0; }
+  .user-grid { display:grid; grid-template-columns:minmax(240px,.8fr) minmax(0,1.7fr); gap:20px; align-items:start; }
+  .user-card { background:rgba(255,255,255,.04); border:1px solid var(--line-dark); border-radius:8px; padding:22px; }
+  .user-card h2 { font-family:var(--font-display); font-size:1.05rem; margin:0 0 18px; }
+  .detail-row { display:flex; flex-direction:column; gap:4px; padding:12px 0; border-top:1px solid var(--line-dark); }
+  .detail-row:first-of-type { border-top:0; padding-top:0; }
+  .detail-label { color:var(--steel); font-size:.76rem; text-transform:uppercase; letter-spacing:.08em; }
+  .detail-value { color:var(--paper); overflow-wrap:anywhere; }
+  .application-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:18px; }
+  .summary-item { padding:14px; background:rgba(232,98,44,.09); border:1px solid rgba(232,98,44,.2); border-radius:6px; }
+  .summary-number { display:block; font:1.5rem var(--font-display); color:var(--orange); }
+  .summary-label { color:var(--steel-light); font-size:.76rem; }
+  .application-list { display:grid; gap:10px; }
+  .application-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px; align-items:center; padding:14px 0; border-top:1px solid var(--line-dark); }
+  .application-title { font-weight:600; }
+  .application-date { color:var(--steel); font-size:.78rem; margin-top:4px; }
+  .status-badge { display:inline-flex; border-radius:999px; padding:5px 10px; font-size:.72rem; text-transform:capitalize; background:rgba(255,255,255,.08); color:var(--paper); white-space:nowrap; }
+  .status-reviewing, .status-interview, .status-hired { background:rgba(74,170,116,.16); color:#9de0b5; }
+  .status-rejected { background:rgba(179,38,30,.16); color:#ffaaa4; }
+  .empty-state { color:var(--steel-light); padding:8px 0; }
+  @media (max-width:760px){ .user-header .wrap { min-height:68px; } .user-grid { grid-template-columns:1fr; } .application-summary { grid-template-columns:repeat(3,1fr); } .user-main { padding-top:34px; } }
+</style>
+</head>
+<body class="user-page">
+<header class="user-header">
+  <div class="wrap">
+    <a href="/index.html" class="logo" aria-label="KYK home"><img src="/kyk_logo.webp" alt="KYK logo"/><span>MY KYK</span></a>
+    <button class="btn btn-outline-light" id="userLogoutBtn" type="button">Logout</button>
+  </div>
+</header>
+<main class="user-main wrap" id="dashboardShell" hidden>
+  <section class="user-intro">
+    <h1>Welcome back, <span id="userName">there</span>.</h1>
+    <p>Track your applications and keep your profile details close at hand.</p>
+  </section>
+  <div class="user-grid">
+    <section class="user-card" aria-labelledby="profileHeading">
+      <h2 id="profileHeading">Personal details</h2>
+      <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value" id="profileName">-</span></div>
+      <div class="detail-row"><span class="detail-label">Email</span><span class="detail-value" id="profileEmail">-</span></div>
+      <div class="detail-row"><span class="detail-label">Account</span><span class="detail-value" id="profileRole">General user</span></div>
+    </section>
+    <section class="user-card" aria-labelledby="applicationsHeading">
+      <h2 id="applicationsHeading">My applications</h2>
+      <div class="application-summary">
+        <div class="summary-item"><span class="summary-number" id="applicationCount">0</span><span class="summary-label">Applied</span></div>
+        <div class="summary-item"><span class="summary-number" id="activeCount">0</span><span class="summary-label">In progress</span></div>
+        <div class="summary-item"><span class="summary-number" id="hiredCount">0</span><span class="summary-label">Selected</span></div>
+      </div>
+      <div class="application-list" id="applicationList"><p class="empty-state">You have not applied for any jobs yet.</p></div>
+    </section>
+  </div>
+</main>
+<div class="form-msg" id="dashboardMessage"></div>
+<script src="/js/main.js"></script>
+<script>
+  (function () {
+    const tokenKey = 'kyk_user_token';
+    const token = localStorage.getItem(tokenKey);
+    const shell = document.getElementById('dashboardShell');
+    const message = document.getElementById('dashboardMessage');
+
+    function showMessage(text) {
+      message.textContent = text;
+      message.className = 'form-msg show err';
+    }
+
+    function statusLabel(status) {
+      return ({ new: 'Submitted', reviewing: 'Under review', interview: 'Interview', hired: 'Selected', rejected: 'Not progressing' })[status] || status || 'Submitted';
+    }
+
+    function render(data) {
+      const user = data.user || {};
+      const applications = data.applications || [];
+      document.getElementById('userName').textContent = user.name || 'there';
+      document.getElementById('profileName').textContent = user.name || '-';
+      document.getElementById('profileEmail').textContent = user.email || '-';
+      document.getElementById('profileRole').textContent = user.role === 'user' ? 'General user' : (user.role || 'General user');
+      document.getElementById('applicationCount').textContent = data.applicationCount || 0;
+      document.getElementById('activeCount').textContent = applications.filter((item) => ['new', 'reviewing', 'interview'].includes(item.status)).length;
+      document.getElementById('hiredCount').textContent = applications.filter((item) => item.status === 'hired').length;
+      const list = document.getElementById('applicationList');
+      list.replaceChildren();
+      if (!applications.length) {
+        const empty = document.createElement('p');
+        empty.className = 'empty-state';
+        empty.textContent = 'You have not applied for any jobs yet.';
+        list.appendChild(empty);
+      } else {
+        applications.forEach((application) => {
+          const row = document.createElement('div');
+          row.className = 'application-row';
+          const info = document.createElement('div');
+          const title = document.createElement('div');
+          title.className = 'application-title';
+          title.textContent = application.jobTitle || 'Job application';
+          const date = document.createElement('div');
+          date.className = 'application-date';
+          date.textContent = application.appliedAt ? new Date(application.appliedAt).toLocaleDateString() : 'Date unavailable';
+          info.append(title, date);
+          const status = document.createElement('span');
+          status.className = 'status-badge status-' + (application.status || 'new');
+          status.textContent = statusLabel(application.status);
+          row.append(info, status);
+          list.appendChild(row);
+        });
+      }
+      shell.hidden = false;
+    }
+
+    document.getElementById('userLogoutBtn').addEventListener('click', () => {
+      localStorage.removeItem(tokenKey);
+      location.replace('/index.html');
+    });
+
+    if (!token) {
+      location.replace('/login.html?redirect=%2Fuser-dashboard.html');
+      return;
+    }
+
+    fetch('/api/auth/user/dashboard', { headers: { Authorization: 'Bearer ' + token } })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Please login again.');
+        return data;
+      })
+      .then(render)
+      .catch((error) => {
+        localStorage.removeItem(tokenKey);
+        showMessage(error.message);
+        setTimeout(() => location.replace('/login.html?redirect=%2Fuser-dashboard.html'), 700);
+      });
+  })();
+</script>
+</body>
+</html>

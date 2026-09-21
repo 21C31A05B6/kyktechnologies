@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Contact — KYK Technologies</title>
+<meta name="description" content="Tell us what you're building, hiring for, or exploring." />
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a href="/index.html" class="logo" title="Key to Your Kognitio">KYK<span>TECHNOLOGIES</span></a>
+    <nav class="nav">
+      <button class="nav-toggle" aria-label="Toggle menu">☰</button>
+      <ul class="nav-links">
+        <li><a href="/global-recruitment.html">Global Recruitment</a></li>
+        <li><a href="/ai.html">Intelligence</a></li>
+        <li><a href="/services.html">Work</a></li>
+        <li><a href="/careers.html">Careers</a></li>
+        <li><a href="/insights.html">Insights</a></li>
+        <li><a href="/about.html">About Us</a></li>
+      </ul>
+    </nav>
+    <div class="nav-cta" style="display:flex; gap:10px; align-items:center;">
+      <a href="/login.html" class="btn btn-outline-light" style="padding:9px 18px; font-size:.85rem;">Login</a>
+      <a href="/login.html?mode=signup" class="btn btn-primary" style="padding:9px 18px; font-size:.85rem;">Signup</a>
+      <a href="/contact.html" class="btn btn-primary" style="padding:10px 20px; font-size:.88rem;">Contact us</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="breadcrumbs"><a href="/index.html">Home</a> / Contact</div>
+      <span class="eyebrow">Contact</span>
+      <h1 style="font-size:clamp(2rem,4vw,2.8rem); max-width:600px;">Tell us what you're building, hiring for, or exploring.</h1>
+      <p>We respond to every message within one business day.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap" style="display:grid; grid-template-columns:1fr 1fr; gap:50px; align-items:flex-start;">
+      <div>
+        <form id="contactForm" class="form-card">
+          <div class="form-grid">
+            <div class="field"><label for="c-name">Full name *</label><input id="c-name" name="name" required /></div>
+            <div class="field"><label for="c-email">Email *</label><input id="c-email" name="email" type="email" required /></div>
+          </div>
+          <div class="form-grid">
+            <div class="field"><label for="c-company">Company</label><input id="c-company" name="company" /></div>
+            <div class="field">
+              <label for="c-service">I'm interested in</label>
+              <select id="c-service" name="service">
+                <option>General inquiry</option>
+                <option>Global Recruitment</option>
+                <option>Software &amp; Web Services</option>
+                <option>AI, AGI, ASI Applications</option>
+                <option>Careers</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label for="c-message">Message *</label><textarea id="c-message" name="message" rows="5" required></textarea></div>
+          <button class="btn btn-primary btn-block" type="submit">Send message</button>
+          <div class="form-msg" id="contactMsg"></div>
+        </form>
+      </div>
+      <div>
+        <div class="cap-card" style="margin-bottom:16px;">
+          <h3>Talk to sales</h3>
+          <p>hello@kyktechnologies.com</p>
+        </div>
+        <div class="cap-card" style="margin-bottom:16px;">
+          <h3>Careers</h3>
+          <p>careers@kyktechnologies.com — or <a href="/careers.html" style="color:var(--orange); font-weight:600;">browse open roles</a>.</p>
+        </div>
+        <div class="cap-card">
+          <h3>Headquarters</h3>
+          <p>Warangal, Telangana, India — serving clients globally.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-logo">KYK</div>
+        <p style="color:var(--steel-light); font-size:.9rem; max-width:220px;">Key to Your Kognitio. Global Talent · Digital Technology · Artificial Intelligence.</p>
+        <form id="newsletter-form">
+          <div class="newsletter-inline">
+            <input type="email" required placeholder="you@company.com" aria-label="Email for newsletter" />
+            <button class="btn btn-primary" type="submit" style="padding:10px 16px;">Join</button>
+          </div>
+        </form>
+      </div>
+      <div><h5>Services</h5><a href="/global-recruitment.html">Global Recruitment</a><a href="/services.html">Software &amp; Web Services</a><a href="/ai.html">AI</a></div>
+      <div><h5>Intelligence</h5><a href="/ai.html">AI</a><a href="/ai.html#agi">AGI</a><a href="/ai.html#asi">ASI</a><a href="/ai.html#beyond">Beyond Intelligence</a></div>
+      <div><h5>Company</h5><a href="/about.html">About</a><a href="/services.html">Work</a><a href="/careers.html">Careers</a><a href="/contact.html">Contact</a></div>
+      <div><h5>Legal</h5><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/login.html">Login</a><a href="/login.html?mode=signup">Signup</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 KYK Technologies</span><span>Warangal · Global</span></div>
+  </div>
+</footer>
+
+<script src="/js/main.js"></script>
+<script>
+document.getElementById('contactForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const msg = document.getElementById('contactMsg');
+  const btn = form.querySelector('button[type=submit]');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const payload = Object.fromEntries(new FormData(form).entries());
+    const data = await apiFetch('/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    setFormMsg(msg, data.message, true);
+    form.reset();
+  } catch (err) {
+    setFormMsg(msg, err.message, false);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send message';
+  }
+});
+</script>
+</body>
+</html>

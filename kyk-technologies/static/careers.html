@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Careers — KYK Technologies</title>
+<meta name="description" content="Join a team working across talent, technology and emerging intelligence." />
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a href="/index.html" class="logo" title="Key to Your Kognitio" aria-label="KYK home"><img src="/kyk_logo.webp" alt="KYK logo" /></a>
+    <nav class="nav">
+      <button class="nav-toggle" aria-label="Toggle menu">☰</button>
+      <ul class="nav-links">
+        <li><a href="/global-recruitment.html">Global Recruitment</a></li>
+        <li><a href="/ai.html">Intelligence</a></li>
+        <li><a href="/services.html">Work</a></li>
+        <li><a href="/careers.html" class="active">Careers</a></li>
+        <li><a href="/insights.html">Insights</a></li>
+        <li><a href="/about.html">About Us</a></li>
+      </ul>
+    </nav>
+    <div class="nav-cta">
+      <a href="/login.html" class="btn btn-outline-light" style="padding:9px 18px; font-size:.85rem;">Login</a>
+      <a href="/login.html?mode=signup" class="btn btn-primary" style="padding:9px 18px; font-size:.85rem;">Signup</a>
+      <a href="/contact.html" class="btn btn-primary" style="padding:10px 20px; font-size:.88rem;">Contact us</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="breadcrumbs"><a href="/index.html">Home</a> / Careers</div>
+      <span class="eyebrow">Careers</span>
+      <h1 style="font-size:clamp(2rem,4vw,2.8rem); max-width:640px;">Build what's next with KYK.</h1>
+      <p>Join a team working across talent, technology and emerging intelligence.</p>
+    </div>
+  </section>
+
+  <section class="section" id="openings">
+    <div class="wrap">
+      <span class="eyebrow" style="color:var(--ink); opacity:.6;">Open roles</span>
+      <h2 class="section-title">Current openings.</h2>
+
+      <div class="filter-bar">
+        <input type="search" id="searchJobs" placeholder="Search roles…" />
+        <select id="filterDept">
+          <option value="">All departments</option>
+          <option>Global Recruitment</option>
+          <option>Software & Web Services</option>
+          <option>AI, AGI, ASI Applications</option>
+        </select>
+        <select id="filterType">
+          <option value="">All types</option>
+          <option>Full-time</option>
+          <option>Contract</option>
+          <option>Part-time</option>
+        </select>
+      </div>
+
+      <div class="job-list" id="jobList"><p>Loading open roles…</p></div>
+    </div>
+  </section>
+
+  <section class="section section--panel">
+    <div class="wrap">
+      <div class="cta-banner" style="background:var(--white);">
+        <div>
+          <h3 style="color:var(--ink);">Don't see the right role?</h3>
+          <p>Join our global talent pool and we'll reach out when something fits.</p>
+        </div>
+        <a href="/global-recruitment.html#talent-form" class="btn btn-primary">Submit your profile</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Application wizard modal -->
+<div id="applyModal" style="display:none; position:fixed; inset:0; background:rgba(5,6,9,.7); backdrop-filter:blur(6px); z-index:100; align-items:center; justify-content:center; padding:20px;">
+  <div class="form-card" style="max-height:90vh; overflow-y:auto; width:100%; max-width:560px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+      <div>
+        <span class="eyebrow" style="margin-bottom:2px;">Apply</span>
+        <h3 id="applyRoleTitle" style="font-size:1.3rem; margin-bottom:0;">Role title</h3>
+      </div>
+      <button id="closeModal" aria-label="Close" style="background:none; border:0; font-size:1.4rem; cursor:pointer; color:var(--steel);">&times;</button>
+    </div>
+
+    <div class="wizard-steps">
+      <div class="ws active" data-step="1"><i></i></div>
+      <div class="ws" data-step="2"><i></i></div>
+      <div class="ws" data-step="3"><i></i></div>
+      <div class="ws" data-step="4"><i></i></div>
+    </div>
+    <div class="wizard-labels"><span>Personal</span><span>Professional</span><span>Resume</span><span>Review</span></div>
+
+    <form id="applyForm" enctype="multipart/form-data">
+      <input type="hidden" name="jobId" id="applyJobId" />
+
+      <div class="wiz-panel active" data-panel="1">
+        <div class="field"><label for="a-name">Full name *</label><input id="a-name" name="name" required /></div>
+        <div class="field"><label for="a-email">Email *</label><input id="a-email" name="email" type="email" required /></div>
+        <div class="field"><label for="a-phone">Phone</label><input id="a-phone" name="phone" /></div>
+        <div class="wiz-nav"><span></span><button type="button" class="btn btn-primary wiz-next">Next →</button></div>
+      </div>
+
+      <div class="wiz-panel" data-panel="2">
+        <div class="field"><label for="a-linkedin">LinkedIn / portfolio</label><input id="a-linkedin" name="linkedin" /></div>
+        <div class="field"><label for="a-message">Why are you a good fit?</label><textarea id="a-message" name="message" rows="4"></textarea></div>
+        <div class="wiz-nav"><button type="button" class="btn btn-outline wiz-back">← Back</button><button type="button" class="btn btn-primary wiz-next">Next →</button></div>
+      </div>
+
+      <div class="wiz-panel" data-panel="3">
+        <label style="font-size:.86rem; font-weight:600; color:var(--ink); display:block; margin-bottom:8px;">Resume (PDF/DOC/DOCX, max 5MB)</label>
+        <div class="dropzone" id="resumeDropzone">
+          <div class="dz-icon">📄</div>
+          <div>Drag &amp; drop your resume, or click to browse</div>
+          <input id="a-resume" name="resume" type="file" accept=".pdf,.doc,.docx" />
+          <div class="dz-info"></div>
+        </div>
+        <div class="wiz-nav"><button type="button" class="btn btn-outline wiz-back">← Back</button><button type="button" class="btn btn-primary wiz-next">Review →</button></div>
+      </div>
+
+      <div class="wiz-panel" data-panel="4">
+        <dl class="wiz-review" id="wizReview"></dl>
+        <div class="wiz-nav"><button type="button" class="btn btn-outline wiz-back">← Back</button><button class="btn btn-primary" type="submit">Submit application</button></div>
+      </div>
+
+      <div class="form-msg" id="applyMsg"></div>
+    </form>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-logo">KYK</div>
+        <p style="color:var(--steel-light); font-size:.9rem; max-width:220px;">Key to Your Kognitio. Global Talent · Digital Technology · Artificial Intelligence.</p>
+        <form id="newsletter-form">
+          <div class="newsletter-inline">
+            <input type="email" required placeholder="you@company.com" aria-label="Email for newsletter" />
+            <button class="btn btn-primary" type="submit" style="padding:10px 16px;">Join</button>
+          </div>
+        </form>
+      </div>
+      <div><h5>Services</h5><a href="/global-recruitment.html">Global Recruitment</a><a href="/services.html">Software &amp; Web Services</a><a href="/ai.html">AI</a></div>
+      <div><h5>Intelligence</h5><a href="/ai.html">AI</a><a href="/ai.html#agi">AGI</a><a href="/ai.html#asi">ASI</a><a href="/ai.html#beyond">Beyond Intelligence</a></div>
+      <div><h5>Company</h5><a href="/about.html">About</a><a href="/services.html">Work</a><a href="/careers.html">Careers</a><a href="/contact.html">Contact</a></div>
+      <div><h5>Legal</h5><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/login.html">Login</a><a href="/login.html?mode=signup">Signup</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 KYK Technologies</span><span>Warangal · Global</span></div>
+  </div>
+</footer>
+
+<script src="/js/main.js"></script>
+<script>
+let ALL_JOBS = [];
+
+function renderJobs(jobs) {
+  const list = document.getElementById('jobList');
+  if (!jobs.length) { list.innerHTML = '<p>No roles match those filters right now.</p>'; return; }
+  list.innerHTML = jobs.map(j => `
+    <div class="job-card">
+      <div class="job-head">
+        <div>
+          <h3>${j.title}</h3>
+          <div class="job-meta">
+            <span class="tag tag-orange">${j.department}</span>
+            <span class="tag">${j.location}</span>
+            <span class="tag">${j.type}</span>
+            <span class="tag">${j.level}</span>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="openApply(${j.id}, '${j.title.replace(/'/g,"\\'")}')">Apply</button>
+      </div>
+      <p>${j.description}</p>
+    </div>
+  `).join('');
+}
+
+function applyFilters() {
+  const q = document.getElementById('searchJobs').value.toLowerCase();
+  const dept = document.getElementById('filterDept').value;
+  const type = document.getElementById('filterType').value;
+  const filtered = ALL_JOBS.filter(j =>
+    (!q || j.title.toLowerCase().includes(q) || j.description.toLowerCase().includes(q)) &&
+    (!dept || j.department === dept) &&
+    (!type || j.type === type)
+  );
+  renderJobs(filtered);
+}
+
+['searchJobs','filterDept','filterType'].forEach(id =>
+  document.getElementById(id).addEventListener('input', applyFilters)
+);
+
+fetch('/api/jobs').then(r => r.json()).then(({jobs}) => {
+  ALL_JOBS = jobs;
+  renderJobs(jobs);
+}).catch(() => {
+  document.getElementById('jobList').innerHTML = '<p>Unable to load roles right now. Please try again shortly.</p>';
+});
+
+/* ---------- Application wizard ---------- */
+let wizStep = 1;
+const WIZ_STEPS = 4;
+
+function goToWizStep(n) {
+  wizStep = Math.max(1, Math.min(WIZ_STEPS, n));
+  document.querySelectorAll('.wiz-panel').forEach(p => p.classList.toggle('active', +p.dataset.panel === wizStep));
+  document.querySelectorAll('.wizard-steps .ws').forEach(s => {
+    const step = +s.dataset.step;
+    s.classList.toggle('active', step === wizStep);
+    s.classList.toggle('done', step < wizStep);
+  });
+  if (wizStep === WIZ_STEPS) renderWizReview();
+}
+
+function currentPanelValid() {
+  const panel = document.querySelector(`.wiz-panel[data-panel="${wizStep}"]`);
+  const required = panel.querySelectorAll('[required]');
+  for (const field of required) {
+    if (!field.checkValidity()) { field.reportValidity(); return false; }
+  }
+  return true;
+}
+
+function renderWizReview() {
+  const f = document.getElementById('applyForm');
+  const fd = new FormData(f);
+  const resumeFile = document.getElementById('a-resume').files[0];
+  document.getElementById('wizReview').innerHTML = `
+    <div class="ok-row">Personal details — ${fd.get('name') || '—'} · ${fd.get('email') || '—'}</div>
+    <div class="ok-row">Professional details — ${fd.get('linkedin') ? 'LinkedIn added' : 'No links added'}</div>
+    <div class="ok-row">Resume — ${resumeFile ? resumeFile.name : 'Not attached (optional)'}</div>
+  `;
+}
+
+document.querySelectorAll('.wiz-next').forEach(btn => btn.addEventListener('click', () => {
+  if (currentPanelValid()) goToWizStep(wizStep + 1);
+}));
+document.querySelectorAll('.wiz-back').forEach(btn => btn.addEventListener('click', () => goToWizStep(wizStep - 1)));
+
+if (window.kykInitDropzone) window.kykInitDropzone('a-resume', 'resumeDropzone');
+
+function openApply(id, title) {
+  if (!requireUserAuth('/careers.html')) return;
+  document.getElementById('applyJobId').value = id;
+  document.getElementById('applyRoleTitle').textContent = title;
+  document.getElementById('applyModal').style.display = 'flex';
+  document.getElementById('applyForm').reset();
+  goToWizStep(1);
+}
+document.getElementById('closeModal').addEventListener('click', () => document.getElementById('applyModal').style.display = 'none');
+document.getElementById('applyModal').addEventListener('click', (e) => { if (e.target.id === 'applyModal') e.target.style.display = 'none'; });
+
+document.getElementById('applyForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const msg = document.getElementById('applyMsg');
+  const btn = form.querySelector('button[type=submit]');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const res = await fetch('/api/applications', { method: 'POST', body: new FormData(form) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+    setFormMsg(msg, data.message, true);
+    form.reset();
+    setTimeout(() => { document.getElementById('applyModal').style.display = 'none'; }, 2200);
+  } catch (err) {
+    setFormMsg(msg, err.message, false);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Submit application';
+  }
+});
+</script>
+</body>
+</html>

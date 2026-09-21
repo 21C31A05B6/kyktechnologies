@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>KYK Technologies — Login</title>
+<link rel="stylesheet" href="/css/style.css"/>
+<link rel="stylesheet" href="/css/dashboard.css"/>
+<style>
+  body.admin-page { background: radial-gradient(circle at top, rgba(232,98,44,.16), transparent 35%), #0b0d10; }
+  .login-card { max-width: 420px; }
+  .auth-toggle { display:flex; gap:8px; background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); padding:6px; border-radius:999px; margin-bottom:22px; }
+  .auth-tab { flex:1; border:0; border-radius:999px; background:transparent; color:var(--steel-light); padding:10px 14px; cursor:pointer; font-weight:600; }
+  .auth-tab.active { background: var(--orange); color: #fff; }
+  .logo { width: 72px; height: 72px; margin: 0 auto 8px; }
+  .logo img { width: 100%; height: 100%; object-fit: cover; display:block; border-radius:50%; }
+  .auth-panel { display:none; }
+  .auth-panel.active { display:block; }
+  .admin-link { display:block; text-align:center; margin-top:14px; color: var(--orange); font-weight:600; font-size:.82rem; }
+</style>
+</head>
+<body class="admin-page" data-auth-mode="login" data-admin-login="0">
+<div id="loginScreen">
+  <div class="login-card form-card glass-glow">
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="/index.html" class="logo" aria-label="KYK home"><img src="/kyk_logo.webp" alt="KYK logo" /></a>
+      <p style="color:var(--steel-light);font-size:.82rem;margin-top:4px;">Key to Your Kognitio</p>
+    </div>
+
+    <div class="auth-toggle">
+      <button type="button" class="auth-tab active" data-auth-mode="login">Login</button>
+      <button type="button" class="auth-tab" data-auth-mode="signup">Signup</button>
+    </div>
+
+    <div class="auth-panel active" id="loginPanel">
+      <div class="field"><label for="loginEmail">Email</label><input id="loginEmail" type="email" autocomplete="username"/></div>
+      <div class="field"><label for="loginPassword">Password</label><input id="loginPassword" type="password" autocomplete="current-password"/></div>
+      <button class="btn btn-primary btn-block" id="loginBtn">Login</button>
+      <div class="form-msg" id="loginMsg"></div>
+      <a href="#" class="admin-link" id="adminLoginLink">Admin access</a>
+    </div>
+
+    <div class="auth-panel" id="signupPanel">
+      <div class="field"><label for="signupName">Full name</label><input id="signupName" type="text" autocomplete="name"/></div>
+      <div class="field"><label for="signupEmail">Email</label><input id="signupEmail" type="email" autocomplete="email"/></div>
+      <div class="field"><label for="signupPassword">Password</label><input id="signupPassword" type="password" autocomplete="new-password"/></div>
+      <button class="btn btn-primary btn-block" id="signupBtn" type="button">Create account</button>
+      <div class="form-msg" id="signupMsg"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/dash-common.js"></script>
+<script>
+  (function () {
+    const loginPanel = document.getElementById('loginPanel');
+    const signupPanel = document.getElementById('signupPanel');
+    const loginBtn = document.getElementById('loginBtn');
+    const signupBtn = document.getElementById('signupBtn');
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get('redirect') || '/user-dashboard.html';
+    const forcedMode = params.get('mode');
+
+    function setAuthMode(mode, adminMode) {
+      document.body.dataset.authMode = mode;
+      document.body.dataset.adminLogin = adminMode ? '1' : '0';
+      document.querySelectorAll('.auth-tab').forEach((tab) => {
+        tab.classList.toggle('active', tab.dataset.authMode === mode);
+      });
+      const showLogin = mode === 'login';
+      loginPanel.classList.toggle('active', showLogin);
+      signupPanel.classList.toggle('active', !showLogin);
+      if (loginBtn) loginBtn.textContent = adminMode ? 'Admin login' : 'Login';
+    }
+
+    if (forcedMode === 'signup') {
+      setAuthMode('signup', false);
+    }
+
+    document.querySelectorAll('.auth-tab').forEach((tab) => {
+      tab.addEventListener('click', () => setAuthMode(tab.dataset.authMode, false));
+    });
+
+    document.getElementById('adminLoginLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      setAuthMode('login', true);
+    });
+
+    signupBtn.addEventListener('click', async () => {
+      const name = document.getElementById('signupName').value.trim();
+      const email = document.getElementById('signupEmail').value.trim();
+      const password = document.getElementById('signupPassword').value;
+      const msg = document.getElementById('signupMsg');
+      try {
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Signup failed');
+        msg.className = 'form-msg show ok';
+        msg.textContent = data.message || 'Account created successfully';
+        setAuthMode('login', false);
+        document.getElementById('loginEmail').value = email;
+        document.getElementById('loginPassword').value = password;
+      } catch (err) {
+        msg.className = 'form-msg show err';
+        msg.textContent = err.message;
+      }
+    });
+
+    if (redirect && redirect !== '/index.html') {
+      document.getElementById('loginBtn').dataset.redirect = redirect;
+    }
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>KYK Viewer Dashboard</title>
+<link rel="stylesheet" href="/css/style.css"/>
+<link rel="stylesheet" href="/css/dashboard.css"/>
+</head>
+<body class="admin-page">
+<!-- Dashboard shell (hidden until logged in) -->
+<div class="admin-shell" id="dashShell" style="display:none;">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="/index.html" class="logo">KYK<span>TECH</span></a>
+      <div class="role-badge" id="roleLabel">Loading…</div>
+    </div>
+    <nav id="sidebarNav"><!-- tabs rendered by JS based on role --></nav>
+    <div class="sidebar-footer">
+      <div class="admin-name" id="adminName"></div>
+      <div style="font-size:.74rem;color:var(--steel);" id="adminEmail"></div>
+      <button class="logout-btn" id="logoutBtn">Sign out</button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <!-- Overview (read-only; Viewer has no editing tabs and no attendance) -->
+    <div class="panel active" id="panel-overview">
+      <h2 style="font-family:var(--font-display);margin-bottom:20px;">Overview</h2>
+      <div class="stat-cards" id="statCards"></div>
+      <div class="chart-card" style="margin-bottom:24px;">
+        <b style="font-family:var(--font-display);font-size:.9rem;">Applications — last 14 days</b>
+        <canvas id="appsChart" height="180" style="margin-top:14px;width:100%;display:block;"></canvas>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/js/main.js"></script>
+<script src="/js/dash-common.js"></script>
+</body>
+</html>
