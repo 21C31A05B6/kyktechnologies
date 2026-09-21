@@ -41,6 +41,7 @@ from zoneinfo import ZoneInfo
 import threading
 
 from flask import Flask, jsonify, request, send_from_directory, abort
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 try:
     from dotenv import load_dotenv
@@ -65,6 +66,11 @@ TAG_RE   = re.compile(r"<[^>]+>")    # strip HTML tags from untrusted strings
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES + (1024 * 1024)
 
+# Trust one level of Render/nginx reverse-proxy headers so
+# request.remote_addr is the real client IP, not the internal proxy.
+# This keeps per-IP rate limiting accurate under concurrent load.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 # ── Company-wide attendance configuration ──────────────────────────────
 # Critical fix: attendance dates/times were previously computed in UTC,
 # which can roll a punch over to the wrong business date for non-UTC
@@ -88,6 +94,67 @@ WEEKEND_DAYS = {int(d) for d in os.environ.get("WEEKEND_DAYS", "5,6").split(",")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 seed()
+
+# ── In-memory lookup indexes for hot paths (login) ─────────────────────
+# Login does verify_password (PBKDF2, ~150ms CPU) — under 80 concurrent
+# requests that is fine IF each request grabs its record quickly without
+# blocking others. The index avoids the O(n) db.read('admins') scan so
+# the CPU work per request is isolated and workers aren't serialised by
+# a shared table scan.
+_admin_idx: dict = {}          # email.lower() -> admin record
+_admin_idx_lock = threading.Lock()
+_user_idx: dict  = {}          # email.lower() -> user record
+_user_idx_lock   = threading.Lock()
+
+
+def _build_admin_idx():
+    """Rebuild the email→admin dict. Called once at startup."""
+    try:
+        records = db.read("admins")
+        with _admin_idx_lock:
+            _admin_idx.clear()
+            for a in records:
+                key = (a.get("email") or "").strip().lower()
+                if key:
+                    _admin_idx[key] = a
+    except Exception:
+        pass
+
+
+def _build_user_idx():
+    """Rebuild the email→user dict. Called once at startup."""
+    try:
+        records = db.read("users")
+        with _user_idx_lock:
+            _user_idx.clear()
+            for u in records:
+                key = (u.get("email") or "").strip().lower()
+                if key:
+                    _user_idx[key] = u
+    except Exception:
+        pass
+
+
+def invalidate_admin_idx(email=None):
+    """Drop one entry (or all) from the admin index after a write."""
+    with _admin_idx_lock:
+        if email:
+            _admin_idx.pop((email or "").strip().lower(), None)
+        else:
+            _admin_idx.clear()
+
+
+def invalidate_user_idx(email=None):
+    """Drop one entry (or all) from the user index after a write."""
+    with _user_idx_lock:
+        if email:
+            _user_idx.pop((email or "").strip().lower(), None)
+        else:
+            _user_idx.clear()
+
+
+_build_admin_idx()
+_build_user_idx()
 
 
 # ─────────────────────────────────────────── helpers
@@ -646,14 +713,19 @@ def signup():
     password = str(data.get("password") or "")
     if not name or not valid_email(email) or len(password) < 6:
         return error("Please enter a valid name, email, and password with at least 6 characters.")
-    if any(u.get("email", "").lower() == email for u in db.read("users")):
-        return error("An account with that email already exists.", 409)
+    # O(1) duplicate check via in-memory index instead of full table scan
+    with _user_idx_lock:
+        if email in _user_idx:
+            return error("An account with that email already exists.", 409)
     user = db.insert("users", {
         "name": name,
         "email": email,
         "passwordHash": hash_password(password),
         "role": "user",
     })
+    # Keep index fresh
+    with _user_idx_lock:
+        _user_idx[email] = user
     return jsonify({
         "message": "Account created successfully. Please login to continue.",
         "user": {"id": user["id"], "name": name, "email": email},
@@ -666,7 +738,14 @@ def user_login():
     data = request.get_json(silent=True) or {}
     email = clean(data.get("email"), 160).lower()
     password = str(data.get("password") or "")
-    user = next((u for u in db.read("users") if u.get("email", "").lower() == email), None)
+    # O(1) lookup via in-memory index — avoids full table scan under load
+    with _user_idx_lock:
+        user = _user_idx.get(email)
+    if not user:
+        # Fallback: rebuild index and retry (handles new workers with empty idx)
+        _build_user_idx()
+        with _user_idx_lock:
+            user = _user_idx.get(email)
     if not user or not verify_password(password, user.get("passwordHash", "")):
         return error("Those credentials don't match a user account.", 401)
     return jsonify({
@@ -683,7 +762,14 @@ def login():
     data     = request.get_json(silent=True) or {}
     email    = clean(data.get("email"), 160).lower()
     password = str(data.get("password") or "")
-    admin    = next((a for a in db.read("admins") if a.get("email", "").lower() == email), None)
+    # O(1) index lookup — avoids serialising 80 concurrent requests on a full scan
+    with _admin_idx_lock:
+        admin = _admin_idx.get(email)
+    if not admin:
+        # Rebuild index for newly spawned worker processes that have an empty idx
+        _build_admin_idx()
+        with _admin_idx_lock:
+            admin = _admin_idx.get(email)
     if not admin or not verify_password(password, admin.get("passwordHash", "")):
         audit(None, "login_failed", email)
         return error("Those credentials don't match an admin account.", 401)

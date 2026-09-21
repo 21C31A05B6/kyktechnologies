@@ -58,7 +58,18 @@ if DATABASE_URL.startswith("postgres://"):
 try:
     if not DATABASE_URL or "://" not in DATABASE_URL:
         raise ValueError(f"Empty or invalid DATABASE_URL: {DATABASE_URL!r}")
-    _engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
+    # Pool tuned for 2 Gunicorn workers × 4 threads = 8 concurrent sessions.
+    # pool_size=10 keeps connections warm; max_overflow=5 allows short bursts
+    # up to 15 total connections without raising PoolTimeout under load.
+    _engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        future=True,
+        pool_size=10,
+        max_overflow=5,
+        pool_timeout=30,
+        pool_recycle=1800,   # recycle connections every 30 min to avoid stale sockets
+    )
 except Exception as e:
     print(f"Warning: Failed to create SQLAlchemy engine with '{DATABASE_URL}': {e}. Using fallback SQLite engine.")
     _engine = create_engine("sqlite:///kyk_fallback.db", future=True)
