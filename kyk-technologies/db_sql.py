@@ -50,12 +50,19 @@ from models import (
     ContentManager,
 )
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+DATABASE_URL = (os.environ.get("DATABASE_URL") or "").strip().strip("'\"")
 # Render and other PaaS providers supply 'postgres://' which SQLAlchemy 1.4+ rejects
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-_engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
+try:
+    if not DATABASE_URL or "://" not in DATABASE_URL:
+        raise ValueError(f"Empty or invalid DATABASE_URL: {DATABASE_URL!r}")
+    _engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
+except Exception as e:
+    print(f"Warning: Failed to create SQLAlchemy engine with '{DATABASE_URL}': {e}. Using fallback SQLite engine.")
+    _engine = create_engine("sqlite:///kyk_fallback.db", future=True)
+
 _Session = sessionmaker(bind=_engine, future=True)
 Base = declarative_base()
 _lock = threading.Lock()

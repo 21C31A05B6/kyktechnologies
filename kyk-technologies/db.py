@@ -25,25 +25,44 @@ try:
 except ImportError:
     pass
 
-if os.environ.get("DATABASE_URL"):
-    from db_sql import (  # noqa: F401
-        read,
-        write,
-        insert,
-        find,
-        update,
-        remove,
-        now_iso,
-        get_users,
-        get_admins,
-        get_employees,
-        get_hr_managers,
-        get_team_leads,
-        get_recruiters,
-        get_clients,
-        get_content_managers,
-    )
-else:
+_raw_db_url = (os.environ.get("DATABASE_URL") or "").strip().strip("'\"")
+_has_valid_db_url = False
+
+if _raw_db_url and "://" in _raw_db_url:
+    try:
+        from sqlalchemy.engine import make_url
+        _check_url = _raw_db_url
+        if _check_url.startswith("postgres://"):
+            _check_url = _check_url.replace("postgres://", "postgresql://", 1)
+        make_url(_check_url)
+        _has_valid_db_url = True
+    except Exception as e:
+        print(f"Warning: Invalid DATABASE_URL provided ({e}). Falling back to JSON store.")
+
+if _has_valid_db_url:
+    try:
+        from db_sql import (  # noqa: F401
+            read,
+            write,
+            insert,
+            find,
+            update,
+            remove,
+            now_iso,
+            get_users,
+            get_admins,
+            get_employees,
+            get_hr_managers,
+            get_team_leads,
+            get_recruiters,
+            get_clients,
+            get_content_managers,
+        )
+    except Exception as e:
+        print(f"Warning: Failed to load db_sql ({e}). Falling back to JSON store.")
+        _has_valid_db_url = False
+
+if not _has_valid_db_url:
     from db_json import read, write, insert, find, update, remove, now_iso  # noqa: F401
 
     def get_users():
