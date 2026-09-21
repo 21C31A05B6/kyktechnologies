@@ -42,13 +42,13 @@ on('loginBtn','click',async()=>{
   const isAdminLogin = String(document.body.dataset.adminLogin || '0') === '1';
   try{
     const requestOptions={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})};
-    let res=await fetch(isAdminLogin?'/api/auth/login':'/api/auth/login',requestOptions);
+    let res=await fetch(isAdminLogin?'/api/auth/login':'/api/auth/user-login',requestOptions);
     let d=await res.json();
 
-    // Role dashboards use admin accounts. Try that endpoint first so users do
-    // not have to discover the separate Admin access link.
+    // Normal login accepts either a user or an admin account. Keep the admin
+    // fallback for convenience, but preserve the admin error if both fail.
     if(!res.ok && !isAdminLogin){
-      res=await fetch('/api/auth/user-login',requestOptions);
+      res=await fetch('/api/auth/login',requestOptions);
       d=await res.json();
     }
     if(!res.ok) throw new Error(d.error || 'Login failed');
