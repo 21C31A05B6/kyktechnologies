@@ -230,6 +230,11 @@ function scatterDots(container, count = 26) {
   }
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+  const heroGlobe = document.getElementById("heroGlobe");
+  if (heroGlobe) scatterDots(heroGlobe, 24);
+});
+
 /* ===================================================================
    PHASE 2 — Experience engine: backdrop, cursor, glow, tilt, magnetic
    buttons, scroll reveal, counters, theme, page-veil, loading screen,

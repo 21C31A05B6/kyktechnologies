@@ -219,6 +219,46 @@
       <table><thead><tr><th>Name</th><th>Email</th><th>Password</th><th>Role</th><th>Created</th><th></th></tr></thead>
       <tbody id="usersBody"></tbody></table>
     </div>
+  
+    <!-- Reports Review -->
+    <div class="panel" id="panel-reports_review">
+      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Reports Review</h3>
+      <div class="review-filters">
+        <div class="field"><label>Date</label><input type="date" id="reviewDateFilter"/></div>
+        <div class="field"><label>Status</label>
+          <select id="reviewReviewedFilter">
+            <option value="">All</option>
+            <option value="0">Pending</option>
+            <option value="1">Reviewed</option>
+          </select>
+        </div>
+        <button class="btn btn-outline" id="reviewTodayBtn">Today</button>
+        <button class="btn btn-primary" id="reviewApplyBtn">Apply</button>
+      </div>
+      <div class="review-missing" id="reviewMissingBox"></div>
+      <table><thead><tr><th>Date</th><th>Employee</th><th>Role</th><th>Summary</th><th>Hours</th><th>Status</th><th></th></tr></thead>
+      <tbody id="reviewBody"></tbody></table>
+
+      <div class="form-card glass-glow review-detail-card" id="reviewDetailCard" style="display:none;margin-top:24px;">
+        <b id="reviewDetailMeta" style="font-family:var(--font-display);"></b>
+        <dl>
+          <dt>Work summary</dt><dd id="reviewDetailSummary"></dd>
+          <dt>Tasks completed</dt><dd id="reviewDetailTasks"></dd>
+          <dt>Blockers</dt><dd id="reviewDetailBlockers"></dd>
+          <dt>Hours</dt><dd id="reviewDetailHours"></dd>
+        </dl>
+        <div class="field" style="margin-top:14px;">
+          <label for="reviewCommentInput">Private comment</label>
+          <textarea id="reviewCommentInput" rows="3"></textarea>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:.86rem;">
+          <input type="checkbox" id="reviewReviewedCheckbox"/> Mark as reviewed
+        </label>
+        <button class="btn btn-primary" id="reviewSaveBtn">Save</button>
+        <div class="form-msg" id="reviewMsg"></div>
+      </div>
+    </div>
+
   </main>
 </div>
 

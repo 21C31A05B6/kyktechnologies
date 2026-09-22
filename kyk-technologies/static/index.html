@@ -401,8 +401,6 @@
 
 <script src="/js/main.js" defer></script>
 <script>
-  scatterDots(document.getElementById('heroGlobe'), 24);
-
   // Load live insights from backend
   fetch('/api/insights').then(r => r.json()).then(({insights}) => {
     const grid = document.getElementById('insightGrid');

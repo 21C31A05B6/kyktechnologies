@@ -59,6 +59,9 @@ if _has_valid_db_url:
             get_recruiters,
             get_clients,
             get_content_managers,
+            get_session_by_jti,
+            create_session,
+            revoke_session,
         )
     except Exception as e:
         print(f"Warning: Failed to load db_sql ({e}). Falling back to JSON store.")

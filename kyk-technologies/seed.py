@@ -113,13 +113,13 @@ INSIGHTS = [
 # "super_admin" and "hr_manager" additionally get "attendance", the
 # org-wide attendance register for reviewing everyone's hours.
 ROLES = {
-    "super_admin":      {"label": "Super Admin",       "tabs": ["overview","jobs","applications","pipeline","talent","contacts","newsletter","insights","activity","admin_users","attendance"]},
-    "hr_manager":       {"label": "HR Manager",        "tabs": ["overview","applications","pipeline","talent","contacts","my_attendance","attendance"]},
-    "recruiter":        {"label": "Recruiter",         "tabs": ["overview","applications","pipeline","talent","my_attendance"]},
-    "team_lead":        {"label": "Team Lead",         "tabs": ["overview","jobs","applications","my_attendance"]},
-    "content_manager":  {"label": "Content Manager",   "tabs": ["overview","insights","my_attendance"]},
-    "viewer":           {"label": "Viewer",            "tabs": ["overview"]},
-    "employee":         {"label": "Employee",          "tabs": ["overview","my_attendance"]},
+    "super_admin":      {"label": "Super Admin",       "tabs": ["overview","jobs","applications","pipeline","talent","contacts","newsletter","insights","activity","admin_users","attendance","reports_review"]},
+    "hr_manager":       {"label": "HR Manager",        "tabs": ["overview","applications","pipeline","talent","contacts","my_attendance","attendance","daily_report","reports_review"]},
+    "recruiter":        {"label": "Recruiter",         "tabs": ["overview","applications","pipeline","talent","my_attendance","daily_report"]},
+    "team_lead":        {"label": "Team Lead",         "tabs": ["overview","jobs","applications","my_attendance","daily_report"]},
+    "content_manager":  {"label": "Content Manager",   "tabs": ["overview","insights","my_attendance","daily_report"]},
+    "viewer":           {"label": "Viewer",            "tabs": ["overview","daily_report"]},
+    "employee":         {"label": "Employee",          "tabs": ["overview","my_attendance","daily_report"]},
     "client":           {"label": "Client",            "tabs": ["overview"]},
 }
 
@@ -128,10 +128,17 @@ ROLES = {
 # Manager, Recruiter, Content Manager, and Team Lead all get attendance.
 ATTENDANCE_ROLES = {"hr_manager", "recruiter", "content_manager", "team_lead", "employee"}
 
-# Daily reports apply to the same staff roles that are eligible for attendance.
-# HR Managers and Super Admins review the reports submitted by staff.
-DAILY_REPORT_ROLES = ATTENDANCE_ROLES
-REPORTS_REVIEW_ROLES = {"super_admin", "hr_manager"}
+# Roles that get the WorkPulse-style "Daily Report" tab (submit a daily
+# work report + see their own history). Every logged-in staff role gets
+# this — everyone except Admin (super_admin, which instead gets the
+# review side via "reports_review") and Client, per the same pattern
+# used for ATTENDANCE_ROLES above.
+DAILY_REPORT_ROLES = {"hr_manager", "recruiter", "content_manager", "team_lead", "employee", "viewer"}
+
+# Roles that can review everyone's daily reports (leave a private comment,
+# mark reviewed, see who hasn't submitted). Mirrors the HR Manager +
+# Super Admin split already used for the attendance register.
+REPORTS_REVIEW_ROLES = {"hr_manager"}
 
 
 def seed():

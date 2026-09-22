@@ -90,6 +90,51 @@
       <table><thead><tr><th>Date</th><th>Check in</th><th>Check out</th><th>Hours worked</th><th>Status</th></tr></thead>
       <tbody id="myCalBody"></tbody></table>
     </div>
+  
+    <!-- Daily Report -->
+    <div class="panel" id="panel-daily_report">
+      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Daily Report</h3>
+      <form id="reportForm" class="form-card glass-glow" style="margin-bottom:24px;">
+        <div class="field">
+          <label for="reportSummary">Work summary * <span style="font-weight:400;color:var(--steel-light);">(min 20 characters)</span></label>
+          <textarea id="reportSummary" rows="4" maxlength="2000" required></textarea>
+          <div class="char-counter" id="reportCharCounter">0 / 2000</div>
+        </div>
+        <div class="field">
+          <label for="reportTasks">Tasks completed</label>
+          <textarea id="reportTasks" rows="2" placeholder="Bullet list of tasks finished today"></textarea>
+        </div>
+        <div class="field">
+          <label for="reportBlockers">Blockers / issues</label>
+          <textarea id="reportBlockers" rows="2" placeholder="Anything blocking you"></textarea>
+        </div>
+        <div class="field">
+          <label for="reportHours">Hours worked</label>
+          <input type="number" id="reportHours" min="0" max="24" step="0.5" placeholder="e.g. 8"/>
+        </div>
+        <div class="field">
+          <label>Mood / energy</label>
+          <div class="mood-picker" id="reportMoodPicker">
+            <button type="button" data-mood="exhausted">😫</button>
+            <button type="button" data-mood="tired">😔</button>
+            <button type="button" data-mood="okay">😐</button>
+            <button type="button" data-mood="good">🙂</button>
+            <button type="button" data-mood="great">😄</button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="reportSubmitBtn" style="margin-top:10px;">Submit report</button>
+        <div class="form-msg" id="reportMsg"></div>
+      </form>
+
+      <div class="month-nav">
+        <button class="small-btn" id="reportHistPrev">← Prev</button>
+        <b id="reportHistLabel">—</b>
+        <button class="small-btn" id="reportHistNext">Next →</button>
+      </div>
+      <table><thead><tr><th>Date</th><th>Summary</th><th>Hours</th><th>Mood</th><th>Status</th></tr></thead>
+      <tbody id="reportHistBody"></tbody></table>
+    </div>
+
   </main>
 </div>
 

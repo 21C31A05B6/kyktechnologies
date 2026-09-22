@@ -106,6 +106,8 @@ const TAB_META={
   admin_users:  {icon:'🔑', label:'Admin Users'},
   my_attendance:{icon:'⏱️', label:'My Attendance'},
   attendance:   {icon:'🗓️', label:'Attendance Register'},
+  daily_report: {icon:'📓', label:'Daily Report'},
+  reports_review:{icon:'✅', label:'Reports Review'},
 };
 
 /* Every role's dedicated home page. */
@@ -164,6 +166,7 @@ function getLoaders(){
     newsletter:loadNewsletter, insights:loadInsights,
     activity:loadActivity, admin_users:loadUsers,
     my_attendance:loadMyAttendance, attendance:loadAttendanceRegister,
+    daily_report:loadMyDailyReport, reports_review:loadReportsReview,
   };
   return Object.assign(defaults, window.TAB_LOADER_OVERRIDES||{});
 }
@@ -179,7 +182,7 @@ function switchTab(tab){
 }
 
 /* ────── auto-login on page load ────── */
-window.addEventListener('load',async()=>{
+document.addEventListener('DOMContentLoaded',async()=>{
   if(!gToken){
     if(currentPage()!==LOGIN_PAGE) goToLogin();
     return;
@@ -197,7 +200,8 @@ window.addEventListener('load',async()=>{
 async function loadOverview(){
   const cards=$('statCards'); if(!cards) return;
   try{
-    const o=await api('/admin/overview');
+    // Start independent requests together instead of waiting for two in sequence.
+    const [o,apps]=await Promise.all([api('/admin/overview'),api('/admin/applications')]);
     cards.innerHTML='';
     [
       [o.activeJobs,'Active jobs'],
@@ -211,7 +215,6 @@ async function loadOverview(){
       const s=document.createElement('span'); s.textContent=l;
       d.append(b,s); cards.appendChild(d);
     });
-    const apps=await api('/admin/applications');
     drawAppsChart(apps);
   } catch(e){console.error(e);}
 }
@@ -741,3 +744,183 @@ async function loadRegisterRows(){
 on('regCalPrev','click',()=>{ regCalMonth--; if(regCalMonth<1){regCalMonth=12;regCalYear--;} loadRegisterRows(); });
 on('regCalNext','click',()=>{ regCalMonth++; if(regCalMonth>12){regCalMonth=1;regCalYear++;} loadRegisterRows(); });
 on('regEmployeeFilter','change',loadRegisterRows);
+
+/* ────── DAILY REPORT (self: submit today's report + own history) ────── */
+const MOOD_EMOJI={exhausted:'😫',tired:'😔',okay:'😐',good:'🙂',great:'😄'};
+let selectedMood='';
+let repHistYear=_now0.getFullYear(), repHistMonth=_now0.getMonth()+1;
+
+async function loadMyDailyReport(){
+  if(!$('reportSummary')) return;
+  await prefillTodayReport();
+  await loadMyReportHistory();
+}
+
+async function prefillTodayReport(){
+  try{
+    const r=await api('/daily-report/today');
+    selectedMood='';
+    document.querySelectorAll('#reportMoodPicker button').forEach(b=>b.classList.remove('active'));
+    if(r){
+      $('reportSummary').value=r.workSummary||'';
+      $('reportTasks').value=r.tasksCompleted||'';
+      $('reportBlockers').value=r.blockers||'';
+      $('reportHours').value=r.hoursWorked??'';
+      if(r.mood){
+        selectedMood=r.mood;
+        const b=document.querySelector('#reportMoodPicker button[data-mood="'+r.mood+'"]');
+        if(b) b.classList.add('active');
+      }
+      $('reportSubmitBtn').textContent='Update today\u2019s report';
+      if(r.reviewed) setFormMsg($('reportMsg'),'Already reviewed'+(r.reviewedBy?' by '+r.reviewedBy:'')+(r.comment?': "'+r.comment+'"':'.'),true);
+    } else {
+      $('reportSubmitBtn').textContent='Submit report';
+    }
+    updateCharCounter();
+  } catch(e){console.error(e);}
+}
+
+function updateCharCounter(){
+  const el=$('reportSummary'), counter=$('reportCharCounter'); if(!el||!counter) return;
+  const len=el.value.length;
+  counter.textContent=len+' / 2000';
+  counter.classList.toggle('warn', len<20);
+}
+on('reportSummary','input',updateCharCounter);
+
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('#reportMoodPicker button');
+  if(!btn) return;
+  document.querySelectorAll('#reportMoodPicker button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedMood=btn.dataset.mood;
+});
+
+on('reportForm','submit',async e=>{
+  e.preventDefault();
+  const msg=$('reportMsg');
+  const summary=$('reportSummary').value.trim();
+  if(summary.length<20){ setFormMsg(msg,'Work summary must be at least 20 characters.',false); return; }
+  const payload={
+    workSummary:summary,
+    tasksCompleted:$('reportTasks').value.trim(),
+    blockers:$('reportBlockers').value.trim(),
+    hoursWorked:$('reportHours').value?Number($('reportHours').value):null,
+    mood:selectedMood,
+  };
+  try{
+    await api('/daily-report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    setFormMsg(msg,'Report saved. Thanks!',true);
+    $('reportSubmitBtn').textContent='Update today\u2019s report';
+    loadMyReportHistory();
+  } catch(err){ setFormMsg(msg,err.message,false); }
+});
+
+function reportMoodBadge(mood){
+  const s=document.createElement('span');
+  s.textContent=MOOD_EMOJI[mood]||'—';
+  s.title=mood||'';
+  return s;
+}
+function reviewStatusBadge(reviewed){
+  const s=document.createElement('span');
+  s.className='badge '+(reviewed?'badge-hired':'badge-reviewing');
+  s.textContent=reviewed?'Reviewed':'Pending';
+  return s;
+}
+
+async function loadMyReportHistory(){
+  const tbody=$('reportHistBody'); if(!tbody) return;
+  try{
+    const d=await api('/daily-report/history?year='+repHistYear+'&month='+repHistMonth);
+    txt($('reportHistLabel'), MONTH_NAMES[d.month-1]+' '+d.year);
+    tbody.innerHTML='';
+    if(!d.reports.length){tbody.innerHTML='<tr><td colspan="5" style="color:var(--steel)">No reports filed this month.</td></tr>';return;}
+    d.reports.forEach(r=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td></td><td></td><td></td><td></td><td></td>';
+      tr.cells[0].textContent=r.date;
+      tr.cells[1].textContent=(r.workSummary||'').slice(0,90)+((r.workSummary||'').length>90?'\u2026':'');
+      tr.cells[2].textContent=r.hoursWorked!=null?r.hoursWorked+'h':'—';
+      tr.cells[3].appendChild(reportMoodBadge(r.mood));
+      tr.cells[4].appendChild(reviewStatusBadge(r.reviewed));
+      tbody.appendChild(tr);
+    });
+  } catch(e){console.error(e);}
+}
+on('reportHistPrev','click',()=>{ repHistMonth--; if(repHistMonth<1){repHistMonth=12;repHistYear--;} loadMyReportHistory(); });
+on('reportHistNext','click',()=>{ repHistMonth++; if(repHistMonth>12){repHistMonth=1;repHistYear++;} loadMyReportHistory(); });
+
+/* ────── REPORTS REVIEW (HR Manager + Super Admin: everyone's reports) ────── */
+let selectedReportId=null;
+
+async function loadReportsReview(){
+  if(!$('reviewBody')) return;
+  if(!$('reviewDateFilter').value) $('reviewDateFilter').value=new Date().toISOString().slice(0,10);
+  await loadReviewRows();
+}
+
+async function loadReviewRows(){
+  const tbody=$('reviewBody'); if(!tbody) return;
+  try{
+    const date=$('reviewDateFilter').value;
+    const reviewed=$('reviewReviewedFilter')?$('reviewReviewedFilter').value:'';
+    let path='/admin/daily-reports?date='+encodeURIComponent(date);
+    if(reviewed) path+='&reviewed='+reviewed;
+    const d=await api(path);
+    tbody.innerHTML='';
+    if(!d.reports.length){tbody.innerHTML='<tr><td colspan="7" style="color:var(--steel)">No reports for this date.</td></tr>';}
+    d.reports.forEach(r=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td></td><td></td><td></td><td></td><td></td><td></td><td></td>';
+      tr.cells[0].textContent=r.date;
+      tr.cells[1].textContent=r.adminName||'—';
+      const rb=document.createElement('span'); rb.className='badge role-'+(r.adminRole||'viewer'); rb.textContent=(r.adminRole||'—').replace(/_/g,' ');
+      tr.cells[2].appendChild(rb);
+      tr.cells[3].textContent=(r.workSummary||'').slice(0,70)+((r.workSummary||'').length>70?'\u2026':'');
+      tr.cells[4].textContent=r.hoursWorked!=null?r.hoursWorked+'h':'—';
+      tr.cells[5].appendChild(reviewStatusBadge(r.reviewed));
+      const btn=document.createElement('button'); btn.className='small-btn'; btn.textContent='Review';
+      btn.addEventListener('click',()=>openReportDetail(r));
+      tr.cells[6].appendChild(btn);
+      tbody.appendChild(tr);
+    });
+    const missBox=$('reviewMissingBox');
+    if(missBox){
+      if(!d.missing.length){ missBox.innerHTML='<span style="color:var(--steel-light)">Everyone eligible has filed a report for '+d.missingDate+'.</span>'; }
+      else{
+        missBox.innerHTML='<b>'+d.missing.length+' '+(d.missing.length===1?'person hasn\u2019t':'people haven\u2019t')+' filed a report for '+d.missingDate+':</b> '
+          +d.missing.map(u=>esc(u.name||'—')).join(', ');
+      }
+    }
+  } catch(e){console.error(e);}
+}
+on('reviewApplyBtn','click',loadReviewRows);
+on('reviewTodayBtn','click',()=>{ $('reviewDateFilter').value=new Date().toISOString().slice(0,10); loadReviewRows(); });
+on('reviewReviewedFilter','change',loadReviewRows);
+
+function openReportDetail(r){
+  selectedReportId=r.id;
+  const card=$('reviewDetailCard'); if(!card) return;
+  card.style.display='block';
+  txt($('reviewDetailMeta'), (r.adminName||'—')+' \u00b7 '+(r.adminRole||'').replace(/_/g,' ')+' \u00b7 '+r.date);
+  txt($('reviewDetailSummary'), r.workSummary||'—');
+  txt($('reviewDetailTasks'), r.tasksCompleted||'—');
+  txt($('reviewDetailBlockers'), r.blockers||'—');
+  txt($('reviewDetailHours'), r.hoursWorked!=null?(r.hoursWorked+'h logged'):'Not logged');
+  $('reviewCommentInput').value=r.comment||'';
+  $('reviewReviewedCheckbox').checked=!!r.reviewed;
+  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+on('reviewSaveBtn','click',async()=>{
+  if(!selectedReportId) return;
+  const msg=$('reviewMsg');
+  try{
+    await api('/admin/daily-reports/'+selectedReportId+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      comment:$('reviewCommentInput').value.trim(),
+      reviewed:$('reviewReviewedCheckbox').checked,
+    })});
+    setFormMsg(msg,'Saved.',true);
+    loadReviewRows();
+  } catch(e){ setFormMsg(msg,e.message,false); }
+});

@@ -51,7 +51,7 @@ except ImportError:
 
 import db
 import email_util
-from seed import seed, ROLES, ATTENDANCE_ROLES
+from seed import seed, ROLES, ATTENDANCE_ROLES, DAILY_REPORT_ROLES, REPORTS_REVIEW_ROLES
 from security import hash_password, make_token, read_token, verify_password
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -184,15 +184,33 @@ _build_user_idx()
 # and in the `sessions` collection).  Validation checks that the jti still
 # exists — if it was evicted (session limit exceeded) the browser gets 401.
 #
-# Session limits:
-#   admin       → 3 simultaneous browsers
-#   user/other  → 1 simultaneous browser
+# Session limits (simultaneous browsers allowed per role):
+#   super_admin / admin → 3
+#   All staff roles     → 3 (employee, hr_manager, recruiter, team_lead,
+#                            content_manager, viewer, client)
+#   Portal users        → 3
 #
 # When the limit is exceeded the OLDEST session is evicted so the new
 # login always succeeds and the stale browser is the one that gets kicked.
+# Raise any value here to allow more simultaneous devices for that role.
 
 SESSION_LIMIT_ADMIN = 3
-SESSION_LIMIT_USER  = 1
+SESSION_LIMIT_USER  = 3   # raised from 1 → 3 so staff can log in from multiple devices
+
+# Per-role override map — looked up in the login route.
+# Falls back to SESSION_LIMIT_USER for any role not listed here.
+SESSION_LIMIT_BY_ROLE: dict = {
+    "super_admin":     3,
+    "admin":           3,
+    "hr_manager":      3,
+    "recruiter":       3,
+    "team_lead":       3,
+    "content_manager": 3,
+    "employee":        3,
+    "viewer":          3,
+    "client":          3,
+    "user":            3,
+}
 
 # Friendly error payload that the frontend can detect to show a specific message
 _SESSION_KICKED_MSG = "You were logged in from another device. Please sign in again."
@@ -201,6 +219,10 @@ _SESSION_KICKED_MSG = "You were logged in from another device. Please sign in ag
 def _create_session(owner_type: str, owner_id, jti: str, max_sessions: int,
                     ip: str = "", ua: str = "", exp: int = 0) -> None:
     """Insert a new session row and evict the oldest if we exceed max_sessions."""
+    # SQL storage has indexed session operations, avoiding full session scans.
+    if hasattr(db, "create_session"):
+        db.create_session(owner_type, owner_id, jti, max_sessions, ip, ua, exp)
+        return
     # Purge expired sessions asynchronously so login isn't slowed by cleanup
     threading.Thread(target=_purge_expired_sessions, daemon=True).start()
     # Load current sessions for this owner
@@ -229,6 +251,9 @@ def _revoke_session(jti: str) -> None:
     """Delete a specific session (used by logout)."""
     if not jti:
         return
+    if hasattr(db, "revoke_session"):
+        db.revoke_session(jti)
+        return
     all_sessions = db.read("sessions")
     for s in all_sessions:
         if s.get("jti") == jti:
@@ -241,6 +266,14 @@ def _session_valid(jti: str) -> bool:
     if not jti:
         return False
     now = time.time()
+    if hasattr(db, "get_session_by_jti"):
+        s = db.get_session_by_jti(jti)
+        if not s:
+            return False
+        if s.get("exp", 0) and s["exp"] < now:
+            _revoke_session(jti)
+            return False
+        return True
     for s in db.read("sessions"):
         if s.get("jti") == jti:
             exp = s.get("exp", 0)
@@ -454,6 +487,25 @@ def attendance_required(view):
                             "kicked": True}), 401
         if admin.get("role") not in ATTENDANCE_ROLES:
             return error("Attendance check-in isn't available for your role.", 403)
+        request.admin = admin
+        return view(*args, **kwargs)
+    return wrapper
+
+
+def daily_report_required(view):
+    """Only admins whose role gets the "Daily Report" tab (see
+    DAILY_REPORT_ROLES in seed.py) can submit / view their own reports.
+    Like attendance_required, this does NOT auto-allow super_admin —
+    Admin reviews reports rather than filing one, and Client accounts
+    don't have this tab at all."""
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        admin = current_admin()
+        if not admin:
+            return jsonify({"error": "Session expired. Please sign in again.",
+                            "kicked": True}), 401
+        if admin.get("role") not in DAILY_REPORT_ROLES:
+            return error("Daily reports aren't available for your role.", 403)
         request.admin = admin
         return view(*args, **kwargs)
     return wrapper
@@ -884,7 +936,7 @@ def user_login():
         owner_type="user",
         owner_id=user["id"],
         jti=jti,
-        max_sessions=SESSION_LIMIT_USER,
+        max_sessions=SESSION_LIMIT_BY_ROLE.get("user", SESSION_LIMIT_USER),
         ip=request.remote_addr or "",
         ua=request.headers.get("User-Agent", ""),
         exp=exp,
@@ -925,16 +977,15 @@ def login():
     if hasattr(db, "record_login"):
         db.record_login(admin["id"], role=role, ip=request.remote_addr or "")
     audit(admin, "login")
-    # Build token, extract jti, register session
-    # Admin (super_admin / admin) gets 3 simultaneous browsers;
-    # All other accounts (employee, hr_manager, recruiter, etc.) get 1 browser session only.
+    # Build token, extract jti, register session.
+    # Session limit is looked up from SESSION_LIMIT_BY_ROLE so every role
+    # gets the right number of simultaneous devices (all currently 3).
     token = make_token({"adminId": admin["id"]})
     from security import read_token as _rt
     payload = _rt(token) or {}
     jti = payload.get("jti", "")
     exp = payload.get("exp", 0)
-    is_admin = role in ("super_admin", "admin")
-    max_sess = SESSION_LIMIT_ADMIN if is_admin else SESSION_LIMIT_USER
+    max_sess = SESSION_LIMIT_BY_ROLE.get(role, SESSION_LIMIT_USER)
     _create_session(
         owner_type="admin",
         owner_id=admin["id"],
@@ -1676,6 +1727,172 @@ def admin_mark_absent():
         created += 1
     audit(admin, "attendance_mark_absent", f"{date_key}: {created} marked")
     return jsonify({"message": f"{created} absent record(s) created for {date_key}.", "created": created})
+
+
+# ─────────────────────────────────────────── daily work reports
+# Ported over from the WorkPulse admin/employee portal. Employee-side:
+# every role in DAILY_REPORT_ROLES (seed.py) can file one report per day
+# and edit it same-day, plus see their own history. Admin-side: HR
+# Manager + Super Admin (see REPORTS_REVIEW_ROLES) can browse everyone's
+# reports, leave a private comment, mark a report reviewed, and see who
+# hasn't submitted yet for a given day — same split already used for the
+# attendance register above.
+
+REPORT_SUMMARY_MIN = 20
+REPORT_SUMMARY_MAX = 2000
+VALID_MOODS = {"exhausted", "tired", "okay", "good", "great"}
+
+
+def _find_daily_report(admin_id, date_key):
+    for r in db.read("daily_reports"):
+        if r.get("adminId") == admin_id and r.get("date") == date_key:
+            return r
+    return None
+
+
+@app.post("/api/daily-report")
+@daily_report_required
+def submit_daily_report():
+    """Submit today's report, or edit it if one already exists for today
+    (same-day editing only — yesterday's report is locked once the day
+    has rolled over)."""
+    admin = request.admin
+    data = request.get_json(silent=True) or {}
+    summary = clean(data.get("workSummary", ""), REPORT_SUMMARY_MAX)
+    if len(summary) < REPORT_SUMMARY_MIN:
+        return error(f"Work summary must be at least {REPORT_SUMMARY_MIN} characters.")
+    mood = clean(data.get("mood", ""), 20)
+    if mood and mood not in VALID_MOODS:
+        mood = ""
+    hours = data.get("hoursWorked")
+    try:
+        hours = round(float(hours), 1) if hours not in (None, "") else None
+        if hours is not None and not (0 <= hours <= 24):
+            hours = None
+    except (TypeError, ValueError):
+        hours = None
+    date_key = _today_key()
+    payload = {
+        "adminId":         admin["id"],
+        "adminName":       admin.get("name", ""),
+        "adminRole":       admin.get("role", ""),
+        "date":            date_key,
+        "workSummary":     summary,
+        "tasksCompleted":  clean(data.get("tasksCompleted", ""), 1000),
+        "blockers":        clean(data.get("blockers", ""), 1000),
+        "hoursWorked":     hours,
+        "mood":            mood,
+    }
+    existing = _find_daily_report(admin["id"], date_key)
+    if existing:
+        # Editing same-day resets any prior review — the admin should
+        # see the updated content, not a stale "reviewed" badge.
+        payload["reviewed"] = False
+        row = db.update("daily_reports", existing["id"], payload)
+        audit(admin, "daily_report_updated", date_key)
+    else:
+        payload["reviewed"] = False
+        payload["comment"] = None
+        payload["reviewedBy"] = None
+        row = db.insert("daily_reports", payload)
+        audit(admin, "daily_report_submitted", date_key)
+    return jsonify(row), (200 if existing else 201)
+
+
+@app.get("/api/daily-report/today")
+@daily_report_required
+def daily_report_today():
+    row = _find_daily_report(request.admin["id"], _today_key())
+    return jsonify(row)
+
+
+@app.get("/api/daily-report/history")
+@daily_report_required
+def daily_report_history():
+    now   = _now_local()
+    year  = request.args.get("year", "")
+    month = request.args.get("month", "")
+    year  = int(year)  if year.isdigit()  and len(year) == 4 else now.year
+    month = int(month) if month.isdigit() and 1 <= int(month) <= 12 else now.month
+    prefix = f"{year:04d}-{month:02d}"
+    rows = [r for r in db.read("daily_reports")
+            if r.get("adminId") == request.admin["id"] and r.get("date", "").startswith(prefix)]
+    rows.sort(key=lambda r: r.get("date", ""), reverse=True)
+    return jsonify({"year": year, "month": month, "reports": rows})
+
+
+# ─────────────────────────────────────────── admin: reports review (HR / super_admin)
+
+@app.get("/api/admin/daily-reports")
+@role_required(*REPORTS_REVIEW_ROLES)
+def admin_daily_reports():
+    date_filter   = clean(request.args.get("date", ""), 10)
+    reviewed_only = request.args.get("reviewed", "")
+    rows = db.read("daily_reports")
+    if date_filter:
+        rows = [r for r in rows if r.get("date") == date_filter]
+    else:
+        now = _now_local()
+        prefix = f"{now.year:04d}-{now.month:02d}"
+        month = clean(request.args.get("month", ""), 7) or prefix
+        rows = [r for r in rows if r.get("date", "").startswith(month)]
+    if reviewed_only == "1":
+        rows = [r for r in rows if r.get("reviewed")]
+    elif reviewed_only == "0":
+        rows = [r for r in rows if not r.get("reviewed")]
+    rows.sort(key=lambda r: (r.get("date", ""), r.get("adminName", "")), reverse=True)
+
+    date_key = date_filter or _today_key()
+    eligible = [u for u in db.read("admins") if u.get("role") in DAILY_REPORT_ROLES]
+    submitted_ids = {r.get("adminId") for r in db.read("daily_reports") if r.get("date") == date_key}
+    missing = [{"id": u["id"], "name": u.get("name", ""), "role": u.get("role", "")}
+               for u in eligible if u["id"] not in submitted_ids]
+
+    return jsonify({"reports": rows, "missing": missing, "missingDate": date_key})
+
+
+@app.post("/api/admin/daily-reports/<int:row_id>/review")
+@role_required(*REPORTS_REVIEW_ROLES)
+def admin_review_daily_report(row_id):
+    admin = request.admin
+    row = db.find("daily_reports", row_id)
+    if not row:
+        return error("Report not found.", 404)
+    data = request.get_json(silent=True) or {}
+    patch = {
+        "reviewed":   bool(data.get("reviewed", True)),
+        "comment":    clean(data.get("comment", ""), 1000) or None,
+        "reviewedBy": admin.get("name", admin.get("email", "")),
+    }
+    updated = db.update("daily_reports", row_id, patch)
+    audit(admin, "daily_report_reviewed", f"row {row_id} ({row.get('adminName','')}, {row.get('date','')})")
+    return jsonify(updated)
+
+
+@app.get("/api/admin/daily-reports/export.csv")
+@role_required(*REPORTS_REVIEW_ROLES)
+def admin_daily_reports_export():
+    now    = _now_local()
+    month  = clean(request.args.get("month", ""), 7) or f"{now.year:04d}-{now.month:02d}"
+    rows = sorted(
+        [r for r in db.read("daily_reports") if r.get("date", "").startswith(month)],
+        key=lambda r: (r.get("date", ""), r.get("adminName", "")),
+    )
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["Date", "Employee", "Role", "Work Summary", "Tasks Completed", "Blockers",
+                      "Hours Worked", "Mood", "Reviewed", "Comment"])
+    for r in rows:
+        writer.writerow([
+            r.get("date", ""), r.get("adminName", ""), r.get("adminRole", ""),
+            r.get("workSummary", ""), r.get("tasksCompleted", "") or "", r.get("blockers", "") or "",
+            r.get("hoursWorked", "") if r.get("hoursWorked") is not None else "",
+            r.get("mood", "") or "", "Yes" if r.get("reviewed") else "No", r.get("comment", "") or "",
+        ])
+    audit(request.admin, "daily_reports_export", month)
+    resp = app.response_class(buf.getvalue(), mimetype="text/csv")
+    resp.headers["Content-Disposition"] = f"attachment; filename=daily-reports-{month}.csv"
+    return resp
 
 
 # ─────────────────────────────────────────── admin: holiday calendar (HR / super_admin)

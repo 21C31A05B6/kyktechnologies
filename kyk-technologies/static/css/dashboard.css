@@ -1,18 +1,18 @@
 /* ── layout ── */
 .admin-shell{display:flex;min-height:100vh;}
-.admin-page{color:var(--paper);}
-.admin-page h1,.admin-page h2,.admin-page h3,.admin-page h4,.admin-page h5,.admin-page h6{color:var(--paper);}
+.admin-page{color:var(--ink);}
+.admin-page h1,.admin-page h2,.admin-page h3,.admin-page h4,.admin-page h5,.admin-page h6{color:var(--ink);}
 .admin-page p{color:var(--steel-light);}
 .admin-page .main-content{background:rgba(5,6,10,.22);}
-.admin-page table{color:var(--paper-dim);}
-.admin-page td{color:var(--paper-dim);}
-.admin-page .field label{color:var(--paper-dim);}
+.admin-page table{color:var(--ink);}
+.admin-page td{color:var(--ink);}
+.admin-page .field label{color:var(--ink);}
 .admin-page .field input,.admin-page .field select,.admin-page .field textarea{
-  background:rgba(255,255,255,.07);color:var(--paper);border-color:var(--glass-border);
+  background:rgba(255,255,255,.07);color:var(--ink);border-color:var(--glass-border);
 }
 .admin-page .field input::placeholder,.admin-page .field textarea::placeholder{color:var(--steel);}
-.admin-page .field select option{background:var(--panel);color:var(--paper);}
-.admin-page .form-card{color:var(--paper);}
+.admin-page .field select option{background:var(--panel);color:var(--ink);}
+.admin-page .form-card{color:var(--ink);}
 .sidebar{
   width:220px;flex:none;background:rgba(8,10,14,.8);border-right:1px solid var(--glass-border);
   backdrop-filter:blur(20px);padding:24px 0;display:flex;flex-direction:column;
@@ -32,11 +32,11 @@
   color:var(--steel-light);font-size:.85rem;cursor:pointer;transition:all .18s;text-align:left;
   border-left:2px solid transparent;
 }
-.sidebar nav button:hover{color:var(--paper);background:rgba(255,255,255,.04);}
+.sidebar nav button:hover{color:var(--ink);background:rgba(255,255,255,.04);}
 .sidebar nav button.active{color:var(--orange);background:rgba(var(--glow),.07);border-left-color:var(--orange);}
 .sidebar nav button .tab-icon{font-size:1rem;flex:none;}
 .sidebar-footer{padding:16px 20px;border-top:1px solid var(--glass-border);}
-.sidebar-footer .admin-name{font-size:.82rem;color:var(--paper);font-weight:600;}
+.sidebar-footer .admin-name{font-size:.82rem;color:var(--ink);font-weight:600;}
 .sidebar-footer .logout-btn{
   background:none;border:1px solid var(--glass-border);color:var(--steel);padding:6px 12px;
   border-radius:8px;font-size:.78rem;cursor:pointer;margin-top:8px;width:100%;
@@ -62,7 +62,7 @@ tr:hover td{background:rgba(255,255,255,.025);}
 /* ── stat cards ── */
 .stat-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-bottom:24px;}
 .stat-card{padding:20px 18px;border-radius:14px;}
-.stat-card b{display:block;font-size:1.6rem;font-family:var(--font-display);color:var(--paper);}
+.stat-card b{display:block;font-size:1.6rem;font-family:var(--font-display);color:var(--ink);}
 .stat-card span{font-size:.78rem;color:var(--steel-light);}
 /* ── form card ── */
 .form-card{padding:24px;border-radius:16px;}
@@ -120,7 +120,7 @@ tr:hover td{background:rgba(255,255,255,.025);}
 .chart-card{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:20px;}
 /* ── notes textarea ── */
 .notes-area{width:100%;border:1px solid var(--glass-border);background:var(--glass-bg);
-  border-radius:8px;padding:8px 10px;color:var(--paper);font-size:.8rem;resize:vertical;
+  border-radius:8px;padding:8px 10px;color:var(--ink);font-size:.8rem;resize:vertical;
   min-height:60px;}
 /* ── role badge colours ── */
 .role-super_admin{background:rgba(var(--glow),.18);color:var(--orange);}
@@ -134,7 +134,7 @@ tr:hover td{background:rgba(255,255,255,.025);}
 /* ── attendance ── */
 .punch-card{padding:22px 24px;border-radius:16px;max-width:420px;margin-bottom:22px;}
 .punch-status{font-size:.82rem;color:var(--steel-light);margin-bottom:4px;}
-.punch-time{font-family:var(--font-display);font-size:1.5rem;color:var(--paper);margin-bottom:14px;}
+.punch-time{font-family:var(--font-display);font-size:1.5rem;color:var(--ink);margin-bottom:14px;}
 .punch-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:600;margin-left:8px;}
 .badge-day-FullDay{background:rgba(56,210,115,.15);color:#38D273;}
 .badge-day-HalfDay{background:rgba(255,210,56,.15);color:#d4a800;}
@@ -144,3 +144,26 @@ tr:hover td{background:rgba(255,255,255,.025);}
 /* ── login ── */
 #loginScreen{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:#05060a;}
 .login-card{max-width:380px;width:100%;}
+
+/* ── daily report + reports review ── */
+.char-counter{font-size:.78rem;color:var(--steel-light);text-align:right;margin-top:4px;}
+.char-counter.warn{color:#e25c5c;}
+.mood-picker{display:flex;gap:8px;flex-wrap:wrap;}
+.mood-picker button{
+  font-size:1.35rem;line-height:1;padding:8px 12px;border-radius:10px;cursor:pointer;
+  background:rgba(255,255,255,.05);border:1.5px solid var(--glass-border);
+  transition:transform .15s ease, border-color .15s ease;
+}
+.mood-picker button:hover{transform:translateY(-2px);}
+.mood-picker button.active{border-color:var(--orange);background:rgba(232,98,44,.12);}
+:root[data-theme="light"] .mood-picker button{background:rgba(15,23,42,.04);}
+.report-history-hint,.review-missing{
+  background:rgba(255,255,255,.05);border:1px solid var(--glass-border);border-radius:10px;
+  padding:12px 16px;margin-bottom:16px;font-size:.86rem;color:var(--ink);
+}
+:root[data-theme="light"] .report-history-hint,
+:root[data-theme="light"] .review-missing{background:rgba(15,23,42,.04);}
+.review-filters{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:18px;}
+.review-filters .field{margin-bottom:0;}
+.review-detail-card dt{font-size:.76rem;text-transform:uppercase;letter-spacing:.04em;color:var(--steel-light);margin-top:14px;}
+.review-detail-card dd{margin:4px 0 0;color:var(--ink);white-space:pre-wrap;}

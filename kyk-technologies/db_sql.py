@@ -24,6 +24,7 @@ the generic table and the typed tables can coexist during the transition.
 
 import os
 import threading
+import time
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -35,6 +36,7 @@ from sqlalchemy import (
     create_engine,
     select,
     func,
+    delete,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -55,8 +57,9 @@ from models import (
     SessionRecord,
 )
 
-DEFAULT_NEON_URL = "postgresql://neondb_owner:npg_bpYva2dQ6Res@ep-patient-dawn-b4kld3m7-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-DATABASE_URL = (os.environ.get("DATABASE_URL") or DEFAULT_NEON_URL).strip().strip("'\"")
+# No live credentials are hardcoded here. If DATABASE_URL isn't set in the
+# environment, fall back to a local SQLite file rather than any real server.
+DATABASE_URL = (os.environ.get("DATABASE_URL") or "sqlite:///kyk_fallback.db").strip().strip("'\"")
 # Render and other PaaS providers supply 'postgres://' which SQLAlchemy 1.4+ rejects
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -71,7 +74,7 @@ try:
         DATABASE_URL,
         pool_pre_ping=True,
         future=True,
-        pool_size=10,
+        pool_size=5,
         max_overflow=5,
         pool_timeout=30,
         pool_recycle=1800,   # recycle connections every 30 min to avoid stale sockets
@@ -109,6 +112,39 @@ init_db()
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
+
+
+# Session operations use the indexed sessions table directly. Authentication is
+# a hot path, so scanning and deserialising every active session does not scale.
+def get_session_by_jti(jti):
+    with _Session() as session:
+        row = session.scalar(select(SessionRecord).where(SessionRecord.jti == jti))
+        return row.to_dict() if row else None
+
+
+def create_session(owner_type, owner_id, jti, max_sessions, ip="", ua="", exp=0):
+    """Create a session and retain only the newest sessions for its owner."""
+    with _Session() as session:
+        session.execute(delete(SessionRecord).where(SessionRecord.exp < int(time.time())))
+        existing = session.scalars(
+            select(SessionRecord)
+            .where(SessionRecord.owner_type == owner_type,
+                   SessionRecord.owner_id == owner_id)
+            .order_by(SessionRecord.created_at, SessionRecord.id)
+        ).all()
+        for stale in existing[:max(0, len(existing) - max_sessions + 1)]:
+            session.delete(stale)
+        session.add(SessionRecord(
+            jti=jti, owner_type=owner_type, owner_id=owner_id,
+            ip=ip, ua=ua[:200], exp=int(exp or 0),
+        ))
+        session.commit()
+
+
+def revoke_session(jti):
+    with _Session() as session:
+        session.execute(delete(SessionRecord).where(SessionRecord.jti == jti))
+        session.commit()
 
 
 def _row_to_dict(row):
