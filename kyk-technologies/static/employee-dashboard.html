@@ -103,6 +103,32 @@
       <tbody id="reportHistBody"></tbody></table>
     </div>
 
+      <!-- WorkPulse performance summary -->
+      <div class="panel" id="panel-performance">
+        <h3 style="font-family:var(--font-display);margin-bottom:16px;">Performance Summary</h3>
+        <div class="toolbar">
+          <input type="month" id="performanceMonth"/>
+          <button class="btn btn-primary" id="performanceRefresh">Refresh</button>
+        </div>
+        <table><thead><tr><th>Employee</th><th>Department</th><th>Reports</th><th>Submission rate</th><th>Status</th></tr></thead>
+        <tbody id="performanceBody"></tbody></table>
+      </div>
+
+      <!-- WorkPulse employee profile -->
+      <div class="panel" id="panel-my_profile">
+        <h3 style="font-family:var(--font-display);margin-bottom:16px;">My Profile</h3>
+        <form id="profileForm" class="form-card glass-glow" style="max-width:660px;">
+          <div class="field"><label for="profileName">Full name</label><input id="profileName" required/></div>
+          <div class="field"><label for="profileEmail">Email</label><input id="profileEmail" disabled/></div>
+          <div class="field"><label for="profileRole">Role</label><input id="profileRole" disabled/></div>
+          <div class="field"><label for="profilePhone">Phone</label><input id="profilePhone"/></div>
+          <div class="field"><label for="profilePassword">New password</label><input id="profilePassword" type="password" minlength="8" autocomplete="new-password"/></div>
+          <div id="profileStats" class="stat-cards"></div>
+          <button class="btn btn-primary" type="submit">Save profile</button>
+          <div class="form-msg" id="profileMsg"></div>
+        </form>
+      </div>
+
   </main>
 </div>
 

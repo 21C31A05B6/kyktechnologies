@@ -120,6 +120,7 @@ ROLES = {
     "content_manager":  {"label": "Content Manager",   "tabs": ["overview","performance","insights","my_attendance","daily_report","my_profile"]},
     "viewer":           {"label": "Viewer",            "tabs": ["overview","performance","daily_report","my_profile"]},
     "employee":         {"label": "Employee",          "tabs": ["overview","my_attendance","daily_report","my_profile"]},
+        "employee":         {"label": "Employee",          "tabs": ["overview","performance","my_attendance","daily_report","my_profile"]},
     "client":           {"label": "Client",            "tabs": ["overview"]},
 }
 

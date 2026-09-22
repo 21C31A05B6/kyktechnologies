@@ -259,6 +259,57 @@
       </div>
     </div>
 
+      <!-- WorkPulse employee directory -->
+      <div class="panel" id="panel-employees">
+        <h3 style="font-family:var(--font-display);margin-bottom:16px;">All Employees</h3>
+        <div class="toolbar">
+          <input id="employeeSearch" placeholder="Search name or email"/>
+          <button class="btn btn-outline" id="employeeRefresh">Refresh</button>
+        </div>
+        <table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Status</th></tr></thead>
+        <tbody id="employeesBody"></tbody></table>
+      </div>
+
+      <!-- WorkPulse performance monitoring -->
+      <div class="panel" id="panel-performance">
+        <h3 style="font-family:var(--font-display);margin-bottom:16px;">Performance Monitoring</h3>
+        <div class="toolbar">
+          <input type="month" id="performanceMonth"/>
+          <button class="btn btn-primary" id="performanceRefresh">Refresh</button>
+          <a class="btn btn-outline" href="/api/admin/performance/export.csv">Export CSV</a>
+        </div>
+        <table><thead><tr><th>Employee</th><th>Department</th><th>Reports</th><th>Submission rate</th><th>Attention</th></tr></thead>
+        <tbody id="performanceBody"></tbody></table>
+      </div>
+
+      <!-- WorkPulse HR settings -->
+      <div class="panel" id="panel-settings">
+        <h3 style="font-family:var(--font-display);margin-bottom:16px;">Portal Settings</h3>
+        <form id="settingsForm" class="form-card glass-glow" style="max-width:660px;">
+          <div class="field"><label for="settingsDeadline">Daily report deadline</label><input type="time" id="settingsDeadline"/></div>
+          <div class="field"><label for="settingsDepartments">Departments (comma separated)</label><input id="settingsDepartments"/></div>
+          <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="settingsNotifications"/> Email alert for missed reports</label>
+          <div class="field"><label for="settingsWorkingDays">Working days</label><input id="settingsWorkingDays" placeholder="0,1,2,3,4"/></div>
+          <button class="btn btn-primary" type="submit">Save settings</button>
+          <div class="form-msg" id="settingsMsg"></div>
+        </form>
+      </div>
+
+      <!-- WorkPulse admin profile -->
+      <div class="panel" id="panel-my_profile">
+        <h3 style="font-family:var(--font-display);margin-bottom:16px;">My Profile</h3>
+        <form id="profileForm" class="form-card glass-glow" style="max-width:660px;">
+          <div class="field"><label for="profileName">Full name</label><input id="profileName" required/></div>
+          <div class="field"><label for="profileEmail">Email</label><input id="profileEmail" disabled/></div>
+          <div class="field"><label for="profileRole">Role</label><input id="profileRole" disabled/></div>
+          <div class="field"><label for="profilePhone">Phone</label><input id="profilePhone"/></div>
+          <div class="field"><label for="profilePassword">New password</label><input id="profilePassword" type="password" minlength="8" autocomplete="new-password"/></div>
+          <div id="profileStats" class="stat-cards"></div>
+          <button class="btn btn-primary" type="submit">Save profile</button>
+          <div class="form-msg" id="profileMsg"></div>
+        </form>
+      </div>
+
   </main>
 </div>
 
