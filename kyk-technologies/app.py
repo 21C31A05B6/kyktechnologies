@@ -1945,7 +1945,7 @@ def workpulse_performance_export():
 
 
 @app.route("/api/admin/settings", methods=["GET", "PUT"])
-@role_required("hr_manager")
+@role_required("hr_manager", "recruiter", "team_lead", "content_manager", "viewer", "employee")
 def workpulse_settings():
     current = db.find("portal_settings", 1) or {
         "id": 1, "reportDeadline": "18:00", "departments": [],
@@ -1953,6 +1953,8 @@ def workpulse_settings():
     }
     if request.method == "GET":
         return jsonify(current)
+    if request.admin.get("role") not in {"super_admin", "hr_manager"}:
+        return error("Only HR can update portal settings.", 403)
     data = request.get_json(silent=True) or {}
     patch = {
         "reportDeadline": clean(data.get("reportDeadline", current.get("reportDeadline", "18:00")), 5),

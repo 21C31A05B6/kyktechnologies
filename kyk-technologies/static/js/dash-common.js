@@ -107,6 +107,7 @@ const TAB_META={
   my_attendance:{icon:'⏱️', label:'My Attendance'},
   attendance:   {icon:'🗓️', label:'Attendance Register'},
   daily_report: {icon:'📓', label:'Daily Report'},
+  report_history:{icon:'🗓️', label:'Report History'},
   reports_review:{icon:'✅', label:'Reports Review'},
   employees:    {icon:'👤', label:'Employees'},
   performance:  {icon:'📈', label:'Performance'},
@@ -185,7 +186,7 @@ function getLoaders(){
     newsletter:loadNewsletter, insights:loadInsights,
     activity:loadActivity, admin_users:loadUsers,
     my_attendance:loadMyAttendance, attendance:loadAttendanceRegister,
-    daily_report:loadMyDailyReport, reports_review:loadReportsReview,
+    daily_report:loadMyDailyReport, report_history:loadReportHistory, reports_review:loadReportsReview,
     employees:loadEmployees, performance:loadPerformance, settings:loadSettings,
     my_profile:loadMyProfile,
   };
@@ -869,8 +870,16 @@ async function loadMyReportHistory(){
     });
   } catch(e){console.error(e);}
 }
+async function loadReportHistory(){
+  const source=$('reportHistBody'), target=$('reportHistoryBody');
+  if(!target || !source){ return; }
+  await loadMyReportHistory();
+  target.innerHTML=source.innerHTML;
+}
 on('reportHistPrev','click',()=>{ repHistMonth--; if(repHistMonth<1){repHistMonth=12;repHistYear--;} loadMyReportHistory(); });
 on('reportHistNext','click',()=>{ repHistMonth++; if(repHistMonth>12){repHistMonth=1;repHistYear++;} loadMyReportHistory(); });
+on('reportHistoryPrev','click',()=>{ repHistMonth--; if(repHistMonth<1){repHistMonth=12;repHistYear--;} loadReportHistory(); });
+on('reportHistoryNext','click',()=>{ repHistMonth++; if(repHistMonth>12){repHistMonth=1;repHistYear++;} loadReportHistory(); });
 
 /* ────── REPORTS REVIEW (HR Manager + Super Admin: everyone's reports) ────── */
 let selectedReportId=null;
