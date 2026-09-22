@@ -1930,6 +1930,20 @@ def workpulse_performance():
     return jsonify({"month": month, "rows": result})
 
 
+@app.get("/api/admin/performance/export.csv")
+@role_required("hr_manager", "recruiter", "team_lead", "content_manager", "viewer", "employee")
+def workpulse_performance_export():
+    data = workpulse_performance().get_json()
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["Month", "Employee", "Role", "Department", "Reports", "Submission Rate", "Attention"])
+    for row in data["rows"]:
+        writer.writerow([data["month"], row["name"], row["role"], row["department"], row["totalReports"], row["submissionRate"], "Yes" if row["attention"] else "No"])
+    response = app.response_class(buf.getvalue(), mimetype="text/csv")
+    response.headers["Content-Disposition"] = f"attachment; filename=performance-{data['month']}.csv"
+    return response
+
+
 @app.route("/api/admin/settings", methods=["GET", "PUT"])
 @role_required("hr_manager")
 def workpulse_settings():
@@ -2150,6 +2164,11 @@ def admin_create_user():
         "email":        email,
         "passwordHash": hash_password(password),
         "role":         role,
+        "department":   clean(data.get("department", ""), 120),
+        "designation":   clean(data.get("designation", ""), 120),
+        "phone":         clean(data.get("phone", ""), 50),
+        "joiningDate":   clean(data.get("joiningDate", ""), 10),
+        "status":        clean(data.get("status", "active"), 30) or "active",
     })
     invalidate_admin_idx(email)
     invalidate_user_idx(email)
@@ -2180,6 +2199,9 @@ def admin_update_user(user_id):
         if len(pw) < 8:
             return error("Password must be at least 8 characters.")
         patch["passwordHash"] = hash_password(pw)
+    for field, limit in (("department", 120), ("designation", 120), ("phone", 50), ("joiningDate", 10), ("status", 30)):
+        if field in data:
+            patch[field] = clean(data[field], limit)
     if not patch:
         return error("Nothing to update.")
     updated = db.update("admins", user_id, patch)
