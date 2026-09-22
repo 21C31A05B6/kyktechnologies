@@ -128,6 +128,11 @@ ROLES = {
 # Manager, Recruiter, Content Manager, and Team Lead all get attendance.
 ATTENDANCE_ROLES = {"hr_manager", "recruiter", "content_manager", "team_lead", "employee"}
 
+# Daily reports apply to the same staff roles that are eligible for attendance.
+# HR Managers and Super Admins review the reports submitted by staff.
+DAILY_REPORT_ROLES = ATTENDANCE_ROLES
+REPORTS_REVIEW_ROLES = {"super_admin", "hr_manager"}
+
 
 def seed():
     try:
