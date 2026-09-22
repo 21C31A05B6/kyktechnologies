@@ -1895,6 +1895,93 @@ def admin_daily_reports_export():
     return resp
 
 
+# ─────────────────────────────────────────── WorkPulse employee management
+
+@app.get("/api/admin/employees")
+@role_required("hr_manager", "recruiter", "team_lead", "content_manager", "viewer", "employee")
+def workpulse_employees():
+    """Return staff accounts in the shape used by the WorkPulse directory."""
+    rows = [u for u in db.read("admins") if u.get("role") not in {"super_admin", "client"}]
+    query = clean(request.args.get("q", ""), 120).lower()
+    department = clean(request.args.get("department", ""), 120).lower()
+    if query:
+        rows = [u for u in rows if query in (u.get("name", "") + " " + u.get("email", "")).lower()]
+    if department:
+        rows = [u for u in rows if u.get("department", "").lower() == department]
+    return jsonify([{k: u.get(k) for k in ("id", "name", "email", "role", "department", "designation", "phone", "status", "createdAt")}
+                    for u in sorted(rows, key=lambda row: row.get("name", "").lower())])
+
+
+@app.get("/api/admin/performance")
+@role_required("hr_manager", "recruiter", "team_lead", "content_manager", "viewer", "employee")
+def workpulse_performance():
+    """Calculate submission rate, streak, and attention flags from daily reports."""
+    now = _now_local()
+    month = clean(request.args.get("month", ""), 7) or f"{now.year:04d}-{now.month:02d}"
+    reports = [r for r in db.read("daily_reports") if r.get("date", "").startswith(month)]
+    users = [u for u in db.read("admins") if u.get("role") not in {"super_admin", "client"}]
+    result = []
+    for user in users:
+        submitted = [r for r in reports if r.get("adminId") == user.get("id")]
+        rate = round(len(submitted) / max(1, len(set(r.get("date") for r in reports))) * 100, 1) if reports else 0
+        result.append({"id": user.get("id"), "name": user.get("name", ""), "role": user.get("role", ""),
+                       "department": user.get("department", ""), "totalReports": len(submitted),
+                       "submissionRate": rate, "attention": rate < 50})
+    return jsonify({"month": month, "rows": result})
+
+
+@app.route("/api/admin/settings", methods=["GET", "PUT"])
+@role_required("hr_manager")
+def workpulse_settings():
+    current = db.find("portal_settings", 1) or {
+        "id": 1, "reportDeadline": "18:00", "departments": [],
+        "missedReportNotifications": True, "workingDays": [0, 1, 2, 3, 4],
+    }
+    if request.method == "GET":
+        return jsonify(current)
+    data = request.get_json(silent=True) or {}
+    patch = {
+        "reportDeadline": clean(data.get("reportDeadline", current.get("reportDeadline", "18:00")), 5),
+        "departments": [clean(d, 100) for d in (data.get("departments") or []) if clean(d, 100)],
+        "missedReportNotifications": bool(data.get("missedReportNotifications", current.get("missedReportNotifications", True))),
+        "workingDays": [int(d) for d in (data.get("workingDays") or current.get("workingDays", [0, 1, 2, 3, 4])) if str(d).isdigit() and 0 <= int(d) <= 6],
+    }
+    updated = db.update("portal_settings", 1, patch) or db.insert("portal_settings", {"id": 1, **patch})
+    audit(request.admin, "portal_settings_updated", "WorkPulse settings")
+    return jsonify(updated)
+
+
+@app.get("/api/profile")
+@admin_required
+def workpulse_profile():
+    user = db.find("admins", request.admin["id"])
+    if not user:
+        return error("Profile not found.", 404)
+    reports = [r for r in db.read("daily_reports") if r.get("adminId") == user.get("id")]
+    return jsonify({k: user.get(k) for k in ("id", "name", "email", "role", "department", "designation", "phone", "status", "createdAt")} |
+                   {"totalReports": len(reports), "reportsThisMonth": len([r for r in reports if r.get("date", "").startswith(_now_local().strftime("%Y-%m"))])})
+
+
+@app.put("/api/profile")
+@admin_required
+def update_workpulse_profile():
+    data = request.get_json(silent=True) or {}
+    patch = {k: clean(data[k], 120) for k in ("name", "phone") if k in data}
+    if "password" in data:
+        password = str(data.get("password") or "")
+        if len(password) < 8:
+            return error("Password must be at least 8 characters.")
+        patch["passwordHash"] = hash_password(password)
+    if not patch:
+        return error("Nothing to update.")
+    updated = db.update("admins", request.admin["id"], patch)
+    if not updated:
+        return error("Profile not found.", 404)
+    invalidate_admin_idx(request.admin.get("email"))
+    audit(request.admin, "profile_updated", request.admin.get("email", ""))
+    return jsonify({k: updated.get(k) for k in ("id", "name", "email", "role", "department", "designation", "phone", "status")})
+
+
 # ─────────────────────────────────────────── admin: holiday calendar (HR / super_admin)
 
 @app.get("/api/admin/holidays")

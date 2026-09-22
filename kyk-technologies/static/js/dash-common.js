@@ -108,6 +108,10 @@ const TAB_META={
   attendance:   {icon:'🗓️', label:'Attendance Register'},
   daily_report: {icon:'📓', label:'Daily Report'},
   reports_review:{icon:'✅', label:'Reports Review'},
+  employees:    {icon:'👤', label:'Employees'},
+  performance:  {icon:'📈', label:'Performance'},
+  settings:     {icon:'⚙️', label:'Settings'},
+  my_profile:   {icon:'🪪', label:'My Profile'},
 };
 
 /* Every role's dedicated home page. */
@@ -133,6 +137,7 @@ function showDashboard(d){
   const ls=$('loginScreen'); if(ls) ls.style.display='none';
   const shell=$('dashShell'); if(!shell) return;
   shell.style.display='flex';
+  ensureRolePanels(d.tabs||[]);
   txt($('adminName'), d.name||'Admin');
   txt($('adminEmail'), d.email||'');
   const roleLabel=d.role||'viewer';
@@ -140,6 +145,20 @@ function showDashboard(d){
   buildSidebar(d.tabs||['overview']);
   const firstTab=(d.tabs&&d.tabs[0])||'overview';
   switchTab(firstTab);
+}
+
+function ensureRolePanels(tabs){
+  const main=document.querySelector('.main-content'); if(!main) return;
+  const panels={
+    employees:`<h3>Employee Directory</h3><div class="toolbar"><input id="employeeSearch" placeholder="Search name or email"/><button class="btn btn-outline" id="employeeRefresh">Refresh</button></div><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Status</th></tr></thead><tbody id="employeesBody"></tbody></table>`,
+    performance:`<h3>Performance Monitoring</h3><div class="toolbar"><input type="month" id="performanceMonth"/><button class="btn btn-primary" id="performanceRefresh">Refresh</button></div><table><thead><tr><th>Employee</th><th>Department</th><th>Reports</th><th>Submission rate</th><th>Attention</th></tr></thead><tbody id="performanceBody"></tbody></table>`,
+    settings:`<h3>Portal Settings</h3><form id="settingsForm" class="form-card" style="max-width:660px"><div class="field"><label>Daily report deadline</label><input type="time" id="settingsDeadline"/></div><div class="field"><label>Departments (comma separated)</label><input id="settingsDepartments"/></div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="settingsNotifications"/> Email alert for missed reports</label><div class="field"><label>Working days</label><input id="settingsWorkingDays" placeholder="0,1,2,3,4"/></div><button class="btn btn-primary" type="submit">Save settings</button><div class="form-msg" id="settingsMsg"></div></form>`,
+    my_profile:`<h3>My Profile</h3><form id="profileForm" class="form-card" style="max-width:660px"><div class="field"><label>Full name</label><input id="profileName" required/></div><div class="field"><label>Email</label><input id="profileEmail" disabled/></div><div class="field"><label>Role</label><input id="profileRole" disabled/></div><div class="field"><label>Phone</label><input id="profilePhone"/></div><div class="field"><label>New password</label><input id="profilePassword" type="password" minlength="8" autocomplete="new-password"/></div><div id="profileStats" class="stat-cards"></div><button class="btn btn-primary" type="submit">Save profile</button><div class="form-msg" id="profileMsg"></div></form>`,
+  };
+  tabs.forEach(tab=>{
+    if(!panels[tab] || $('panel-'+tab)) return;
+    const panel=document.createElement('div'); panel.className='panel'; panel.id='panel-'+tab; panel.innerHTML=panels[tab]; main.appendChild(panel);
+  });
 }
 
 function buildSidebar(tabs){
@@ -167,6 +186,8 @@ function getLoaders(){
     activity:loadActivity, admin_users:loadUsers,
     my_attendance:loadMyAttendance, attendance:loadAttendanceRegister,
     daily_report:loadMyDailyReport, reports_review:loadReportsReview,
+    employees:loadEmployees, performance:loadPerformance, settings:loadSettings,
+    my_profile:loadMyProfile,
   };
   return Object.assign(defaults, window.TAB_LOADER_OVERRIDES||{});
 }
@@ -923,4 +944,69 @@ on('reviewSaveBtn','click',async()=>{
     setFormMsg(msg,'Saved.',true);
     loadReviewRows();
   } catch(e){ setFormMsg(msg,e.message,false); }
+});
+
+/* ────── WORKPULSE DIRECTORY / PERFORMANCE / SETTINGS / PROFILE ────── */
+async function loadEmployees(){
+  const tbody=$('employeesBody'); if(!tbody) return;
+  try{
+    const q=encodeURIComponent($('employeeSearch')?.value||'');
+    const rows=await api('/admin/employees?q='+q);
+    tbody.innerHTML='';
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="5">No employees found.</td></tr>';return;}
+    rows.forEach(u=>{
+      const tr=document.createElement('tr'); tr.innerHTML='<td></td><td></td><td></td><td></td><td></td>';
+      tr.cells[0].textContent=u.name||'—'; tr.cells[1].textContent=u.email||'—';
+      tr.cells[2].textContent=(u.role||'').replace(/_/g,' '); tr.cells[3].textContent=u.department||'—';
+      tr.cells[4].textContent=u.status||'active'; tbody.appendChild(tr);
+    });
+  }catch(e){console.error(e);}
+}
+on('employeeRefresh','click',loadEmployees); on('employeeSearch','keydown',e=>e.key==='Enter'&&loadEmployees());
+
+async function loadPerformance(){
+  const tbody=$('performanceBody'); if(!tbody) return;
+  try{
+    const month=$('performanceMonth')?.value||''; const d=await api('/admin/performance?month='+encodeURIComponent(month));
+    tbody.innerHTML='';
+    if(!d.rows.length){tbody.innerHTML='<tr><td colspan="5">No performance data.</td></tr>';return;}
+    d.rows.forEach(r=>{
+      const tr=document.createElement('tr'); tr.innerHTML='<td></td><td></td><td></td><td></td><td></td>';
+      tr.cells[0].textContent=r.name||'—'; tr.cells[1].textContent=r.department||'—';
+      tr.cells[2].textContent=r.totalReports; tr.cells[3].textContent=r.submissionRate+'%';
+      const badge=document.createElement('span'); badge.className='badge '+(r.attention?'badge-rejected':'badge-hired'); badge.textContent=r.attention?'Needs attention':'On track';
+      tr.cells[4].appendChild(badge); tbody.appendChild(tr);
+    });
+  }catch(e){console.error(e);}
+}
+on('performanceRefresh','click',loadPerformance);
+
+async function loadSettings(){
+  const form=$('settingsForm'); if(!form) return;
+  try{
+    const d=await api('/admin/settings'); $('settingsDeadline').value=d.reportDeadline||'18:00';
+    $('settingsDepartments').value=(d.departments||[]).join(', '); $('settingsNotifications').checked=d.missedReportNotifications!==false;
+    $('settingsWorkingDays').value=(d.workingDays||[0,1,2,3,4]).join(',');
+  }catch(e){setFormMsg($('settingsMsg'),e.message,false);}
+}
+on('settingsForm','submit',async e=>{
+  e.preventDefault();
+  try{
+    await api('/admin/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      reportDeadline:$('settingsDeadline').value, departments:$('settingsDepartments').value.split(',').map(v=>v.trim()).filter(Boolean),
+      missedReportNotifications:$('settingsNotifications').checked, workingDays:$('settingsWorkingDays').value.split(',').map(v=>Number(v.trim())).filter(Number.isInteger),
+    })}); setFormMsg($('settingsMsg'),'Settings saved.',true);
+  }catch(e){setFormMsg($('settingsMsg'),e.message,false);}
+});
+
+async function loadMyProfile(){
+  const form=$('profileForm'); if(!form) return;
+  try{
+    const d=await api('/profile'); $('profileName').value=d.name||''; $('profileEmail').value=d.email||''; $('profileRole').value=(d.role||'').replace(/_/g,' '); $('profilePhone').value=d.phone||'';
+    const cards=$('profileStats'); cards.innerHTML=''; [[d.totalReports||0,'Total reports'],[d.reportsThisMonth||0,'This month']].forEach(([v,l])=>{const c=document.createElement('div');c.className='stat-card glass-glow';c.innerHTML='<b></b><span></span>';c.firstChild.textContent=v;c.lastChild.textContent=l;cards.appendChild(c);});
+  }catch(e){setFormMsg($('profileMsg'),e.message,false);}
+}
+on('profileForm','submit',async e=>{
+  e.preventDefault(); const payload={name:$('profileName').value,phone:$('profilePhone').value}; if($('profilePassword').value) payload.password=$('profilePassword').value;
+  try{await api('/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('profilePassword').value='';setFormMsg($('profileMsg'),'Profile saved.',true);}catch(err){setFormMsg($('profileMsg'),err.message,false);}
 });

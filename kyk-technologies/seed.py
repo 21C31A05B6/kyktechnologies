@@ -113,13 +113,13 @@ INSIGHTS = [
 # "super_admin" and "hr_manager" additionally get "attendance", the
 # org-wide attendance register for reviewing everyone's hours.
 ROLES = {
-    "super_admin":      {"label": "Super Admin",       "tabs": ["overview","jobs","applications","pipeline","talent","contacts","newsletter","insights","activity","admin_users","attendance","reports_review"]},
-    "hr_manager":       {"label": "HR Manager",        "tabs": ["overview","applications","pipeline","talent","contacts","my_attendance","attendance","daily_report","reports_review"]},
-    "recruiter":        {"label": "Recruiter",         "tabs": ["overview","applications","pipeline","talent","my_attendance","daily_report"]},
-    "team_lead":        {"label": "Team Lead",         "tabs": ["overview","jobs","applications","my_attendance","daily_report"]},
-    "content_manager":  {"label": "Content Manager",   "tabs": ["overview","insights","my_attendance","daily_report"]},
-    "viewer":           {"label": "Viewer",            "tabs": ["overview","daily_report"]},
-    "employee":         {"label": "Employee",          "tabs": ["overview","my_attendance","daily_report"]},
+    "super_admin":      {"label": "Super Admin",       "tabs": ["overview","employees","performance","jobs","applications","pipeline","talent","contacts","newsletter","insights","activity","admin_users","attendance","reports_review","settings","my_profile"]},
+    "hr_manager":       {"label": "HR Manager",        "tabs": ["overview","employees","performance","applications","pipeline","talent","contacts","my_attendance","attendance","daily_report","reports_review","settings","my_profile"]},
+    "recruiter":        {"label": "Recruiter",         "tabs": ["overview","performance","applications","pipeline","talent","my_attendance","daily_report","my_profile"]},
+    "team_lead":        {"label": "Team Lead",         "tabs": ["overview","performance","jobs","applications","my_attendance","daily_report","my_profile"]},
+    "content_manager":  {"label": "Content Manager",   "tabs": ["overview","performance","insights","my_attendance","daily_report","my_profile"]},
+    "viewer":           {"label": "Viewer",            "tabs": ["overview","performance","daily_report","my_profile"]},
+    "employee":         {"label": "Employee",          "tabs": ["overview","my_attendance","daily_report","my_profile"]},
     "client":           {"label": "Client",            "tabs": ["overview"]},
 }
 
