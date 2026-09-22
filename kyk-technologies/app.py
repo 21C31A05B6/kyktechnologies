@@ -2300,6 +2300,16 @@ def home():
     return send_from_directory(STATIC_DIR, "index.html")
 
 
+@app.get("/api/health/database")
+def database_health():
+    """Deployment-safe database probe for Render health diagnostics."""
+    try:
+        return jsonify(db.health_check())
+    except Exception as exc:
+        app.logger.exception("Database health check failed")
+        return jsonify({"backend": "sql", "database": "unreachable", "error": str(exc)}), 503
+
+
 @app.get("/kyk_logo.webp")
 def serve_logo():
     return send_from_directory(BASE_DIR, "kyk_logo.webp")

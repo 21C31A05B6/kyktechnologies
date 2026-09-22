@@ -110,6 +110,14 @@ def init_db():
 init_db()
 
 
+def health_check():
+    """Verify that the configured SQL database accepts a real query."""
+    from sqlalchemy import text
+    with _engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return {"backend": "sql", "database": "reachable"}
+
+
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
