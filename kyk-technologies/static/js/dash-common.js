@@ -1,3 +1,9 @@
+if (!document.querySelector('script[src="/js/pwa.js"]')) {
+  const pwaScript = document.createElement("script");
+  pwaScript.src = "/js/pwa.js";
+  document.head.appendChild(pwaScript);
+}
+
 /* dash-common.js — shared logic for every dashboard page (admin.html,
  * hr-dashboard.html, recruiter-dashboard.html, content-dashboard.html,
  * client-portal.html). Each page includes only the <div class="panel">

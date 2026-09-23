@@ -1,4 +1,9 @@
 // main.js — shared behavior across all pages.
+if (!document.querySelector('script[src="/js/pwa.js"]')) {
+  const pwaScript = document.createElement("script");
+  pwaScript.src = "/js/pwa.js";
+  document.head.appendChild(pwaScript);
+}
 const API = "/api";
 const USER_TOKEN_KEY = "kyk_user_token";
 const ADMIN_TOKEN_KEY = "kyk_admin_token";
