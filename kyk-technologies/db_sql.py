@@ -67,15 +67,15 @@ if DATABASE_URL.startswith("postgres://"):
 try:
     if not DATABASE_URL or "://" not in DATABASE_URL:
         raise ValueError(f"Empty or invalid DATABASE_URL: {DATABASE_URL!r}")
-    # Pool tuned for 2 Gunicorn workers × 4 threads = 8 concurrent sessions.
-    # pool_size=10 keeps connections warm; max_overflow=5 allows short bursts
-    # up to 15 total connections without raising PoolTimeout under load.
+    # Pool tuned for 4 Gunicorn workers x 8 threads = 32 concurrent requests.
+    # Keep a bounded pool per worker and allow short bursts without exhausting
+    # the hosted PostgreSQL connection limit.
     _engine = create_engine(
         DATABASE_URL,
         pool_pre_ping=True,
         future=True,
-        pool_size=5,
-        max_overflow=5,
+        pool_size=8,
+        max_overflow=4,
         pool_timeout=30,
         pool_recycle=1800,   # recycle connections every 30 min to avoid stale sockets
     )

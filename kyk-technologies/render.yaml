@@ -3,7 +3,7 @@ services:
     name: kyktechnologies
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --worker-class gthread --workers 4 --threads 4 --timeout 120 --access-logfile - --error-logfile - app:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --worker-class gthread --workers 4 --threads 8 --timeout 120 --max-requests 1000 --max-requests-jitter 100 --access-logfile - --error-logfile - app:app
     healthCheckPath: /api/health/database
     envVars:
       - key: PYTHON_VERSION
