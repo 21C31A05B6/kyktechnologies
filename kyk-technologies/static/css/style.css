@@ -685,6 +685,24 @@ body.theme-ready{ } /* hook, no-op */
   border-color: rgba(122,214,255,.25);
   color: #D0E2F0;
 }
+
+/* Keep native controls and muted copy readable in every theme. */
+:root{ color-scheme: dark; }
+:root[data-theme="light"]{ color-scheme: light; }
+:root[data-theme="aurora"]{ color-scheme: dark; }
+select, select option{ color:var(--ink); background:var(--panel); }
+input, textarea{ color:var(--ink); }
+input::placeholder, textarea::placeholder{ color:var(--steel) !important; opacity:1; }
+:root[data-theme="light"] select,
+:root[data-theme="light"] select option{ color:#0F172A !important; background:#FFFFFF !important; }
+:root[data-theme="light"] input,
+:root[data-theme="light"] textarea{ color:#0F172A; }
+:root[data-theme="light"] input::placeholder,
+:root[data-theme="light"] textarea::placeholder{ color:#64748B !important; }
+:root[data-theme="light"] .filter-bar select,
+:root[data-theme="light"] .filter-bar input{ color:#0F172A !important; }
+:root[data-theme="light"] .filter-bar select option{ color:#0F172A !important; background:#FFFFFF !important; }
+:root:not([data-theme="light"]) .filter-bar select option{ color:#F8FAFC; background:#111622; }
 .dropzone.drag-over{
   border-color: var(--orange) !important;
   background: rgba(232,98,44,.1) !important;

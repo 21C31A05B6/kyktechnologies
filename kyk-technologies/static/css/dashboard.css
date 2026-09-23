@@ -116,6 +116,16 @@ tr:hover td{background:rgba(255,255,255,.025);}
 :root[data-theme="light"] .admin-page .stat-card b{color:var(--ink);}
 :root[data-theme="light"] .admin-page .stat-card span,
 :root[data-theme="light"] .admin-page .kanban-card span{color:var(--steel);}
+:root[data-theme="light"] .admin-page .main-content{background:rgba(248,250,252,.78);}
+:root[data-theme="light"] .admin-page th{color:#475569;}
+:root[data-theme="light"] .admin-page td{color:#0F172A;}
+:root[data-theme="light"] .admin-page td,
+:root[data-theme="light"] .admin-page th{border-bottom-color:#E2E8F0;}
+:root[data-theme="light"] .admin-page tr:hover td{background:rgba(15,23,42,.04);}
+:root[data-theme="light"] .admin-page .field select option{color:#0F172A;background:#FFFFFF;}
+:root[data-theme="light"] .admin-page .small-btn,
+:root[data-theme="light"] .admin-page .logout-btn{color:#475569;background:#FFFFFF;border-color:#CBD5E1;}
+:root[data-theme="light"] .admin-page .notes-area{color:#0F172A;background:#FFFFFF;border-color:#CBD5E1;}
 /* ── chart ── */
 .chart-card{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:20px;}
 /* ── notes textarea ── */
