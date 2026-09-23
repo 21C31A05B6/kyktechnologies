@@ -1316,7 +1316,10 @@ def admin_download(filename):
     safe = secure_filename(filename)
     if not os.path.exists(os.path.join(UPLOAD_DIR, safe)):
         return error("File not found.", 404)
-    return send_from_directory(UPLOAD_DIR, safe, as_attachment=True)
+    # Keep resume access authenticated while allowing admins to preview files
+    # in the browser or explicitly download them from the applications table.
+    as_attachment = request.args.get("download", "") == "1"
+    return send_from_directory(UPLOAD_DIR, safe, as_attachment=as_attachment)
 
 
 # ─────────────────────────────────────────── attendance (check-in / check-out)

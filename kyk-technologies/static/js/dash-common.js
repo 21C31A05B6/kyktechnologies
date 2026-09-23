@@ -378,9 +378,10 @@ async function loadApplications(){
     badge.textContent=(a.status||'new');
     tr.cells[2].appendChild(badge);
     if(a.resumeFile){
-      const link=document.createElement('a'); link.href='/api/admin/files/'+encodeURIComponent(a.resumeFile)+'?token='+gToken;
-      link.textContent='Download'; link.target='_blank'; link.style.color='var(--orange)'; link.style.fontSize='.8rem';
-      tr.cells[3].appendChild(link);
+      const filePath='/api/admin/files/'+encodeURIComponent(a.resumeFile)+'?token='+encodeURIComponent(gToken);
+      const viewLink=document.createElement('a'); viewLink.href=filePath; viewLink.textContent='View'; viewLink.target='_blank'; viewLink.rel='noopener'; viewLink.style.cssText='color:var(--orange);font-size:.8rem;margin-right:10px;';
+      const downloadLink=document.createElement('a'); downloadLink.href=filePath+'&download=1'; downloadLink.textContent='Download'; downloadLink.style.cssText='color:var(--orange);font-size:.8rem;';
+      tr.cells[3].append(viewLink,downloadLink);
     } else {tr.cells[3].textContent='—';}
     const notesArea=document.createElement('textarea'); notesArea.className='notes-area';
     notesArea.value=a.notes||''; notesArea.placeholder='Add notes…';
