@@ -186,9 +186,9 @@ _build_user_idx()
 #
 # Session limits (simultaneous browsers allowed per role):
 #   super_admin / admin → 3
-#   All staff roles     → 3 (employee, hr_manager, recruiter, team_lead,
+#   All staff roles     → 1 (employee, hr_manager, recruiter, team_lead,
 #                            content_manager, viewer, client)
-#   Portal users        → 3
+#   Portal users        → 1
 #
 # When the limit is exceeded the OLDEST session is evicted so the new
 # login always succeeds and the stale browser is the one that gets kicked.
@@ -1915,11 +1915,12 @@ def workpulse_employees():
 @app.get("/api/admin/performance")
 @role_required("hr_manager", "recruiter", "team_lead", "content_manager", "viewer", "employee")
 def workpulse_performance():
-    """Calculate submission rate, streak, and attention flags from daily reports."""
+    """Calculate the signed-in employee's monthly submission performance."""
     now = _now_local()
     month = clean(request.args.get("month", ""), 7) or f"{now.year:04d}-{now.month:02d}"
     reports = [r for r in db.read("daily_reports") if r.get("date", "").startswith(month)]
-    users = [u for u in db.read("admins") if u.get("role") not in {"super_admin", "client"}]
+    user = db.find("admins", request.admin["id"])
+    users = [user] if user and user.get("role") not in {"super_admin", "client"} else []
     result = []
     for user in users:
         submitted = [r for r in reports if r.get("adminId") == user.get("id")]
