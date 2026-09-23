@@ -153,8 +153,8 @@ function ensureRolePanels(tabs){
   const panels={
     employees:`<h3>Employee Directory</h3><div class="toolbar"><input id="employeeSearch" placeholder="Search name or email"/><button class="btn btn-outline" id="employeeRefresh">Refresh</button></div><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Status</th></tr></thead><tbody id="employeesBody"></tbody></table>`,
     performance:`<h3>Performance Monitoring</h3><div class="toolbar"><input type="month" id="performanceMonth"/><button class="btn btn-primary" id="performanceRefresh">Refresh</button></div><table><thead><tr><th>Employee</th><th>Department</th><th>Reports</th><th>Submission rate</th><th>Attention</th></tr></thead><tbody id="performanceBody"></tbody></table>`,
-    settings:`<h3>Portal Settings</h3><form id="settingsForm" class="form-card" style="max-width:660px"><div class="field"><label>Daily report deadline</label><input type="time" id="settingsDeadline"/></div><div class="field"><label>Departments (comma separated)</label><input id="settingsDepartments"/></div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="settingsNotifications"/> Email alert for missed reports</label><div class="field"><label>Working days</label><input id="settingsWorkingDays" placeholder="0,1,2,3,4"/></div><button class="btn btn-primary" type="submit">Save settings</button><div class="form-msg" id="settingsMsg"></div></form>`,
-    my_profile:`<h3>My Profile</h3><form id="profileForm" class="form-card" style="max-width:660px"><div class="field"><label>Full name</label><input id="profileName" required/></div><div class="field"><label>Email</label><input id="profileEmail" disabled/></div><div class="field"><label>Role</label><input id="profileRole" disabled/></div><div class="field"><label>Phone</label><input id="profilePhone"/></div><div class="field"><label>New password</label><input id="profilePassword" type="password" minlength="8" autocomplete="new-password"/></div><div id="profileStats" class="stat-cards"></div><button class="btn btn-primary" type="submit">Save profile</button><div class="form-msg" id="profileMsg"></div></form>`,
+    settings:`<h3>Portal Settings</h3><form id="settingsForm" class="form-card" style="max-inline-size:660px"><div class="field"><label>Daily report deadline</label><input type="time" id="settingsDeadline"/></div><div class="field"><label>Departments (comma separated)</label><input id="settingsDepartments"/></div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="settingsNotifications"/> Email alert for missed reports</label><div class="field"><label>Working days</label><input id="settingsWorkingDays" placeholder="0,1,2,3,4"/></div><button class="btn btn-primary" type="submit">Save settings</button><div class="form-msg" id="settingsMsg"></div></form>`,
+    my_profile:`<h3>My Profile</h3><form id="profileForm" class="form-card" style="max-inline-size:660px"><div class="field"><label>Full name</label><input id="profileName" required/></div><div class="field"><label>Email</label><input id="profileEmail" disabled/></div><div class="field"><label>Role</label><input id="profileRole" disabled/></div><div class="field"><label>Phone</label><input id="profilePhone"/></div><div class="field"><label>New password</label><input id="profilePassword" type="password" minlength="8" autocomplete="new-password"/></div><div id="profileStats" class="stat-cards"></div><button class="btn btn-primary" type="submit">Save profile</button><div class="form-msg" id="profileMsg"></div></form>`,
   };
   tabs.forEach(tab=>{
     if(!panels[tab] || $('panel-'+tab)) return;
@@ -363,7 +363,7 @@ async function loadApplications(){
   if(!apps.length){tbody.innerHTML='<tr><td colspan="6" style="color:var(--steel)">No applications yet.</td></tr>';return;}
   apps.forEach(a=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td></td><td></td><td></td><td></td><td style="max-width:180px;"></td><td style="white-space:nowrap;"></td>`;
+    tr.innerHTML=`<td></td><td></td><td></td><td></td><td style="max-inline-size:180px;"></td><td style="white-space:nowrap;"></td>`;
     tr.cells[0].textContent=a.name+(a.email?'\n'+a.email:'')+(a.phone?'\n'+a.phone:'');
     tr.cells[0].style.whiteSpace='pre-wrap';
     tr.cells[1].textContent=a.jobTitle||'—';
@@ -387,7 +387,7 @@ async function loadApplications(){
     });
     sel.addEventListener('change',()=>updateAppStatus(a.id,sel.value));
     actions.appendChild(sel);
-    if(a.linkedin){const li=document.createElement('a'); li.href=a.linkedin; li.target='_blank'; li.textContent='LinkedIn'; li.style.cssText='display:block;font-size:.74rem;color:var(--orange);margin-top:4px;'; actions.appendChild(li);}
+    if(a.linkedin){const li=document.createElement('a'); li.href=a.linkedin; li.target='_blank'; li.textContent='LinkedIn'; li.style.cssText='display:block;font-size:.74rem;color:var(--orange);margin-block-start:4px;'; actions.appendChild(li);}
     tbody.appendChild(tr);
   });
 }
@@ -442,7 +442,7 @@ async function loadTalent(){
   if(!talent.length){tbody.innerHTML='<tr><td colspan="7" style="color:var(--steel)">No profiles yet.</td></tr>';return;}
   talent.forEach(t=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td></td><td></td><td></td><td></td><td></td><td style="max-width:160px;"></td><td></td>`;
+    tr.innerHTML=`<td></td><td></td><td></td><td></td><td></td><td style="max-inline-size:160px;"></td><td></td>`;
     tr.cells[0].textContent=t.name;
     tr.cells[1].textContent=t.specialization||'—';
     tr.cells[2].textContent=(t.experience||'—')+' yrs';
@@ -473,7 +473,7 @@ async function loadContacts(){
   if(!contacts.length){tbody.innerHTML='<tr><td colspan="6" style="color:var(--steel)">No messages yet.</td></tr>';return;}
   contacts.forEach(c=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td></td><td></td><td></td><td style="max-width:240px;white-space:pre-wrap;font-size:.8rem;"></td><td></td><td></td>`;
+    tr.innerHTML=`<td></td><td></td><td></td><td style="max-inline-size:240px;white-space:pre-wrap;font-size:.8rem;"></td><td></td><td></td>`;
     tr.cells[0].textContent=c.name+(c.email?'\n'+c.email:'');
     tr.cells[0].style.whiteSpace='pre-wrap';
     tr.cells[1].textContent=c.company||'—';

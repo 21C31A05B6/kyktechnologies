@@ -195,21 +195,21 @@ _build_user_idx()
 # Raise any value here to allow more simultaneous devices for that role.
 
 SESSION_LIMIT_ADMIN = 3
-SESSION_LIMIT_USER  = 3   # raised from 1 → 3 so staff can log in from multiple devices
+SESSION_LIMIT_USER  = 1   # raised from 1  so staff can not log in from multiple devices
 
 # Per-role override map — looked up in the login route.
 # Falls back to SESSION_LIMIT_USER for any role not listed here.
 SESSION_LIMIT_BY_ROLE: dict = {
     "super_admin":     3,
     "admin":           3,
-    "hr_manager":      3,
-    "recruiter":       3,
-    "team_lead":       3,
-    "content_manager": 3,
-    "employee":        3,
-    "viewer":          3,
-    "client":          3,
-    "user":            3,
+    "hr_manager":      1,
+    "recruiter":       1,
+    "team_lead":       1,
+    "content_manager": 1,
+    "employee":        1,
+    "viewer":          1,
+    "client":          1,
+    "user":            1,
 }
 
 # Friendly error payload that the frontend can detect to show a specific message
