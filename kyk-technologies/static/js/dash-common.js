@@ -641,6 +641,7 @@ function editUser(u){
   $('uEmail').value=u.email||'';
   $('uPassword').value='';
   $('uRole').value=u.role||'viewer';
+  $('uShift').value=u.shift||'morning';
   $('userSubmitBtn').textContent='Update user';
   $('userCancelBtn').style.display='inline-flex';
   $('userDetails').open=true;
@@ -653,7 +654,7 @@ on('userForm','submit',async e=>{
   e.preventDefault();
   const msg=$('userMsg');
   const editId=$('userEditId').value;
-  const payload={name:$('uName').value,email:$('uEmail').value,role:$('uRole').value};
+  const payload={name:$('uName').value,email:$('uEmail').value,role:$('uRole').value,shift:$('uShift').value};
   const pw=$('uPassword').value;
   if(pw) payload.password=pw;
   if(!editId && !pw){setFormMsg(msg,'Password is required for new users.',false);return;}

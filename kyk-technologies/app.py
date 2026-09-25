@@ -106,10 +106,13 @@ except Exception:
 # Shift + grace-period configuration (single default shift; see
 # /api/admin/shifts for the multi-shift table used to override this
 # per employee/department).
-SHIFT_START = os.environ.get("SHIFT_START", "09:00")
-SHIFT_END = os.environ.get("SHIFT_END", "18:00")
-LATE_GRACE_MINUTES = int(os.environ.get("LATE_GRACE_MINUTES", "10"))
-EARLY_LEAVE_GRACE_MINUTES = int(os.environ.get("EARLY_LEAVE_GRACE_MINUTES", "10"))
+SHIFT_SCHEDULES = {
+    "morning": (os.environ.get("MORNING_SHIFT_START", "09:30"), os.environ.get("MORNING_SHIFT_END", "18:15")),
+    "evening": (os.environ.get("EVENING_SHIFT_START", "18:30"), os.environ.get("EVENING_SHIFT_END", "03:30")),
+}
+LATE_GRACE_MINUTES = int(os.environ.get("LATE_GRACE_MINUTES", "0"))
+EARLY_LEAVE_GRACE_MINUTES = int(os.environ.get("EARLY_LEAVE_GRACE_MINUTES", "0"))
+MONTHLY_LATE_EARLY_LIMIT = 3
 WEEKEND_DAYS = {int(d) for d in os.environ.get("WEEKEND_DAYS", "5,6").split(",") if d.strip().isdigit()}
 # WEEKEND_DAYS uses Python's Monday=0..Sunday=6; default Sat/Sun.
 
@@ -1390,10 +1393,26 @@ def _to_local(iso_str):
     return dt.astimezone(COMPANY_TZ)
 
 
-def _shift_dt(date_key, hhmm):
+def _shift_dt(date_key, hhmm, day_offset=0):
     h, m = (int(x) for x in hhmm.split(":"))
     y, mo, d = (int(x) for x in date_key.split("-"))
-    return _dt.datetime(y, mo, d, h, m, tzinfo=COMPANY_TZ)
+    return _dt.datetime(y, mo, d, h, m, tzinfo=COMPANY_TZ) + _dt.timedelta(days=day_offset)
+
+
+def _shift_for_admin(admin_id):
+    user = db.find("admins", admin_id) or {}
+    return user.get("shift", "morning") if user.get("shift") in SHIFT_SCHEDULES else "morning"
+
+
+def _monthly_late_early_attempts(admin_id, date_key, current_id=None):
+    month = date_key[:7]
+    return sum(
+        1 for row in db.read("attendance")
+        if row.get("adminId") == admin_id
+        and row.get("date", "").startswith(month)
+        and row.get("id") != current_id
+        and ((row.get("lateByMinutes") or 0) > 0 or (row.get("earlyLeaveByMinutes") or 0) > 0)
+    )
 
 
 def _find_attendance_row(admin_id, date_key):
@@ -1401,6 +1420,12 @@ def _find_attendance_row(admin_id, date_key):
         if r.get("adminId") == admin_id and r.get("date") == date_key:
             return r
     return None
+
+
+def _open_attendance_row(admin_id):
+    rows = [r for r in db.read("attendance")
+            if r.get("adminId") == admin_id and r.get("checkIn") and not r.get("checkOut")]
+    return max(rows, key=lambda r: r.get("checkIn", ""), default=None)
 
 
 def _is_weekend(date_key):
@@ -1468,8 +1493,10 @@ def _recalculate(row):
     gross = max(0, int((checkout_dt - checkin_dt).total_seconds()))
     worked = max(0, gross - _break_seconds(row))
 
-    shift_start = _shift_dt(date_key, SHIFT_START)
-    shift_end = _shift_dt(date_key, SHIFT_END)
+    shift_name = row.get("shift") or _shift_for_admin(row.get("adminId"))
+    shift_start_text, shift_end_text = SHIFT_SCHEDULES[shift_name]
+    shift_start = _shift_dt(date_key, shift_start_text)
+    shift_end = _shift_dt(date_key, shift_end_text, 1 if shift_end_text < shift_start_text else 0)
     late_raw = max(0, int((checkin_dt - shift_start).total_seconds() // 60)) if checkin_dt > shift_start else 0
     late_by = max(0, late_raw - LATE_GRACE_MINUTES) if late_raw else 0
     early_raw = max(0, int((shift_end - checkout_dt).total_seconds() // 60)) if checkout_dt < shift_end else 0
@@ -1477,13 +1504,18 @@ def _recalculate(row):
     shift_seconds = max(1, int((shift_end - shift_start).total_seconds()))
     overtime = max(0, worked - shift_seconds)
 
-    if worked >= WORK_DAY_SECONDS:
+    if worked >= shift_seconds:
         status = "Full Day"
-    elif worked >= HALF_DAY_SECONDS:
+    elif worked >= shift_seconds // 2:
         status = "Half Day"
     else:
         status = "Short Day"
-    if late_by > 0:
+    attempt_count = _monthly_late_early_attempts(row.get("adminId"), date_key, row.get("id"))
+    if late_by > 0 or early_by > 0:
+        attempt_count += 1
+    if attempt_count > MONTHLY_LATE_EARLY_LIMIT:
+        status = "Half Day"
+    elif late_by > 0:
         status = "Late"
     elif overtime > 0:
         status = "Overtime"
@@ -1496,6 +1528,8 @@ def _recalculate(row):
         "lateByMinutes": late_by,
         "earlyLeaveByMinutes": early_by,
         "overtimeSeconds": overtime,
+        "shift": shift_name,
+        "lateEarlyAttempts": attempt_count,
     }
 
 
@@ -1529,6 +1563,7 @@ def attendance_checkin():
         "adminName":          admin.get("name", ""),
         "adminEmail":         admin.get("email", ""),
         "adminRole":          admin.get("role", ""),
+        "shift":              _shift_for_admin(admin["id"]),
         "date":               date_key,
         "checkIn":            db.now_iso(),
         "checkOut":           None,
@@ -1553,7 +1588,7 @@ def attendance_checkin():
 @attendance_required
 def attendance_break_start():
     admin = request.admin
-    existing = _find_attendance_row(admin["id"], _today_key())
+    existing = _open_attendance_row(admin["id"])
     if not existing or existing.get("checkOut"):
         return error("You need to be checked in to start a break.")
     if existing.get("onBreak"):
@@ -1569,7 +1604,7 @@ def attendance_break_start():
 @attendance_required
 def attendance_break_end():
     admin = request.admin
-    existing = _find_attendance_row(admin["id"], _today_key())
+    existing = _open_attendance_row(admin["id"])
     if not existing or not existing.get("onBreak"):
         return error("You're not currently on a break.")
     breaks = list(existing.get("breaks") or [])
@@ -1587,7 +1622,7 @@ def attendance_break_end():
 def attendance_checkout():
     admin    = request.admin
     date_key = _today_key()
-    existing = _find_attendance_row(admin["id"], date_key)
+    existing = _find_attendance_row(admin["id"], date_key) or _open_attendance_row(admin["id"])
     if not existing:
         return error("You haven't checked in today.")
     if existing.get("checkOut"):
@@ -1611,7 +1646,7 @@ def attendance_checkout():
 @app.get("/api/attendance/today")
 @attendance_required
 def attendance_today():
-    row = _find_attendance_row(request.admin["id"], _today_key())
+    row = _find_attendance_row(request.admin["id"], _today_key()) or _open_attendance_row(request.admin["id"])
     return jsonify(row or {"date": _today_key(), "checkIn": None, "checkOut": None, "workedSeconds": None, "dayStatus": None})
 
 
@@ -2209,7 +2244,7 @@ def admin_list_users():
     users = db.read("admins")
     safe  = [{"id": u["id"], "name": u.get("name",""), "email": u.get("email",""),
                              "passwordSet": bool(u.get("passwordHash")),
-                             "role": u.get("role","viewer"), "createdAt": u.get("createdAt","")}
+                              "role": u.get("role","viewer"), "shift": u.get("shift","morning"), "createdAt": u.get("createdAt","")}
              for u in users]
     return jsonify(safe)
 
@@ -2222,6 +2257,7 @@ def admin_create_user():
     email    = clean(data.get("email",""), 160).lower()
     password = str(data.get("password") or "")
     role     = clean(data.get("role","viewer"), 40)
+    shift    = clean(data.get("shift", "morning"), 20).lower() or "morning"
     if not name or not valid_email(email) or not password:
         return error("Name, valid email and password are required.")
     if role not in ROLES:
@@ -2240,6 +2276,7 @@ def admin_create_user():
         "phone":         clean(data.get("phone", ""), 50),
         "joiningDate":   clean(data.get("joiningDate", ""), 10),
         "status":        clean(data.get("status", "active"), 30) or "active",
+        "shift":         shift if shift in SHIFT_SCHEDULES else "morning",
     })
     invalidate_admin_idx(email)
     invalidate_user_idx(email)
@@ -2273,6 +2310,11 @@ def admin_update_user(user_id):
     for field, limit in (("department", 120), ("designation", 120), ("phone", 50), ("joiningDate", 10), ("status", 30)):
         if field in data:
             patch[field] = clean(data[field], limit)
+    if "shift" in data:
+        shift = clean(data["shift"], 20).lower()
+        if shift not in SHIFT_SCHEDULES:
+            return error("Shift must be morning or evening.")
+        patch["shift"] = shift
     if not patch:
         return error("Nothing to update.")
     updated = db.update("admins", user_id, patch)
