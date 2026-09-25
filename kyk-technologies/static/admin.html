@@ -148,8 +148,8 @@
 
     <!-- Activity log -->
     <div class="panel" id="panel-activity">
-      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Activity Log</h3>
-      <table><thead><tr><th>When</th><th>Admin</th><th>Role</th><th>Action</th><th>Detail</th><th>IP</th></tr></thead>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;"><h3 style="font-family:var(--font-display);margin:0;">Activity Log</h3><button class="small-btn danger" id="clearActivityBtn" type="button">Clear all login logs</button></div>
+      <table><thead><tr><th>When</th><th>Admin</th><th>Role</th><th>Action</th><th>Detail</th><th>IP</th><th>Delete</th></tr></thead>
       <tbody id="activityBody"></tbody></table>
     </div>
 

@@ -582,10 +582,10 @@ async function loadActivity(){
   const tbody=$('activityBody'); if(!tbody) return;
   const rows=await api('/admin/audit-log');
   tbody.innerHTML='';
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="6" style="color:var(--steel)">No activity yet.</td></tr>';return;}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="7" style="color:var(--steel)">No login activity yet.</td></tr>';return;}
   rows.forEach(r=>{
     const tr=document.createElement('tr');
-    tr.innerHTML='<td></td><td></td><td></td><td></td><td></td><td></td>';
+    tr.innerHTML='<td></td><td></td><td></td><td></td><td></td><td></td><td></td>';
     tr.cells[0].textContent=new Date(r.createdAt).toLocaleString();
     tr.cells[1].textContent=r.adminEmail||'—';
     const rb=document.createElement('span'); rb.className='badge role-'+(r.adminRole||'viewer'); rb.textContent=(r.adminRole||'—').replace('_',' ');
@@ -593,9 +593,23 @@ async function loadActivity(){
     tr.cells[3].textContent=r.action;
     tr.cells[4].textContent=r.detail||'—';
     tr.cells[5].textContent=r.ip||'—';
+    const deleteButton=document.createElement('button');
+    deleteButton.type='button'; deleteButton.className='small-btn danger'; deleteButton.textContent='Delete';
+    deleteButton.addEventListener('click',()=>deleteActivityLog(r.id));
+    tr.cells[6].appendChild(deleteButton);
     tbody.appendChild(tr);
   });
 }
+async function deleteActivityLog(id){
+  if(!confirm('Delete this login log?')) return;
+  try{ await api('/admin/audit-log/'+id,{method:'DELETE'}); loadActivity(); }
+  catch(err){ alert(err.message); }
+}
+on('clearActivityBtn','click',async()=>{
+  if(!confirm('Clear every login log? This cannot be undone.')) return;
+  try{ await api('/admin/audit-log',{method:'DELETE'}); loadActivity(); }
+  catch(err){ alert(err.message); }
+});
 
 /* ────── ADMIN USERS ────── */
 async function loadUsers(){

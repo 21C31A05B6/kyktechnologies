@@ -1314,8 +1314,26 @@ def admin_delete_insight(row_id):
 @app.get("/api/admin/audit-log")
 @role_required("hr_manager")  # super_admin always allowed via role_required
 def admin_audit_log():
-    rows = sorted(db.read("audit_log"), key=lambda r: r.get("createdAt",""), reverse=True)[:200]
+    rows = sorted(db.read("audit_log"), key=lambda r: r.get("createdAt",""), reverse=True)
     return jsonify(rows)
+
+
+@app.delete("/api/admin/audit-log/<int:row_id>")
+@role_required("hr_manager")
+def delete_audit_log(row_id):
+    if not db.remove("audit_log", row_id):
+        return error("Login log not found.", 404)
+    return jsonify({"message": "Login log deleted."})
+
+
+@app.delete("/api/admin/audit-log")
+@role_required("hr_manager")
+def clear_audit_log():
+    deleted = 0
+    for row in db.read("audit_log"):
+        if db.remove("audit_log", row.get("id")):
+            deleted += 1
+    return jsonify({"message": "All login logs cleared.", "deleted": deleted})
 
 
 # ─────────────────────────────────────────── admin: files
