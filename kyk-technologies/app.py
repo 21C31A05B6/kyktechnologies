@@ -1415,6 +1415,32 @@ def _holiday_for(date_key):
     return None
 
 
+def _holiday_day_status(holiday):
+    """Return the attendance mark for an official or optional holiday."""
+    return "Half Day" if (holiday or {}).get("type") == "optional" else "Holiday"
+
+
+def _attendance_days_for(admin_id, prefix):
+    """Merge stored punches with posted holidays for one employee/month."""
+    rows = [r for r in db.read("attendance")
+            if r.get("adminId") == admin_id and r.get("date", "").startswith(prefix)]
+    known_dates = {r.get("date") for r in rows}
+    user = next((u for u in db.read("admins") if u.get("id") == admin_id), {})
+    for holiday in db.read("holidays"):
+        date_key = holiday.get("date", "")
+        if date_key.startswith(prefix) and date_key not in known_dates:
+            rows.append({
+                "adminId": admin_id, "adminName": user.get("name", ""),
+                "adminEmail": user.get("email", ""), "adminRole": user.get("role", ""),
+                "date": date_key, "checkIn": None, "checkOut": None,
+                "workedSeconds": 0, "overtimeSeconds": 0,
+                "dayStatus": _holiday_day_status(holiday),
+                "holidayName": holiday.get("name", ""),
+                "holidayType": holiday.get("type", "company"),
+            })
+    return sorted(rows, key=lambda r: r.get("date", ""))
+
+
 def _approved_leave_for(admin_id, date_key):
     for lv in db.read("leave_requests"):
         if (lv.get("adminId") == admin_id and lv.get("status") == "approved"
@@ -1509,7 +1535,9 @@ def attendance_checkin():
         "breaks":             [],
         "onBreak":            False,
         "workedSeconds":      None,
-        "dayStatus":          "Holiday" if holiday else ("Leave" if leave else None),
+        "dayStatus":          _holiday_day_status(holiday) if holiday else ("Leave" if leave else None),
+        "holidayName":        holiday.get("name", "") if holiday else "",
+        "holidayType":        holiday.get("type", "") if holiday else "",
         "lateByMinutes":      0,
         "earlyLeaveByMinutes": 0,
         "overtimeSeconds":    0,
@@ -1569,6 +1597,11 @@ def attendance_checkout():
     checkout_iso = db.now_iso()
     merged = {**existing, "checkOut": checkout_iso}
     patch = _recalculate(merged)
+    holiday = _holiday_for(date_key)
+    if holiday:
+        patch["dayStatus"] = _holiday_day_status(holiday)
+        patch["holidayName"] = holiday.get("name", "")
+        patch["holidayType"] = holiday.get("type", "")
     patch["checkOut"] = checkout_iso
     row = db.update("attendance", existing["id"], patch)
     audit(admin, "attendance_checkout", f"{date_key} ({_fmt_hm(patch['workedSeconds'])})")
@@ -1592,9 +1625,7 @@ def attendance_calendar():
     year  = int(year)  if year.isdigit()  and len(year) == 4 else now.year
     month = int(month) if month.isdigit() and 1 <= int(month) <= 12 else now.month
     prefix = f"{year:04d}-{month:02d}"
-    rows = [r for r in db.read("attendance")
-            if r.get("adminId") == admin["id"] and r.get("date", "").startswith(prefix)]
-    rows.sort(key=lambda r: r.get("date", ""))
+    rows = _attendance_days_for(admin["id"], prefix)
     total_seconds = sum(r.get("workedSeconds") or 0 for r in rows)
     overtime_seconds = sum(r.get("overtimeSeconds") or 0 for r in rows)
     return jsonify({
@@ -1607,6 +1638,7 @@ def attendance_calendar():
             "lateDays":   len([r for r in rows if (r.get("lateByMinutes") or 0) > 0]),
             "absentDays": len([r for r in rows if r.get("dayStatus") == "Absent"]),
             "leaveDays":  len([r for r in rows if r.get("dayStatus") == "Leave"]),
+            "holidayDays": len([r for r in rows if r.get("dayStatus") == "Holiday"]),
             "totalHours": round(total_seconds / 3600, 2),
             "overtimeHours": round(overtime_seconds / 3600, 2),
         },
@@ -1632,9 +1664,12 @@ def admin_attendance():
     year    = int(year)  if year.isdigit()  and len(year) == 4 else now.year
     month   = int(month) if month.isdigit() and 1 <= int(month) <= 12 else now.month
     prefix  = f"{year:04d}-{month:02d}"
-    rows = [r for r in db.read("attendance") if r.get("date", "").startswith(prefix)]
-    if user_id.isdigit():
-        rows = [r for r in rows if r.get("adminId") == int(user_id)]
+    employee_ids = [int(user_id)] if user_id.isdigit() else [
+        u.get("id") for u in db.read("admins") if u.get("role") in ATTENDANCE_ROLES
+    ]
+    rows = []
+    for employee_id in employee_ids:
+        rows.extend(_attendance_days_for(employee_id, prefix))
     rows.sort(key=lambda r: (r.get("date", ""), r.get("adminName", "")))
     present = len([r for r in rows if r.get("checkIn")])
     return jsonify({
@@ -1645,6 +1680,7 @@ def admin_attendance():
             "absent": len([r for r in rows if r.get("dayStatus") == "Absent"]),
             "late": len([r for r in rows if (r.get("lateByMinutes") or 0) > 0]),
             "onLeave": len([r for r in rows if r.get("dayStatus") == "Leave"]),
+            "holidays": len([r for r in rows if r.get("dayStatus") == "Holiday"]),
             "avgWorkedHours": round(
                 (sum(r.get("workedSeconds") or 0 for r in rows) / 3600 / present), 2
             ) if present else 0,
@@ -1661,10 +1697,11 @@ def admin_attendance_export():
     year   = int(year)  if year.isdigit()  and len(year) == 4 else now.year
     month  = int(month) if month.isdigit() and 1 <= int(month) <= 12 else now.month
     prefix = f"{year:04d}-{month:02d}"
-    rows = sorted(
-        [r for r in db.read("attendance") if r.get("date", "").startswith(prefix)],
-        key=lambda r: (r.get("date", ""), r.get("adminName", "")),
-    )
+    employee_ids = [u.get("id") for u in db.read("admins") if u.get("role") in ATTENDANCE_ROLES]
+    rows = []
+    for employee_id in employee_ids:
+        rows.extend(_attendance_days_for(employee_id, prefix))
+    rows.sort(key=lambda r: (r.get("date", ""), r.get("adminName", "")))
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["Date", "Employee", "Role", "Check In", "Check Out", "Worked Hours",

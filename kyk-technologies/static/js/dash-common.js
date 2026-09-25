@@ -677,6 +677,13 @@ function dayBadge(status){
   b.textContent=status;
   return b;
 }
+function appendDayStatus(cell,row){
+  if(row.dayStatus){
+    const badge=dayBadge(row.dayStatus);
+    if(row.holidayName) badge.title=row.holidayName+' ('+(row.holidayType||'holiday')+')';
+    cell.appendChild(badge);
+  } else cell.textContent='In progress';
+}
 
 async function loadMyAttendance(){
   if(!$('punchStatusLabel')) return;
@@ -742,8 +749,7 @@ async function loadMyCalendar(){
       tr.cells[1].textContent=fmtTime(r.checkIn);
       tr.cells[2].textContent=fmtTime(r.checkOut);
       tr.cells[3].textContent=fmtHours(r.workedSeconds);
-      if(r.dayStatus) tr.cells[4].appendChild(dayBadge(r.dayStatus));
-      else tr.cells[4].textContent='In progress';
+      appendDayStatus(tr.cells[4],r);
       tbody.appendChild(tr);
     });
   } catch(e){console.error(e);}
@@ -790,8 +796,7 @@ async function loadRegisterRows(){
       tr.cells[3].textContent=fmtTime(r.checkIn);
       tr.cells[4].textContent=fmtTime(r.checkOut);
       tr.cells[5].textContent=fmtHours(r.workedSeconds);
-      if(r.dayStatus) tr.cells[6].appendChild(dayBadge(r.dayStatus));
-      else tr.cells[6].textContent='In progress';
+      appendDayStatus(tr.cells[6],r);
       tbody.appendChild(tr);
     });
   } catch(e){console.error(e);}
