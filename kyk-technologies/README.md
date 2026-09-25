@@ -25,7 +25,7 @@ Default admin credentials (change before any real use):
 | Variable | Required | Description |
 |---|---|---|
 | `SECRET_KEY` | **Yes in prod** | JWT signing secret. |
-| `DATABASE_URL` | Optional | SQLAlchemy URL. If unset, JSON files under `/data` are used. Example: `postgresql://user:pass@host:5432/kyk` |
+| `DATABASE_URL` | Optional | SQLAlchemy URL. If unset, JSON files under `/data` are used. Example: `postgresql+psycopg2://user:pass@host:5432/kyk` |
 | `SMTP_HOST` | Optional | SMTP server for transactional email. |
 | `SMTP_PORT` | Optional | Default `587`. |
 | `SMTP_USER` | Optional | SMTP login username. |
@@ -50,10 +50,10 @@ and small production use.
 
 ```bash
 pip install psycopg2-binary
-export DATABASE_URL=postgresql://user:pass@host:5432/kyk
+export DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/kyk
 # Table is auto-created on first run.
 # Migrate existing JSON data (idempotent):
-DATABASE_URL=postgresql://... python migrate_json_to_sql.py
+DATABASE_URL=postgresql+psycopg2://... python migrate_json_to_sql.py
 ```
 
 Any SQLAlchemy dialect works (MySQL, SQLite for testing, etc.).
@@ -160,7 +160,7 @@ Active hardening:
 ```bash
 pip install gunicorn psycopg2-binary
 export SECRET_KEY="<your-secret>"
-export DATABASE_URL="postgresql://..."
+export DATABASE_URL="postgresql+psycopg2://..."
 export SMTP_HOST="smtp.sendgrid.net"
 gunicorn -w 4 -b 127.0.0.1:3000 app:app
 ```

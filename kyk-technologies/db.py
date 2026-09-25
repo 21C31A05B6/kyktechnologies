@@ -36,6 +36,8 @@ if _raw_db_url and "://" in _raw_db_url:
         _check_url = _raw_db_url
         if _check_url.startswith("postgres://"):
             _check_url = _check_url.replace("postgres://", "postgresql://", 1)
+        elif _check_url.startswith("postgresql://") and "+" not in _check_url.split("://", 1)[0]:
+            _check_url = _check_url.replace("postgresql://", "postgresql+psycopg2://", 1)
         make_url(_check_url)
         _has_valid_db_url = True
     except Exception as e:

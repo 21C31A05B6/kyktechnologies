@@ -62,9 +62,12 @@ from models import (
 # No live credentials are hardcoded here. If DATABASE_URL isn't set in the
 # environment, fall back to a local SQLite file rather than any real server.
 DATABASE_URL = (os.environ.get("DATABASE_URL") or "sqlite:///kyk_fallback.db").strip().strip("'\"")
-# Render and other PaaS providers supply 'postgres://' which SQLAlchemy 1.4+ rejects
+# Render and other PaaS providers often use plain postgres URLs; SQLAlchemy
+# requires an explicit driver in the URL when using psycopg2-binary.
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+if DATABASE_URL.startswith("postgresql://") and "+" not in DATABASE_URL.split("://", 1)[0]:
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 try:
     if not DATABASE_URL or "://" not in DATABASE_URL:

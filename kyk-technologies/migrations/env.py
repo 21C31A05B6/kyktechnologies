@@ -20,6 +20,8 @@ if os.environ.get("DATABASE_URL"):
     config_db_url = os.environ["DATABASE_URL"]
     if config_db_url.startswith("postgres://"):
         config_db_url = config_db_url.replace("postgres://", "postgresql://", 1)
+    elif config_db_url.startswith("postgresql://") and "+" not in config_db_url.split("://", 1)[0]:
+        config_db_url = config_db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 else:
     config_db_url = None
 
