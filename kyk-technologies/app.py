@@ -1162,13 +1162,13 @@ def admin_delete_job(job_id):
 # ─────────────────────────────────────────── admin: applications
 
 @app.get("/api/admin/applications")
-@role_required("team_lead", "hr_manager", "recruiter")
+@role_required("hr_manager")
 def admin_applications():
     return jsonify(sorted(db.read("applications"), key=lambda r: r.get("createdAt",""), reverse=True))
 
 
 @app.put("/api/admin/applications/<int:row_id>")
-@role_required("hr_manager", "recruiter")
+@role_required("hr_manager")
 def admin_update_application(row_id):
     data   = request.get_json(silent=True) or {}
     status = clean(data.get("status",""), 40)
@@ -1196,13 +1196,13 @@ def admin_update_application(row_id):
 # ─────────────────────────────────────────── admin: talent
 
 @app.get("/api/admin/talent")
-@role_required("hr_manager", "recruiter")
+@role_required("hr_manager")
 def admin_talent():
     return jsonify(sorted(db.read("talent"), key=lambda r: r.get("createdAt",""), reverse=True))
 
 
 @app.put("/api/admin/talent/<int:row_id>")
-@role_required("hr_manager", "recruiter")
+@role_required("hr_manager")
 def admin_update_talent(row_id):
     data  = request.get_json(silent=True) or {}
     stage = clean(data.get("stage",""), 40)
@@ -1235,13 +1235,13 @@ def admin_update_talent(row_id):
 # ─────────────────────────────────────────── admin: contacts
 
 @app.get("/api/admin/contacts")
-@role_required("hr_manager", "recruiter")
+@role_required("hr_manager")
 def admin_contacts():
     return jsonify(sorted(db.read("contacts"), key=lambda r: r.get("createdAt",""), reverse=True))
 
 
 @app.put("/api/admin/contacts/<int:row_id>")
-@role_required("hr_manager", "recruiter")
+@role_required("hr_manager")
 def admin_update_contact(row_id):
     status = clean((request.get_json(silent=True) or {}).get("status",""), 40)
     if status not in {"unread","read","responded"}:
@@ -2005,6 +2005,8 @@ def admin_daily_reports_export():
 def workpulse_employees():
     """Return staff accounts in the shape used by the WorkPulse directory."""
     rows = [u for u in db.read("admins") if u.get("role") not in {"super_admin", "client"}]
+    if request.admin.get("role") not in {"super_admin", "hr_manager"}:
+        rows = [u for u in rows if u.get("id") == request.admin.get("id")]
     query = clean(request.args.get("q", ""), 120).lower()
     department = clean(request.args.get("department", ""), 120).lower()
     if query:

@@ -115,8 +115,8 @@ INSIGHTS = [
 ROLES = {
     "super_admin":      {"label": "Super Admin",       "tabs": ["overview","employees","performance","jobs","applications","pipeline","talent","contacts","newsletter","insights","activity","admin_users","attendance","reports_review","settings","my_profile"]},
     "hr_manager":       {"label": "HR Manager",        "tabs": ["overview","employees","performance","applications","pipeline","talent","contacts","my_attendance","attendance","daily_report","reports_review","settings","my_profile"]},
-    "recruiter":        {"label": "Recruiter",         "tabs": ["overview","performance","applications","pipeline","talent","my_attendance","daily_report","report_history","my_profile","settings"]},
-    "team_lead":        {"label": "Team Lead",         "tabs": ["overview","performance","jobs","applications","my_attendance","daily_report","report_history","my_profile","settings"]},
+    "recruiter":        {"label": "Recruiter",         "tabs": ["overview","performance","my_attendance","daily_report","report_history","my_profile","settings"]},
+    "team_lead":        {"label": "Team Lead",         "tabs": ["overview","performance","jobs","my_attendance","daily_report","report_history","my_profile","settings"]},
     "content_manager":  {"label": "Content Manager",   "tabs": ["overview","performance","insights","my_attendance","daily_report","report_history","my_profile","settings"]},
     "viewer":           {"label": "Viewer",            "tabs": ["overview","performance","daily_report","report_history","my_profile","settings"]},
     "employee":         {"label": "Employee",          "tabs": ["overview","performance","my_attendance","daily_report","report_history","my_profile","settings"]},
