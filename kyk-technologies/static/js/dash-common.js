@@ -446,28 +446,40 @@ async function loadTalent(){
   const tbody=$('talentBody'); if(!tbody) return;
   const talent=await api('/admin/talent');
   tbody.innerHTML='';
-  if(!talent.length){tbody.innerHTML='<tr><td colspan="7" style="color:var(--steel)">No profiles yet.</td></tr>';return;}
+  if(!talent.length){tbody.innerHTML='<tr><td colspan="8" style="color:var(--steel)">No profiles yet.</td></tr>';return;}
   talent.forEach(t=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td></td><td></td><td></td><td></td><td></td><td style="max-inline-size:160px;"></td><td></td>`;
+    tr.innerHTML=`<td></td><td></td><td></td><td></td><td></td><td></td><td style="max-inline-size:160px;"></td><td></td>`;
     tr.cells[0].textContent=t.name;
     tr.cells[1].textContent=t.specialization||'—';
     tr.cells[2].textContent=(t.experience||'—')+' yrs';
+    tr.cells[3].textContent=t.marketsInterested||'—';
     const contact=document.createElement('div');
     contact.appendChild(Object.assign(document.createElement('div'),{textContent:t.email}));
     if(t.phone) contact.appendChild(Object.assign(document.createElement('div'),{textContent:t.phone,style:'font-size:.75rem;color:var(--steel);'}));
-    tr.cells[3].appendChild(contact);
+    tr.cells[4].appendChild(contact);
     const sel=document.createElement('select'); sel.className='small-btn'; sel.style.background='none';
     PIPELINE_STAGES.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;if(s===(t.stage||'understand'))o.selected=true;sel.appendChild(o);});
     sel.addEventListener('change',()=>updateTalentStage(t.id,sel.value));
-    tr.cells[4].appendChild(sel);
+    tr.cells[5].appendChild(sel);
     const notesArea=document.createElement('textarea'); notesArea.className='notes-area';
     notesArea.value=t.notes||''; notesArea.placeholder='Notes…';
     notesArea.addEventListener('change',()=>saveTalentNotes(t.id,notesArea.value));
-    tr.cells[5].appendChild(notesArea);
-    if(t.resumeFile){const lk=document.createElement('a');lk.href='/api/admin/files/'+encodeURIComponent(t.resumeFile)+'?token='+gToken;lk.textContent='CV';lk.target='_blank';lk.className='small-btn';tr.cells[6].appendChild(lk);}
+    tr.cells[6].appendChild(notesArea);
+    if(t.resumeFile){
+      const filePath='/api/admin/files/'+encodeURIComponent(t.resumeFile)+'?token='+encodeURIComponent(gToken);
+      const viewLink=document.createElement('a'); viewLink.href=filePath; viewLink.textContent='View'; viewLink.target='_blank'; viewLink.rel='noopener'; viewLink.className='small-btn';
+      const downloadLink=document.createElement('a'); downloadLink.href=filePath+'&download=1'; downloadLink.textContent='Download'; downloadLink.className='small-btn';
+      const clearButton=document.createElement('button'); clearButton.type='button'; clearButton.textContent='Clear'; clearButton.className='small-btn danger'; clearButton.addEventListener('click',()=>clearTalentResume(t.id));
+      tr.cells[7].append(viewLink,downloadLink,clearButton);
+    } else { tr.cells[7].textContent='No resume'; }
     tbody.appendChild(tr);
   });
+}
+async function clearTalentResume(id){
+  if(!confirm('Clear this talent profile resume?')) return;
+  try{ await api('/admin/talent/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({clearResume:true})}); loadTalent(); }
+  catch(e){ alert(e.message); }
 }
 async function updateTalentStage(id,stage){try{await api('/admin/talent/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({stage})});}catch(e){alert(e.message);}}
 async function saveTalentNotes(id,notes){try{await api('/admin/talent/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes})});}catch(e){console.error(e);}}

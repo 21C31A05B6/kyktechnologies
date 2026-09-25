@@ -640,7 +640,7 @@ def create_talent():
         return error("Please login before submitting your profile.", 401)
     form = request.form
     name  = clean(form.get("name"), 120)
-    email = clean(form.get("email"), 160)
+    email = clean(user.get("email") or form.get("email"), 160)
     if not name or not valid_email(email):
         return error("Please enter your name and a valid email address.")
     try:
@@ -650,6 +650,8 @@ def create_talent():
     db.insert(
         "talent",
         {
+            "userId":            user.get("id"),
+            "userEmail":         email,
             "name":             name,
             "email":            email,
             "phone":            clean(form.get("phone"), 40),
@@ -1209,6 +1211,14 @@ def admin_update_talent(row_id):
         patch["stage"] = stage
     if "notes" in data:
         patch["notes"] = notes
+    if data.get("clearResume"):
+        profile = db.find("talent", row_id)
+        resume_file = profile.get("resumeFile") if profile else None
+        if resume_file:
+            resume_path = os.path.join(UPLOAD_DIR, secure_filename(resume_file))
+            if os.path.isfile(resume_path):
+                os.remove(resume_path)
+        patch["resumeFile"] = None
     if not patch:
         return error("Nothing to update.")
     row = db.update("talent", row_id, patch)
