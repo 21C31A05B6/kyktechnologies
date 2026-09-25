@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>KYK HR Manager Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="/css/style.css"/>
+<link rel="stylesheet" href="/css/dashboard.css"/>
+</head>
+<body class="admin-page">
+<!-- Dashboard shell (hidden until logged in) -->
+<div class="admin-shell" id="dashShell" style="display:none;">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="/index.html" class="logo" aria-label="KYK home"><img src="/kyk_logo.webp" alt="KYK Technologies" style="width:38px;height:38px;object-fit:contain;display:block;"/></a>
+      <div class="role-badge" id="roleLabel">Loading…</div>
+    </div>
+    <nav id="sidebarNav"><!-- tabs rendered by JS based on role --></nav>
+    <div class="sidebar-footer">
+      <div class="admin-name" id="adminName"></div>
+      <div style="font-size:.74rem;color:var(--steel);" id="adminEmail"></div>
+      <button class="logout-btn" id="logoutBtn">Sign out</button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <!-- Overview -->
+    <div class="panel active" id="panel-overview">
+      <h2 style="font-family:var(--font-display);margin-bottom:20px;">HR Command Centre</h2>
+      <div class="stat-cards" id="statCards"></div>
+      <div class="chart-card" style="margin-bottom:24px;">
+        <b style="font-family:var(--font-display);font-size:.9rem;">Applications — last 14 days</b>
+        <canvas id="appsChart" height="180" style="margin-top:14px;width:100%;display:block;"></canvas>
+      </div>
+    </div>
+
+    <!-- Applications -->
+    <div class="panel" id="panel-applications">
+      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Applications</h3>
+      <table><thead><tr><th>Applicant</th><th>Role</th><th>Status</th><th>Resume</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="applicationsBody"></tbody></table>
+    </div>
+
+    <!-- Pipeline Kanban -->
+    <div class="panel" id="panel-pipeline">
+      <h3 style="font-family:var(--font-display);margin-bottom:8px;">Recruitment Pipeline</h3>
+      <p style="color:var(--steel);font-size:.84rem;margin-bottom:18px;">Drag candidate cards between columns to advance them through the pipeline.</p>
+      <div class="kanban" id="kanbanBoard"></div>
+    </div>
+
+    <!-- Talent -->
+    <div class="panel" id="panel-talent">
+      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Talent Pool</h3>
+      <table><thead><tr><th>Name</th><th>Specialization</th><th>Exp.</th><th>Contact</th><th>Stage</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="talentBody"></tbody></table>
+    </div>
+
+    <!-- Contacts -->
+    <div class="panel" id="panel-contacts">
+      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Contact Messages</h3>
+      <table><thead><tr><th>Name</th><th>Company</th><th>Service</th><th>Message</th><th>Status</th><th></th></tr></thead>
+      <tbody id="contactsBody"></tbody></table>
+    </div>
+
+    <!-- My Attendance -->
+    <div class="panel" id="panel-my_attendance">
+      <h3 style="font-family:var(--font-display);margin-bottom:16px;">My Attendance</h3>
+      <div class="punch-card form-card glass-glow">
+        <div class="punch-status" id="punchStatusLabel">Loading…</div>
+        <div class="punch-time" id="punchTimeLabel">—</div>
+        <button class="btn btn-primary" id="checkInBtn">Check in</button>
+        <button class="btn btn-outline" id="checkOutBtn" style="display:none;">Check out</button>
+        <div class="form-msg" id="punchMsg"></div>
+      </div>
+      <div class="month-nav">
+        <button class="small-btn" id="myCalPrev">← Prev</button>
+        <b id="myCalLabel">—</b>
+        <button class="small-btn" id="myCalNext">Next →</button>
+      </div>
+      <div class="stat-cards" id="myCalSummary"></div>
+      <table><thead><tr><th>Date</th><th>Check in</th><th>Check out</th><th>Hours worked</th><th>Status</th></tr></thead>
+      <tbody id="myCalBody"></tbody></table>
+    </div>
+
+    <!-- Attendance register (team oversight) -->
+    <div class="panel" id="panel-attendance">
+      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Attendance Register</h3>
+      <div class="month-nav">
+        <button class="small-btn" id="regCalPrev">← Prev</button>
+        <b id="regCalLabel">—</b>
+        <button class="small-btn" id="regCalNext">Next →</button>
+        <select id="regEmployeeFilter" style="margin-left:12px;max-width:220px;"><option value="">All employees</option></select>
+      </div>
+      <table><thead><tr><th>Date</th><th>Employee</th><th>Role</th><th>Check in</th><th>Check out</th><th>Hours</th><th>Status</th></tr></thead>
+      <tbody id="regBody"></tbody></table>
+    </div>
+  
+    <!-- Daily Report -->
+    <div class="panel" id="panel-daily_report">
+      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Daily Report</h3>
+      <form id="reportForm" class="form-card glass-glow" style="margin-bottom:24px;">
+        <div class="field">
+          <label for="reportSummary">Work summary * <span style="font-weight:400;color:var(--steel-light);">(min 20 characters)</span></label>
+          <textarea id="reportSummary" rows="4" maxlength="2000" required></textarea>
+          <div class="char-counter" id="reportCharCounter">0 / 2000</div>
+        </div>
+        <div class="field">
+          <label for="reportTasks">Tasks completed</label>
+          <textarea id="reportTasks" rows="2" placeholder="Bullet list of tasks finished today"></textarea>
+        </div>
+        <div class="field">
+          <label for="reportBlockers">Blockers / issues</label>
+          <textarea id="reportBlockers" rows="2" placeholder="Anything blocking you"></textarea>
+        </div>
+        <div class="field">
+          <label for="reportHours">Hours worked</label>
+          <input type="number" id="reportHours" min="0" max="24" step="0.5" placeholder="e.g. 8"/>
+        </div>
+        <div class="field">
+          <label>Mood / energy</label>
+          <div class="mood-picker" id="reportMoodPicker">
+            <button type="button" data-mood="exhausted">😫</button>
+            <button type="button" data-mood="tired">😔</button>
+            <button type="button" data-mood="okay">😐</button>
+            <button type="button" data-mood="good">🙂</button>
+            <button type="button" data-mood="great">😄</button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="reportSubmitBtn" style="margin-top:10px;">Submit report</button>
+        <div class="form-msg" id="reportMsg"></div>
+      </form>
+
+      <div class="month-nav">
+        <button class="small-btn" id="reportHistPrev">← Prev</button>
+        <b id="reportHistLabel">—</b>
+        <button class="small-btn" id="reportHistNext">Next →</button>
+      </div>
+      <table><thead><tr><th>Date</th><th>Summary</th><th>Hours</th><th>Mood</th><th>Status</th></tr></thead>
+      <tbody id="reportHistBody"></tbody></table>
+    </div>
+
+  
+    <!-- Reports Review -->
+    <div class="panel" id="panel-reports_review">
+      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Reports Review</h3>
+      <div class="review-filters">
+        <div class="field"><label>Date</label><input type="date" id="reviewDateFilter"/></div>
+        <div class="field"><label>Status</label>
+          <select id="reviewReviewedFilter">
+            <option value="">All</option>
+            <option value="0">Pending</option>
+            <option value="1">Reviewed</option>
+          </select>
+        </div>
+        <button class="btn btn-outline" id="reviewTodayBtn">Today</button>
+        <button class="btn btn-primary" id="reviewApplyBtn">Apply</button>
+      </div>
+      <div class="review-missing" id="reviewMissingBox"></div>
+      <table><thead><tr><th>Date</th><th>Employee</th><th>Role</th><th>Summary</th><th>Hours</th><th>Status</th><th></th></tr></thead>
+      <tbody id="reviewBody"></tbody></table>
+
+      <div class="form-card glass-glow review-detail-card" id="reviewDetailCard" style="display:none;margin-top:24px;">
+        <b id="reviewDetailMeta" style="font-family:var(--font-display);"></b>
+        <dl>
+          <dt>Work summary</dt><dd id="reviewDetailSummary"></dd>
+          <dt>Tasks completed</dt><dd id="reviewDetailTasks"></dd>
+          <dt>Blockers</dt><dd id="reviewDetailBlockers"></dd>
+          <dt>Hours</dt><dd id="reviewDetailHours"></dd>
+        </dl>
+        <div class="field" style="margin-top:14px;">
+          <label for="reviewCommentInput">Private comment</label>
+          <textarea id="reviewCommentInput" rows="3"></textarea>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:.86rem;">
+          <input type="checkbox" id="reviewReviewedCheckbox"/> Mark as reviewed
+        </label>
+        <button class="btn btn-primary" id="reviewSaveBtn">Save</button>
+        <div class="form-msg" id="reviewMsg"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-performance"><h3 style="font-family:var(--font-display);margin-bottom:16px;">Performance Monitoring</h3><div class="toolbar"><input type="month" id="performanceMonth"/><button class="btn btn-primary" id="performanceRefresh">Refresh</button><a class="btn btn-outline" href="/api/admin/performance/export.csv">Export CSV</a></div><table><thead><tr><th>Employee</th><th>Department</th><th>Reports</th><th>Submission rate</th><th>Attention</th></tr></thead><tbody id="performanceBody"></tbody></table></div>
+    <div class="panel" id="panel-report_history"><h3 style="font-family:var(--font-display);margin-bottom:16px;">Report History</h3><div class="month-nav"><button class="small-btn" id="reportHistoryPrev">← Prev</button><b id="reportHistoryLabel">—</b><button class="small-btn" id="reportHistoryNext">Next →</button></div><table><thead><tr><th>Date</th><th>Report preview</th><th>Hours</th><th>Mood</th><th>Status</th></tr></thead><tbody id="reportHistoryBody"></tbody></table></div>
+    <div class="panel" id="panel-my_profile"><h3 style="font-family:var(--font-display);margin-bottom:16px;">My Profile</h3><form id="profileForm" class="form-card glass-glow" style="max-width:660px;"><div class="field"><label>Full name</label><input id="profileName" required/></div><div class="field"><label>Email</label><input id="profileEmail" disabled/></div><div class="field"><label>Role</label><input id="profileRole" disabled/></div><div class="field"><label>Phone</label><input id="profilePhone"/></div><div class="field"><label>New password</label><input id="profilePassword" type="password" minlength="8" autocomplete="new-password"/></div><div id="profileStats" class="stat-cards"></div><button class="btn btn-primary" type="submit">Save profile</button><div class="form-msg" id="profileMsg"></div></form></div>
+    <div class="panel" id="panel-settings"><h3 style="font-family:var(--font-display);margin-bottom:16px;">Portal Settings</h3><form id="settingsForm" class="form-card glass-glow" style="max-width:660px;"><div class="field"><label>Daily report deadline</label><input type="time" id="settingsDeadline"/></div><div class="field"><label>Departments (comma separated)</label><input id="settingsDepartments"/></div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="settingsNotifications"/> Email alert for missed reports</label><div class="field"><label>Working days</label><input id="settingsWorkingDays" placeholder="0,1,2,3,4"/></div><button class="btn btn-primary" type="submit">Save settings</button><div class="form-msg" id="settingsMsg"></div></form></div>
+  </main>
+</div>
+
+<script src="/js/main.js" defer></script>
+<script src="/js/dash-common.js"></script>
+</body>
+</html>

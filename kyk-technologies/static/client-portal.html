@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>KYK Client Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="/css/style.css"/>
+<link rel="stylesheet" href="/css/dashboard.css"/>
+</head>
+<body class="admin-page">
+<!-- Dashboard shell (hidden until logged in) -->
+<div class="admin-shell" id="dashShell" style="display:none;">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="/index.html" class="logo" aria-label="KYK home"><img src="/kyk_logo.webp" alt="KYK Technologies" style="width:38px;height:38px;object-fit:contain;display:block;"/></a>
+      <div class="role-badge" id="roleLabel">Loading…</div>
+    </div>
+    <nav id="sidebarNav"><!-- tabs rendered by JS based on role --></nav>
+    <div class="sidebar-footer">
+      <div class="admin-name" id="adminName"></div>
+      <div style="font-size:.74rem;color:var(--steel);" id="adminEmail"></div>
+      <button class="logout-btn" id="logoutBtn">Sign out</button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <!-- Overview (client-safe: no internal recruiting/HR data) -->
+    <div class="panel active" id="panel-overview">
+      <h2 style="font-family:var(--font-display);margin-bottom:20px;">Welcome</h2>
+      <div class="form-card glass-glow" style="max-width:560px;">
+        <p style="margin-bottom:10px;">Hi <b id="clientName" style="color:var(--ink);">there</b>, welcome to your KYK Technologies client account.</p>
+        <p style="margin-bottom:10px;">This portal is where your KYK account lives. For anything about an active engagement,
+          proposal, or invoice, reach your account contact directly — they can pull it up faster than a dashboard can.</p>
+        <p style="margin-bottom:0;">Email: <a href="mailto:hello@kyktechnologies.com" style="color:var(--orange);">hello@kyktechnologies.com</a></p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/js/main.js" defer></script>
+<script src="/js/dash-common.js"></script>
+<script>
+/* Client gets a distinct, non-internal overview — override the default
+ * loader (which would otherwise call /api/admin/overview) before it's
+ * ever invoked by switchTab(). */
+function loadClientOverview(){
+  const el=document.getElementById('clientName');
+  if(el && gAdmin) el.textContent=gAdmin.name||'there';
+}
+window.TAB_LOADER_OVERRIDES={ overview: loadClientOverview };
+</script>
+</body>
+</html>

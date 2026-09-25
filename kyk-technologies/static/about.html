@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>About — KYK Technologies | Key to Your Kognitio</title>
+<meta name="description" content="KYK Technologies — built around the idea that technology should create opportunity, intelligence and progress. Learn our vision, mission and values." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="/css/style.css" />
+<style>
+.values-grid{
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:20px; margin-top:32px;
+}
+.value-card{
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px;
+  padding:26px 24px; backdrop-filter:blur(16px);
+  transition:border-color .25s ease, transform .25s ease;
+}
+.value-card:hover{ border-color:rgba(var(--glow),.4); transform:translateY(-2px); }
+.value-card .v-icon{
+  width:44px; height:44px; border-radius:12px; background:rgba(var(--glow),.12);
+  border:1px solid rgba(var(--glow),.2); display:flex; align-items:center; justify-content:center;
+  font-size:1.2rem; margin-bottom:14px;
+}
+.value-card h4{ font-family:var(--font-display); font-size:1rem; margin-bottom:8px; color:var(--ink); }
+.value-card p{ font-size:.86rem; color:var(--steel-light); margin:0; line-height:1.6; }
+
+.brand-statement{
+  font-family:var(--font-display); font-size:clamp(1.1rem,2.5vw,1.5rem);
+  line-height:1.7; color:var(--paper);
+  border-left:3px solid var(--orange); padding-left:24px; margin:0;
+}
+.brand-statement span{ color:var(--orange); }
+
+.vm-card{
+  background:var(--glass-bg); border:1px solid var(--glass-border);
+  border-radius:18px; padding:32px 28px; backdrop-filter:blur(18px);
+}
+.vm-card .eyebrow{ margin-bottom:8px; }
+.vm-card p{ font-size:.95rem; line-height:1.7; color:var(--steel-light); margin:0; }
+
+.we-are{
+  display:flex; flex-wrap:wrap; gap:14px; margin-top:28px;
+}
+.we-are-item{
+  display:flex; align-items:center; gap:10px; padding:12px 18px;
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:999px;
+  backdrop-filter:blur(14px); font-family:var(--font-display); font-size:.86rem; color:var(--ink);
+}
+.we-are-item .dot{ width:8px; height:8px; border-radius:50%; background:var(--orange); flex:none; }
+
+.why-three{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-top:32px;
+}
+@media(max-width:700px){ .why-three{ grid-template-columns:1fr; } }
+.why-item{
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px;
+  padding:28px 22px; backdrop-filter:blur(16px); text-align:center;
+}
+.why-item .wi-tag{
+  font-family:var(--font-display); font-size:.72rem; letter-spacing:.08em;
+  color:var(--orange); margin-bottom:10px; display:block;
+}
+.why-item h3{ font-size:1.1rem; margin-bottom:8px; }
+.why-item p{ font-size:.84rem; color:var(--steel-light); margin:0; }
+</style>
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a href="/index.html" class="logo" title="Key to Your Kognitio">KYK<span>TECHNOLOGIES</span></a>
+    <nav class="nav">
+      <button class="nav-toggle" aria-label="Toggle menu">☰</button>
+      <ul class="nav-links">
+        <li><a href="/global-recruitment.html">Global Recruitment</a></li>
+        <li><a href="/ai.html">Intelligence</a></li>
+        <li><a href="/services.html">Work</a></li>
+        <li><a href="/careers.html">Careers</a></li>
+        <li><a href="/insights.html">Insights</a></li>
+        <li><a href="/about.html" class="active">About Us</a></li>
+      </ul>
+    </nav>
+    <div class="nav-cta" style="display:flex; gap:10px; align-items:center;">
+      <a href="/login.html" class="btn btn-outline-light" style="padding:9px 18px; font-size:.85rem;">Login</a>
+      <a href="/login.html?mode=signup" class="btn btn-primary" style="padding:9px 18px; font-size:.85rem;">Signup</a>
+      <a href="/contact.html" class="btn btn-primary" style="padding:10px 20px; font-size:.88rem;">Contact us</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- HERO -->
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="breadcrumbs"><a href="/index.html">Home</a> / About</div>
+      <span class="eyebrow">About KYK Technologies</span>
+      <h1 style="font-size:clamp(2rem,4vw,2.8rem); max-width:700px;">Technology should create opportunity, intelligence and progress.</h1>
+      <p style="max-width:620px;">That's the idea KYK Technologies was built around — and it shapes every decision we make about what to build, who to hire and where we go next.</p>
+    </div>
+  </section>
+
+  <!-- WHO WE ARE — Point 3 company statement + Point 12 "We are" statements -->
+  <section class="section">
+    <div class="wrap">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:start;">
+        <div class="reveal">
+          <span class="eyebrow">Who We Are</span>
+          <h2 class="section-title" style="font-size:clamp(1.6rem,3vw,2.1rem);">One company.<br/>Three directions.</h2>
+          <p style="color:var(--steel-light); line-height:1.75; margin-bottom:20px;">KYK Technologies is a technology and global talent organization focused on connecting people, building digital solutions, and advancing intelligent technologies.</p>
+          <p style="color:var(--steel-light); line-height:1.75; margin-bottom:24px;">We began by connecting people with professional opportunities and are expanding our capabilities into software, web development and artificial intelligence. Our long-term vision is much larger.</p>
+          <p style="color:var(--steel-light); line-height:1.75;">We aim to build an organization capable of evolving alongside technology — from digital development and AI today toward AGI, ASI, quantum computing and next-generation intelligent systems tomorrow.</p>
+          <!-- Point 12 — We are statements -->
+          <div class="we-are" style="margin-top:28px;">
+            <div class="we-are-item"><span class="dot"></span>We are learning.</div>
+            <div class="we-are-item"><span class="dot"></span>We are building.</div>
+            <div class="we-are-item"><span class="dot"></span>We are researching.</div>
+            <div class="we-are-item"><span class="dot"></span>We are evolving.</div>
+          </div>
+        </div>
+        <div class="reveal" style="display:flex; flex-direction:column; gap:16px;">
+          <div class="vm-card">
+            <span class="eyebrow">01 — Global Recruitment</span>
+            <p>Connecting organizations with skilled professionals across domestic and international markets.</p>
+          </div>
+          <div class="vm-card">
+            <span class="eyebrow">02 — Software &amp; Web Development</span>
+            <p>Designing and developing modern software, websites, applications and digital platforms for businesses.</p>
+          </div>
+          <div class="vm-card" style="border-color:rgba(var(--glow),.3);">
+            <span class="eyebrow">03 — AI · AGI · ASI</span>
+            <p>Exploring, researching and developing solutions around Artificial Intelligence, AGI and ASI — preparing for the next generation of intelligent technology.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VISION — Point 9 -->
+  <section class="section section--panel">
+    <div class="wrap">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:32px;">
+        <div class="vm-card reveal">
+          <span class="eyebrow">Our Vision</span>
+          <h3 style="font-family:var(--font-display); font-size:1.15rem; margin:10px 0 14px;">Where we are going.</h3>
+          <p>To build a globally recognized technology organization that connects talent, technology and intelligence to create the future.</p>
+        </div>
+        <!-- MISSION — Point 10 -->
+        <div class="vm-card reveal">
+          <span class="eyebrow">Our Mission</span>
+          <h3 style="font-family:var(--font-display); font-size:1.15rem; margin:10px 0 14px;">What we do every day.</h3>
+          <p>To connect global talent, develop impactful digital solutions, advance artificial intelligence research and continuously build knowledge around the technologies that will define the future.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VALUES — Point 11 -->
+  <section class="section">
+    <div class="wrap">
+      <span class="eyebrow">Our Values</span>
+      <h2 class="section-title reveal">What guides us.</h2>
+      <div class="values-grid reveal">
+        <div class="value-card glass-glow">
+          <div class="v-icon">📚</div>
+          <h4>Knowledge</h4>
+          <p>We continuously learn, research and improve. Building knowledge is not a phase — it is the foundation of everything KYK does.</p>
+        </div>
+        <div class="value-card glass-glow">
+          <div class="v-icon">💡</div>
+          <h4>Innovation</h4>
+          <p>We challenge existing ways of solving problems. The best answer is rarely the obvious one — we look further.</p>
+        </div>
+        <div class="value-card glass-glow">
+          <div class="v-icon">🤝</div>
+          <h4>Integrity</h4>
+          <p>We build relationships through responsibility and trust. Every commitment we make, we keep.</p>
+        </div>
+        <div class="value-card glass-glow">
+          <div class="v-icon">⚡</div>
+          <h4>Execution</h4>
+          <p>Ideas matter only when they become reality. We ship, place and deliver — not just plan.</p>
+        </div>
+        <div class="value-card glass-glow">
+          <div class="v-icon">🔭</div>
+          <h4>Future Thinking</h4>
+          <p>We prepare today for tomorrow's technology. AGI, ASI, quantum computing — we are building knowledge now, not catching up later.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY KYK — Point 12 (Three Worlds. One Direction.) -->
+  <section class="section section--panel">
+    <div class="wrap">
+      <span class="eyebrow">Why KYK</span>
+      <h2 class="section-title reveal">Three Worlds. One Direction.</h2>
+      <div class="why-three reveal">
+        <div class="why-item glass-glow">
+          <span class="wi-tag">PEOPLE</span>
+          <h3>Global Recruitment</h3>
+          <p>Connecting the right talent with the right opportunity, across borders and industries.</p>
+          <a href="/global-recruitment.html" style="color:var(--orange); font-size:.82rem; margin-top:14px; display:inline-block;">Explore →</a>
+        </div>
+        <div class="why-item glass-glow">
+          <span class="wi-tag">TECHNOLOGY</span>
+          <h3>Software &amp; Web Development</h3>
+          <p>Building digital products and platforms that move businesses and organizations forward.</p>
+          <a href="/services.html" style="color:var(--orange); font-size:.82rem; margin-top:14px; display:inline-block;">Explore →</a>
+        </div>
+        <div class="why-item glass-glow" style="border-color:rgba(var(--glow),.3);">
+          <span class="wi-tag">INTELLIGENCE</span>
+          <h3>AI · AGI · ASI</h3>
+          <p>Researching, building and preparing for the next generation of intelligent technology.</p>
+          <a href="/ai.html" style="color:var(--orange); font-size:.82rem; margin-top:14px; display:inline-block;">Explore →</a>
+        </div>
+      </div>
+      <!-- Point 1 brand tagline as statement -->
+      <div class="reveal" style="margin-top:36px; text-align:center;">
+        <p style="font-family:var(--font-display); font-size:clamp(1.1rem,2.5vw,1.4rem); letter-spacing:.04em; color:var(--ink);">
+          KEY TO YOUR <span style="color:var(--orange);">KOGNITIO</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHILOSOPHY STATEMENT -->
+  <section class="section section--dark">
+    <div class="wrap" style="max-width:780px;">
+      <span class="eyebrow">Our Philosophy</span>
+      <blockquote class="reveal" style="margin:28px 0 0;">
+        <p class="brand-statement">
+          Build today's technology.<br/>
+          Learn tomorrow's intelligence.<br/>
+          <span>Shape the future.</span>
+        </p>
+      </blockquote>
+      <p class="reveal" style="margin-top:28px; color:var(--steel-light); line-height:1.75; max-width:640px;">Our long-term innovation interests extend toward advanced computing, quantum technologies, autonomous intelligent systems and other emerging technological frontiers. We don't wait for the future to arrive — we study it, build toward it and prepare for it.</p>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="section--dark section cta-final">
+    <div class="wrap">
+      <h2>Want to build<br/><span class="accent">the future with us?</span></h2>
+      <p>Explore careers, partner with KYK or simply start a conversation.</p>
+      <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:24px;">
+        <a href="/contact.html" class="btn btn-primary">Partner With KYK</a>
+        <a href="/careers.html" class="btn btn-outline-light">Explore Careers</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-logo">KYK</div>
+        <p style="font-family:var(--font-display); font-size:.7rem; letter-spacing:.08em; color:var(--orange); margin:2px 0 10px; opacity:.8;">KEY TO YOUR KOGNITIO</p>
+        <p style="color:var(--steel-light); font-size:.9rem; max-width:220px;">Global Talent · Digital Technology · Artificial Intelligence.</p>
+        <form id="newsletter-form">
+          <div class="newsletter-inline">
+            <input type="email" required placeholder="you@company.com" aria-label="Email for newsletter" />
+            <button class="btn btn-primary" type="submit" style="padding:10px 16px;">Join</button>
+          </div>
+        </form>
+      </div>
+      <div><h5>Services</h5><a href="/global-recruitment.html">Global Recruitment</a><a href="/services.html">Software &amp; Web Services</a><a href="/ai.html">AI · AGI · ASI</a></div>
+      <div><h5>Intelligence</h5><a href="/ai.html">AI</a><a href="/ai.html#agi">AGI</a><a href="/ai.html#asi">ASI</a><a href="/ai.html#beyond">Beyond Intelligence</a></div>
+      <div><h5>Company</h5><a href="/about.html">About</a><a href="/careers.html">Careers</a><a href="/insights.html">Insights</a><a href="/contact.html">Contact</a></div>
+      <div><h5>Legal</h5><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/login.html">Login</a><a href="/login.html?mode=signup">Signup</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 KYK Technologies</span><span>Warangal · Global</span></div>
+  </div>
+</footer>
+<script src="/js/main.js" defer></script>
+</body>
+</html>

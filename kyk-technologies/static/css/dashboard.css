@@ -1,0 +1,169 @@
+/* ── layout ── */
+.admin-shell{display:flex;min-height:100vh;}
+.admin-page{color:var(--ink);}
+.admin-page h1,.admin-page h2,.admin-page h3,.admin-page h4,.admin-page h5,.admin-page h6{color:var(--ink);}
+.admin-page p{color:var(--steel-light);}
+.admin-page .main-content{background:rgba(5,6,10,.22);}
+.admin-page table{color:var(--ink);}
+.admin-page td{color:var(--ink);}
+.admin-page .field label{color:var(--ink);}
+.admin-page .field input,.admin-page .field select,.admin-page .field textarea{
+  background:rgba(255,255,255,.07);color:var(--ink);border-color:var(--glass-border);
+}
+.admin-page .field input::placeholder,.admin-page .field textarea::placeholder{color:var(--steel);}
+.admin-page .field select option{background:var(--panel);color:var(--ink);}
+.admin-page .form-card{color:var(--ink);}
+.sidebar{
+  width:220px;flex:none;background:rgba(8,10,14,.8);border-right:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);padding:24px 0;display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.sidebar-logo{padding:0 20px 20px;border-bottom:1px solid var(--glass-border);margin-bottom:12px;}
+.sidebar-logo .logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.sidebar-logo .logo img{width:38px;height:38px;object-fit:contain;border-radius:8px;flex-shrink:0;}
+.sidebar-logo .role-badge{
+  display:inline-block;padding:3px 10px;border-radius:999px;font-size:.7rem;
+  background:rgba(var(--glow),.15);color:var(--orange);border:1px solid rgba(var(--glow),.25);
+  margin-top:6px;font-family:var(--font-display);letter-spacing:.04em;
+}
+.sidebar nav{flex:1;}
+.sidebar nav button{
+  display:flex;align-items:center;gap:10px;width:100%;padding:11px 20px;background:none;border:none;
+  color:var(--steel-light);font-size:.85rem;cursor:pointer;transition:all .18s;text-align:left;
+  border-left:2px solid transparent;
+}
+.sidebar nav button:hover{color:var(--ink);background:rgba(255,255,255,.04);}
+.sidebar nav button.active{color:var(--orange);background:rgba(var(--glow),.07);border-left-color:var(--orange);}
+.sidebar nav button .tab-icon{font-size:1rem;flex:none;}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--glass-border);}
+.sidebar-footer .admin-name{font-size:.82rem;color:var(--ink);font-weight:600;}
+.sidebar-footer .logout-btn{
+  background:none;border:1px solid var(--glass-border);color:var(--steel);padding:6px 12px;
+  border-radius:8px;font-size:.78rem;cursor:pointer;margin-top:8px;width:100%;
+}
+.sidebar-footer .logout-btn:hover{color:var(--orange);border-color:var(--orange);}
+.main-content{flex:1;padding:28px 32px;overflow-y:auto;}
+@media(max-width:800px){
+  .admin-shell{flex-direction:column;}
+  .sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:wrap;padding:12px;}
+  .sidebar nav{display:flex;flex-wrap:wrap;}
+  .sidebar nav button{width:auto;padding:8px 14px;border-left:none;border-bottom:2px solid transparent;}
+  .sidebar nav button.active{border-bottom-color:var(--orange);border-left:none;}
+}
+/* ── panels ── */
+.panel{display:none;animation:kykFadeUp .25s ease;}
+.panel.active{display:block;}
+/* ── tables ── */
+table{width:100%;border-collapse:collapse;font-size:.84rem;}
+th{text-align:left;padding:9px 12px;color:var(--steel);font-size:.75rem;letter-spacing:.04em;
+   text-transform:uppercase;border-bottom:1px solid var(--glass-border);}
+td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;}
+tr:hover td{background:rgba(255,255,255,.025);}
+/* ── stat cards ── */
+.stat-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-bottom:24px;}
+.stat-card{padding:20px 18px;border-radius:14px;}
+.stat-card b{display:block;font-size:1.6rem;font-family:var(--font-display);color:var(--ink);}
+.stat-card span{font-size:.78rem;color:var(--steel-light);}
+/* ── form card ── */
+.form-card{padding:24px;border-radius:16px;}
+.job-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+/* ── small buttons ── */
+.small-btn{
+  padding:5px 11px;border-radius:7px;border:1px solid var(--glass-border);
+  background:var(--glass-bg);color:var(--steel-light);font-size:.76rem;cursor:pointer;
+}
+.small-btn:hover{border-color:var(--orange);color:var(--orange);}
+.small-btn.danger:hover{border-color:#e25c5c;color:#e25c5c;}
+/* ── status badge ── */
+.badge{padding:3px 9px;border-radius:999px;font-size:.72rem;font-weight:600;}
+.badge-new{background:rgba(56,210,115,.12);color:#38D273;}
+.badge-reviewing{background:rgba(232,98,44,.12);color:var(--orange);}
+.badge-interview{background:rgba(99,140,255,.12);color:#638CFF;}
+.badge-hired{background:rgba(56,210,115,.18);color:#38D273;}
+.badge-rejected{background:rgba(226,92,92,.12);color:#e25c5c;}
+
+/* Theme contrast: dashboard panels and controls follow the active theme. */
+:root[data-theme="light"] .admin-page{color:var(--ink);}
+:root[data-theme="light"] .admin-page h1,
+:root[data-theme="light"] .admin-page h2,
+:root[data-theme="light"] .admin-page h3,
+:root[data-theme="light"] .admin-page h4,
+:root[data-theme="light"] .admin-page h5,
+:root[data-theme="light"] .admin-page h6,
+:root[data-theme="light"] .admin-page td,
+:root[data-theme="light"] .admin-page table{color:var(--ink);}
+:root[data-theme="light"] .admin-page p,
+:root[data-theme="light"] .admin-page .field label,
+:root[data-theme="light"] .admin-page th{color:var(--steel);}
+:root[data-theme="light"] .sidebar{
+  background:rgba(247,246,243,.94); border-right-color:var(--line);
+}
+:root[data-theme="light"] .sidebar nav button{color:var(--steel);}
+:root[data-theme="light"] .sidebar nav button:hover{color:var(--ink);background:rgba(24,32,39,.05);}
+:root[data-theme="light"] .sidebar-footer .admin-name{color:var(--ink);}
+:root[data-theme="light"] .admin-page .field input,
+:root[data-theme="light"] .admin-page .field select,
+:root[data-theme="light"] .admin-page .field textarea{
+  background:#fff;color:var(--ink);border-color:var(--line);
+}
+:root[data-theme="light"] .admin-page .field input::placeholder,
+:root[data-theme="light"] .admin-page .field textarea::placeholder{color:var(--steel);}
+:root[data-theme="light"] .admin-page .form-card,
+:root[data-theme="light"] .admin-page .stat-card,
+:root[data-theme="light"] .admin-page .kanban-card{
+  color:var(--ink);background:rgba(255,255,255,.84);
+}
+:root[data-theme="light"] .admin-page .stat-card b{color:var(--ink);}
+:root[data-theme="light"] .admin-page .stat-card span,
+:root[data-theme="light"] .admin-page .kanban-card span{color:var(--steel);}
+/* ── chart ── */
+.chart-card{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:20px;}
+/* ── notes textarea ── */
+.notes-area{width:100%;border:1px solid var(--glass-border);background:var(--glass-bg);
+  border-radius:8px;padding:8px 10px;color:var(--ink);font-size:.8rem;resize:vertical;
+  min-height:60px;}
+/* ── role badge colours ── */
+.role-super_admin{background:rgba(var(--glow),.18);color:var(--orange);}
+.role-hr_manager{background:rgba(56,210,115,.12);color:#38D273;}
+.role-recruiter{background:rgba(99,140,255,.12);color:#638CFF;}
+.role-team_lead{background:rgba(255,210,56,.12);color:#d4a800;}
+.role-content_manager{background:rgba(180,99,255,.12);color:#b463ff;}
+.role-viewer{background:rgba(122,130,140,.12);color:var(--steel);}
+.role-employee{background:rgba(122,180,255,.12);color:#7ab4ff;}
+.role-client{background:rgba(56,180,210,.12);color:#38b4d2;}
+/* ── attendance ── */
+.punch-card{padding:22px 24px;border-radius:16px;max-width:420px;margin-bottom:22px;}
+.punch-status{font-size:.82rem;color:var(--steel-light);margin-bottom:4px;}
+.punch-time{font-family:var(--font-display);font-size:1.5rem;color:var(--ink);margin-bottom:14px;}
+.punch-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:600;margin-left:8px;}
+.badge-day-FullDay{background:rgba(56,210,115,.15);color:#38D273;}
+.badge-day-HalfDay{background:rgba(255,210,56,.15);color:#d4a800;}
+.badge-day-ShortDay{background:rgba(226,92,92,.15);color:#e25c5c;}
+.month-nav{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.month-nav b{font-family:var(--font-display);min-width:150px;display:inline-block;}
+/* ── login ── */
+#loginScreen{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:#05060a;}
+.login-card{max-width:380px;width:100%;}
+
+/* ── daily report + reports review ── */
+.char-counter{font-size:.78rem;color:var(--steel-light);text-align:right;margin-top:4px;}
+.char-counter.warn{color:#e25c5c;}
+.mood-picker{display:flex;gap:8px;flex-wrap:wrap;}
+.mood-picker button{
+  font-size:1.35rem;line-height:1;padding:8px 12px;border-radius:10px;cursor:pointer;
+  background:rgba(255,255,255,.05);border:1.5px solid var(--glass-border);
+  transition:transform .15s ease, border-color .15s ease;
+}
+.mood-picker button:hover{transform:translateY(-2px);}
+.mood-picker button.active{border-color:var(--orange);background:rgba(232,98,44,.12);}
+:root[data-theme="light"] .mood-picker button{background:rgba(15,23,42,.04);}
+.report-history-hint,.review-missing{
+  background:rgba(255,255,255,.05);border:1px solid var(--glass-border);border-radius:10px;
+  padding:12px 16px;margin-bottom:16px;font-size:.86rem;color:var(--ink);
+}
+:root[data-theme="light"] .report-history-hint,
+:root[data-theme="light"] .review-missing{background:rgba(15,23,42,.04);}
+.review-filters{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:18px;}
+.review-filters .field{margin-bottom:0;}
+.review-detail-card dt{font-size:.76rem;text-transform:uppercase;letter-spacing:.04em;color:var(--steel-light);margin-top:14px;}
+.review-detail-card dd{margin:4px 0 0;color:var(--ink);white-space:pre-wrap;}

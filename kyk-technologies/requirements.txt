@@ -1,0 +1,25 @@
+# KYK Technologies — Python dependencies
+# ──────────────────────────────────────────────────────────────────────────
+# Core (always required)
+Flask>=3.0
+SQLAlchemy>=2.0
+
+# PostgreSQL driver & env (required when DATABASE_URL=postgresql://...)
+psycopg2-binary>=2.9
+python-dotenv>=1.0
+tzdata>=2024.1
+
+# Production WSGI server (required for Render deployment):
+gunicorn>=21
+
+# Optional hosted AI assistant uses the Groq HTTP API from app.py.
+
+# Cross-worker rate limiting — required when REDIS_URL is enabled for
+# production multi-worker deployments (see app.py's rate_limit()):
+redis>=5.0
+
+# Schema migrations for the SQL backend (see migrations/ and README):
+alembic>=1.13
+
+# Anthropic SDK (required only if you wire the AI assistant to a real LLM):
+# anthropic>=0.25

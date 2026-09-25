@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>KYK Viewer Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="/css/style.css"/>
+<link rel="stylesheet" href="/css/dashboard.css"/>
+</head>
+<body class="admin-page">
+<!-- Dashboard shell (hidden until logged in) -->
+<div class="admin-shell" id="dashShell" style="display:none;">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="/index.html" class="logo" aria-label="KYK home"><img src="/kyk_logo.webp" alt="KYK Technologies" style="width:38px;height:38px;object-fit:contain;display:block;"/></a>
+      <div class="role-badge" id="roleLabel">Loading…</div>
+    </div>
+    <nav id="sidebarNav"><!-- tabs rendered by JS based on role --></nav>
+    <div class="sidebar-footer">
+      <div class="admin-name" id="adminName"></div>
+      <div style="font-size:.74rem;color:var(--steel);" id="adminEmail"></div>
+      <button class="logout-btn" id="logoutBtn">Sign out</button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <!-- Overview (read-only; Viewer has no editing tabs and no attendance) -->
+    <div class="panel active" id="panel-overview">
+      <h2 style="font-family:var(--font-display);margin-bottom:20px;">Overview</h2>
+      <div class="stat-cards" id="statCards"></div>
+      <div class="chart-card" style="margin-bottom:24px;">
+        <b style="font-family:var(--font-display);font-size:.9rem;">Applications — last 14 days</b>
+        <canvas id="appsChart" height="180" style="margin-top:14px;width:100%;display:block;"></canvas>
+      </div>
+    </div>
+  
+    <!-- Daily Report -->
+    <div class="panel" id="panel-daily_report">
+      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Daily Report</h3>
+      <form id="reportForm" class="form-card glass-glow" style="margin-bottom:24px;">
+        <div class="field">
+          <label for="reportSummary">Work summary * <span style="font-weight:400;color:var(--steel-light);">(min 20 characters)</span></label>
+          <textarea id="reportSummary" rows="4" maxlength="2000" required></textarea>
+          <div class="char-counter" id="reportCharCounter">0 / 2000</div>
+        </div>
+        <div class="field">
+          <label for="reportTasks">Tasks completed</label>
+          <textarea id="reportTasks" rows="2" placeholder="Bullet list of tasks finished today"></textarea>
+        </div>
+        <div class="field">
+          <label for="reportBlockers">Blockers / issues</label>
+          <textarea id="reportBlockers" rows="2" placeholder="Anything blocking you"></textarea>
+        </div>
+        <div class="field">
+          <label for="reportHours">Hours worked</label>
+          <input type="number" id="reportHours" min="0" max="24" step="0.5" placeholder="e.g. 8"/>
+        </div>
+        <div class="field">
+          <label>Mood / energy</label>
+          <div class="mood-picker" id="reportMoodPicker">
+            <button type="button" data-mood="exhausted">😫</button>
+            <button type="button" data-mood="tired">😔</button>
+            <button type="button" data-mood="okay">😐</button>
+            <button type="button" data-mood="good">🙂</button>
+            <button type="button" data-mood="great">😄</button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="reportSubmitBtn" style="margin-top:10px;">Submit report</button>
+        <div class="form-msg" id="reportMsg"></div>
+      </form>
+
+      <div class="month-nav">
+        <button class="small-btn" id="reportHistPrev">← Prev</button>
+        <b id="reportHistLabel">—</b>
+        <button class="small-btn" id="reportHistNext">Next →</button>
+      </div>
+      <table><thead><tr><th>Date</th><th>Summary</th><th>Hours</th><th>Mood</th><th>Status</th></tr></thead>
+      <tbody id="reportHistBody"></tbody></table>
+    </div>
+
+  </main>
+</div>
+
+<script src="/js/main.js" defer></script>
+<script src="/js/dash-common.js"></script>
+</body>
+</html>
