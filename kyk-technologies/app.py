@@ -2013,7 +2013,7 @@ def workpulse_employees():
         rows = [u for u in rows if query in (u.get("name", "") + " " + u.get("email", "")).lower()]
     if department:
         rows = [u for u in rows if u.get("department", "").lower() == department]
-    return jsonify([{k: u.get(k) for k in ("id", "name", "email", "role", "department", "designation", "phone", "status", "createdAt")}
+    return jsonify([{k: u.get(k) for k in ("id", "name", "email", "role", "department", "designation", "phone", "joiningDate", "shift", "status", "createdAt")}
                     for u in sorted(rows, key=lambda row: row.get("name", "").lower())])
 
 
@@ -2080,7 +2080,7 @@ def workpulse_profile():
     if not user:
         return error("Profile not found.", 404)
     reports = [r for r in db.read("daily_reports") if r.get("adminId") == user.get("id")]
-    return jsonify({k: user.get(k) for k in ("id", "name", "email", "role", "department", "designation", "phone", "status", "createdAt")} |
+    return jsonify({k: user.get(k) for k in ("id", "name", "email", "role", "department", "designation", "phone", "joiningDate", "shift", "status", "createdAt")} |
                    {"totalReports": len(reports), "reportsThisMonth": len([r for r in reports if r.get("date", "").startswith(_now_local().strftime("%Y-%m"))])})
 
 
@@ -2101,7 +2101,7 @@ def update_workpulse_profile():
         return error("Profile not found.", 404)
     invalidate_admin_idx(request.admin.get("email"))
     audit(request.admin, "profile_updated", request.admin.get("email", ""))
-    return jsonify({k: updated.get(k) for k in ("id", "name", "email", "role", "department", "designation", "phone", "status")})
+    return jsonify({k: updated.get(k) for k in ("id", "name", "email", "role", "department", "designation", "phone", "joiningDate", "shift", "status")})
 
 
 # ─────────────────────────────────────────── admin: holiday calendar (HR / super_admin)

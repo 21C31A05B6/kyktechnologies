@@ -1004,11 +1004,19 @@ async function loadEmployees(){
     if(!rows.length){tbody.innerHTML='<tr><td colspan="5">No employees found.</td></tr>';return;}
     rows.forEach(u=>{
       const tr=document.createElement('tr'); tr.innerHTML='<td></td><td></td><td></td><td></td><td></td>';
-      tr.cells[0].textContent=u.name||'—'; tr.cells[1].textContent=u.email||'—';
+      const nameButton=document.createElement('button'); nameButton.type='button'; nameButton.className='small-btn'; nameButton.textContent=u.name||'—'; nameButton.addEventListener('click',()=>showEmployeeDetails(u)); tr.cells[0].appendChild(nameButton); tr.cells[1].textContent=u.email||'—';
       tr.cells[2].textContent=(u.role||'').replace(/_/g,' '); tr.cells[3].textContent=u.department||'—';
       tr.cells[4].textContent=u.status||'active'; tbody.appendChild(tr);
     });
   }catch(e){console.error(e);}
+}
+function showEmployeeDetails(user){
+  let panel=$('employeeDetailsPanel');
+  if(!panel){panel=document.createElement('section');panel.id='employeeDetailsPanel';panel.className='form-card';panel.style.cssText='margin-top:18px;max-width:760px;';$('panel-employees')?.appendChild(panel);}
+  panel.innerHTML=''; const heading=document.createElement('h3'); heading.textContent='Complete profile details'; panel.appendChild(heading);
+  const grid=document.createElement('div'); grid.className='profile-detail-grid'; panel.appendChild(grid);
+  [['Name',user.name],['Email',user.email],['Role',(user.role||'').replace(/_/g,' ')],['Department',user.department],['Designation',user.designation],['Phone',user.phone],['Joining date',user.joiningDate],['Shift',user.shift],['Status',user.status],['Created',user.createdAt?new Date(user.createdAt).toLocaleString():'']].forEach(([label,value])=>{const item=document.createElement('div');const key=document.createElement('b');key.textContent=label;const val=document.createElement('span');val.textContent=value||'—';item.append(key,val);grid.appendChild(item);});
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 on('employeeRefresh','click',loadEmployees); on('employeeSearch','keydown',e=>e.key==='Enter'&&loadEmployees());
 
@@ -1051,6 +1059,7 @@ async function loadMyProfile(){
   const form=$('profileForm'); if(!form) return;
   try{
     const d=await api('/profile'); $('profileName').value=d.name||''; $('profileEmail').value=d.email||''; $('profileRole').value=(d.role||'').replace(/_/g,' '); $('profilePhone').value=d.phone||'';
+    let details=$('profileDetails'); if(!details){details=document.createElement('div');details.id='profileDetails';details.className='profile-detail-grid';form.insertBefore(details,$('profileStats'));} details.innerHTML=''; [['Department',d.department],['Designation',d.designation],['Joining date',d.joiningDate],['Shift',d.shift],['Status',d.status],['Created',d.createdAt?new Date(d.createdAt).toLocaleString():'']].forEach(([label,value])=>{const item=document.createElement('div');item.innerHTML='<b></b><span></span>';item.firstChild.textContent=label;item.lastChild.textContent=value||'—';details.appendChild(item);});
     const cards=$('profileStats'); cards.innerHTML=''; [[d.totalReports||0,'Total reports'],[d.reportsThisMonth||0,'This month']].forEach(([v,l])=>{const c=document.createElement('div');c.className='stat-card glass-glow';c.innerHTML='<b></b><span></span>';c.firstChild.textContent=v;c.lastChild.textContent=l;cards.appendChild(c);});
   }catch(e){setFormMsg($('profileMsg'),e.message,false);}
 }
