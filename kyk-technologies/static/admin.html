@@ -209,6 +209,18 @@
               <option value="viewer">Viewer </option>
             </select>
           </div>
+          <div class="field"><label>Department</label><input id="uDepartment" placeholder="Engineering"/></div>
+          <div class="field"><label>Designation</label><input id="uDesignation" placeholder="Software Engineer"/></div>
+          <div class="field"><label>Phone</label><input id="uPhone" type="tel" placeholder="+91 98765 43210"/></div>
+          <div class="field"><label>Date of join</label><input id="uJoiningDate" type="date"/></div>
+          <div class="field"><label>Status</label>
+            <select id="uStatus">
+              <option value="active" selected>Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="suspended">Suspended</option>
+              <option value="terminated">Terminated</option>
+            </select>
+          </div>
           <div style="display:flex;gap:10px;margin-block-start:4px;">
             <button class="btn btn-primary" type="submit" id="userSubmitBtn">Create user</button>
             <button class="btn btn-outline" type="button" id="userCancelBtn" style="display:none;">Cancel</button>

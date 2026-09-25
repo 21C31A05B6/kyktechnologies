@@ -1437,26 +1437,53 @@ WORK_DAY_SECONDS = 9 * 3600
 HALF_DAY_SECONDS = WORK_DAY_SECONDS // 2
 
 
-def _now_local():
-    return _dt.datetime.now(COMPANY_TZ)
+def _tz_for_name(tz_name=None):
+    tz_value = tz_name or COMPANY_TIMEZONE
+    try:
+        return ZoneInfo(tz_value)
+    except Exception:
+        return COMPANY_TZ
 
 
-def _today_key():
-    return _now_local().strftime("%Y-%m-%d")
+def _now_local(tz_name=None):
+    return _dt.datetime.now(_tz_for_name(tz_name))
 
 
-def _to_local(iso_str):
-    """Parse a stored UTC ISO timestamp and return it in COMPANY_TZ."""
+def _today_key(tz_name=None):
+    return _now_local(tz_name).strftime("%Y-%m-%d")
+
+
+def _request_timezone():
+    payload = request.get_json(silent=True) or {}
+    tz_value = None
+    if isinstance(payload, dict):
+        tz_value = payload.get("timezone")
+    if not tz_value and request.form:
+        tz_value = request.form.get("timezone")
+    if not tz_value:
+        tz_value = request.args.get("timezone")
+    tz_text = clean(str(tz_value), 80) if tz_value is not None else ""
+    if not tz_text:
+        return COMPANY_TIMEZONE
+    try:
+        ZoneInfo(tz_text)
+        return tz_text
+    except Exception:
+        return COMPANY_TIMEZONE
+
+
+def _to_local(iso_str, tz_name=None):
+    """Parse a stored UTC ISO timestamp and return it in the target timezone."""
     dt = _dt.datetime.fromisoformat(iso_str)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=_dt.timezone.utc)
-    return dt.astimezone(COMPANY_TZ)
+    return dt.astimezone(_tz_for_name(tz_name))
 
 
-def _shift_dt(date_key, hhmm):
+def _shift_dt(date_key, hhmm, tz_name=None):
     h, m = (int(x) for x in hhmm.split(":"))
     y, mo, d = (int(x) for x in date_key.split("-"))
-    return _dt.datetime(y, mo, d, h, m, tzinfo=COMPANY_TZ)
+    return _dt.datetime(y, mo, d, h, m, tzinfo=_tz_for_name(tz_name))
 
 
 def _find_attendance_row(admin_id, date_key):
@@ -1495,18 +1522,18 @@ def _break_seconds(row):
     return total
 
 
-def _recalculate(row):
+def _recalculate(row, tz_name=None):
     """Recompute workedSeconds, late/early/overtime and dayStatus for a
     row that has both checkIn and checkOut. Mutates and returns a patch
     dict — does not write to the DB itself."""
     date_key = row["date"]
-    checkin_dt = _to_local(row["checkIn"])
-    checkout_dt = _to_local(row["checkOut"])
+    checkin_dt = _to_local(row["checkIn"], tz_name)
+    checkout_dt = _to_local(row["checkOut"], tz_name)
     gross = max(0, int((checkout_dt - checkin_dt).total_seconds()))
     worked = max(0, gross - _break_seconds(row))
 
-    shift_start = _shift_dt(date_key, SHIFT_START)
-    shift_end = _shift_dt(date_key, SHIFT_END)
+    shift_start = _shift_dt(date_key, SHIFT_START, tz_name)
+    shift_end = _shift_dt(date_key, SHIFT_END, tz_name)
     late_raw = max(0, int((checkin_dt - shift_start).total_seconds() // 60)) if checkin_dt > shift_start else 0
     late_by = max(0, late_raw - LATE_GRACE_MINUTES) if late_raw else 0
     early_raw = max(0, int((shift_end - checkout_dt).total_seconds() // 60)) if checkout_dt < shift_end else 0
@@ -1552,8 +1579,9 @@ def _fmt_hm(seconds):
 @app.post("/api/attendance/checkin")
 @attendance_required
 def attendance_checkin():
-    admin    = request.admin
-    date_key = _today_key()
+    admin = request.admin
+    tz_name = _request_timezone()
+    date_key = _today_key(tz_name)
     existing = _find_attendance_row(admin["id"], date_key)
     if existing:
         if existing.get("checkOut") is None:
@@ -1567,6 +1595,7 @@ def attendance_checkin():
         "adminEmail":         admin.get("email", ""),
         "adminRole":          admin.get("role", ""),
         "date":               date_key,
+        "timezone":           tz_name,
         "checkIn":            db.now_iso(),
         "checkOut":           None,
         "breaks":             [],
@@ -1620,8 +1649,9 @@ def attendance_break_end():
 @app.post("/api/attendance/checkout")
 @attendance_required
 def attendance_checkout():
-    admin    = request.admin
-    date_key = _today_key()
+    admin = request.admin
+    tz_name = _request_timezone()
+    date_key = _today_key(tz_name)
     existing = _find_attendance_row(admin["id"], date_key)
     if not existing:
         return error("You haven't checked in today.")
@@ -1631,7 +1661,7 @@ def attendance_checkout():
         return error("End your current break before checking out.")
     checkout_iso = db.now_iso()
     merged = {**existing, "checkOut": checkout_iso}
-    patch = _recalculate(merged)
+    patch = _recalculate(merged, tz_name)
     patch["checkOut"] = checkout_iso
     row = db.update("attendance", existing["id"], patch)
     audit(admin, "attendance_checkout", f"{date_key} ({_fmt_hm(patch['workedSeconds'])})")
