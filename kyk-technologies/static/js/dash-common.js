@@ -60,13 +60,21 @@ on('loginBtn','click',async()=>{
       d=await res.json();
     }
     if(!res.ok) throw new Error(d.error || 'Login failed');
+    const safeRedirect = (() => {
+      const raw = (loginBtn && loginBtn.dataset && loginBtn.dataset.redirect) || '';
+      if (!raw) return null;
+      const value = raw.trim();
+      if (!value || value.startsWith('//')) return null;
+      if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('javascript:') || value.startsWith('data:')) return null;
+      return value.startsWith('/') ? value : `/${value}`;
+    })();
     if (isAdminLogin || d.role && ROLE_HOME[d.role]) {
       gToken=d.token; localStorage.setItem(TOKEN_KEY,gToken);
       const adminHome = ROLE_HOME[d.role] || 'admin.html';
-      location.replace(loginBtn.dataset.redirect || `/${adminHome}`);
+      location.replace(safeRedirect || `/${adminHome}`);
     } else {
       localStorage.setItem(LOGIN_USER_TOKEN_KEY, d.token);
-      location.replace(loginBtn.dataset.redirect || '/user-dashboard.html');
+      location.replace(safeRedirect || '/user-dashboard.html');
     }
   } catch(e){ setFormMsg(msg,e.message,false); }
 });
@@ -372,8 +380,13 @@ async function loadApplications(){
     badge.textContent=(a.status||'new');
     tr.cells[2].appendChild(badge);
     if(a.resumeFile){
-      const link=document.createElement('a'); link.href='/api/admin/files/'+encodeURIComponent(a.resumeFile)+'?token='+gToken;
-      link.textContent='Download'; link.target='_blank'; link.style.color='var(--orange)'; link.style.fontSize='.8rem';
+      const link=document.createElement('a');
+      link.href='/api/admin/files/'+encodeURIComponent(a.resumeFile);
+      link.textContent='Download';
+      link.target='_blank';
+      link.rel='noopener noreferrer';
+      link.style.color='var(--orange)';
+      link.style.fontSize='.8rem';
       tr.cells[3].appendChild(link);
     } else {tr.cells[3].textContent='—';}
     const notesArea=document.createElement('textarea'); notesArea.className='notes-area';
@@ -458,7 +471,7 @@ async function loadTalent(){
     notesArea.value=t.notes||''; notesArea.placeholder='Notes…';
     notesArea.addEventListener('change',()=>saveTalentNotes(t.id,notesArea.value));
     tr.cells[5].appendChild(notesArea);
-    if(t.resumeFile){const lk=document.createElement('a');lk.href='/api/admin/files/'+encodeURIComponent(t.resumeFile)+'?token='+gToken;lk.textContent='CV';lk.target='_blank';lk.className='small-btn';tr.cells[6].appendChild(lk);}
+    if(t.resumeFile){const lk=document.createElement('a');lk.href='/api/admin/files/'+encodeURIComponent(t.resumeFile);lk.textContent='CV';lk.target='_blank';lk.rel='noopener noreferrer';lk.className='small-btn';tr.cells[6].appendChild(lk);}
     tbody.appendChild(tr);
   });
 }

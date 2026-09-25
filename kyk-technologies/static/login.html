@@ -113,7 +113,7 @@
       }
     });
 
-    if (redirect) {
+    if (redirect && !redirect.startsWith('//') && !redirect.startsWith('http://') && !redirect.startsWith('https://') && !redirect.startsWith('javascript:') && !redirect.startsWith('data:') && redirect.startsWith('/')) {
       document.getElementById('loginBtn').dataset.redirect = redirect;
     }
   })();

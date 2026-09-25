@@ -133,7 +133,8 @@ document.addEventListener("DOMContentLoaded", updateAuthNavigation);
 
 function requireUserAuth(redirectPath = location.pathname) {
   if (!getUserToken()) {
-    const url = "/login.html?redirect=" + encodeURIComponent(redirectPath);
+    const safePath = typeof redirectPath === "string" && redirectPath.startsWith("/") && !redirectPath.startsWith("//") && !redirectPath.startsWith("http://") && !redirectPath.startsWith("https://") && !redirectPath.startsWith("javascript:") && !redirectPath.startsWith("data:") ? redirectPath : "/user-dashboard.html";
+    const url = "/login.html?redirect=" + encodeURIComponent(safePath);
     location.href = url;
     return false;
   }

@@ -5,6 +5,10 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT --worker-class gthread --workers 4 --threads 4 --timeout 120 --access-logfile - --error-logfile - app:app
     healthCheckPath: /api/health/database
+    disk:
+      name: app-data
+      mountPath: /var/data
+      sizeGB: 10
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.8
@@ -24,3 +28,5 @@ services:
         sync: false
       - key: COMPANY_TIMEZONE
         value: Asia/Kolkata
+      - key: UPLOAD_DIR
+        value: /var/data/uploads

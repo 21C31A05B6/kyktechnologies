@@ -56,7 +56,27 @@ from security import hash_password, make_token, read_token, verify_password
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+DEFAULT_UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+
+
+def resolve_upload_dir(env_name, fallback_dir):
+    """Prefer a persistent environment path; otherwise fall back to the app-local uploads folder."""
+    candidate = os.getenv(env_name)
+    if candidate:
+        candidate = os.path.expanduser(candidate.strip())
+        if not candidate:
+            return os.path.abspath(fallback_dir)
+        if os.path.isabs(candidate):
+            return os.path.abspath(candidate)
+        return os.path.abspath(os.path.join(BASE_DIR, candidate))
+    return os.path.abspath(fallback_dir)
+
+
+UPLOAD_DIR = resolve_upload_dir("UPLOAD_DIR", DEFAULT_UPLOAD_DIR)
+PRIVATE_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "private", "resumes")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(PRIVATE_UPLOAD_DIR, exist_ok=True)
+BLOCKED_ACCOUNT_STATUS = {"suspended", "terminated", "inactive"}
 
 ALLOWED_RESUME_EXT = {".pdf", ".doc", ".docx"}
 ALLOWED_PROFILE_IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp"}
@@ -70,10 +90,15 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES + (1024 * 1024)
 
 @app.get("/uploads/<path:filename>")
 def serve_upload(filename):
-    safe_name = os.path.basename(filename)
-    path = os.path.join(UPLOAD_DIR, safe_name)
+    safe_name = secure_filename(os.path.basename(filename))
+    if not safe_name or not safe_name.startswith("profile-"):
+        abort(403)
+    root = os.path.realpath(UPLOAD_DIR)
+    path = os.path.realpath(os.path.join(root, safe_name))
+    if os.path.commonpath([root, path]) != root:
+        abort(403)
     if os.path.isfile(path):
-        return send_from_directory(UPLOAD_DIR, safe_name)
+        return send_from_directory(root, safe_name)
     abort(404)
 
 
@@ -125,6 +150,7 @@ WEEKEND_DAYS = {int(d) for d in os.environ.get("WEEKEND_DAYS", "5,6").split(",")
 # WEEKEND_DAYS uses Python's Monday=0..Sunday=6; default Sat/Sun.
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(PRIVATE_UPLOAD_DIR, exist_ok=True)
 seed()
 
 # ── In-memory lookup indexes for hot paths (login) ─────────────────────
@@ -428,11 +454,31 @@ def rate_limit(max_requests=8, window_seconds=900):
 
 # ─────────────────────────────────────────── RBAC
 
+def is_account_active(record):
+    status = (record or {}).get("status", "active")
+    return status not in BLOCKED_ACCOUNT_STATUS
+
+
+def sanitize_redirect_target(value):
+    if not value or not isinstance(value, str):
+        return None
+    candidate = value.strip()
+    if not candidate or candidate.startswith("//"):
+        return None
+    if candidate.lower().startswith(("javascript:", "data:", "vbscript:")):
+        return None
+    if candidate.startswith("http://") or candidate.startswith("https://"):
+        return None
+    if not candidate.startswith("/"):
+        return None
+    return candidate
+
+
 def current_admin():
     """Read the bearer token; validate signature, expiry, AND active session.
     Returns None for any failure (invalid token, expired, or session was evicted)."""
     header = request.headers.get("Authorization", "")
-    token = header[7:] if header.startswith("Bearer ") else request.args.get("token", "")
+    token = header[7:] if header.startswith("Bearer ") else ""
     payload = read_token(token)
     if not payload:
         return None
@@ -441,7 +487,7 @@ def current_admin():
     if not _session_valid(jti):
         return None  # session was evicted (another browser logged in) or never created
     admin = db.find("admins", payload.get("adminId"))
-    if admin and admin.get("status", "active") in {"suspended", "terminated", "inactive"}:
+    if admin and not is_account_active(admin):
         return None  # account disabled mid-session
     if admin:
         request._session_jti = jti   # stash for logout endpoint
@@ -527,11 +573,16 @@ def daily_report_required(view):
 def save_resume(file_storage):
     if not file_storage or not file_storage.filename:
         return None
-    ext = os.path.splitext(file_storage.filename)[1].lower()
+    os.makedirs(PRIVATE_UPLOAD_DIR, exist_ok=True)
+    original_name = os.path.basename(file_storage.filename)
+    safe_name = secure_filename(original_name)
+    if not safe_name:
+        raise ValueError("Invalid resume filename.")
+    ext = os.path.splitext(safe_name)[1].lower()
     if ext not in ALLOWED_RESUME_EXT:
         raise ValueError("Resumes must be a PDF, DOC, or DOCX file.")
     stored = f"{uuid.uuid4().hex}{ext}"
-    path = os.path.join(UPLOAD_DIR, stored)
+    path = os.path.join(PRIVATE_UPLOAD_DIR, stored)
     file_storage.save(path)
     if os.path.getsize(path) > MAX_UPLOAD_BYTES:
         os.remove(path)
@@ -545,7 +596,12 @@ def save_resume(file_storage):
 def save_profile_image(file_storage):
     if not file_storage or not file_storage.filename:
         return None
-    ext = os.path.splitext(file_storage.filename)[1].lower()
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    original_name = os.path.basename(file_storage.filename)
+    safe_name = secure_filename(original_name)
+    if not safe_name:
+        raise ValueError("Invalid profile photo filename.")
+    ext = os.path.splitext(safe_name)[1].lower()
     if ext not in ALLOWED_PROFILE_IMAGE_EXT:
         raise ValueError("Profile photo must be a PNG, JPG, JPEG, or WEBP image.")
     stored = f"profile-{uuid.uuid4().hex}{ext}"
@@ -619,8 +675,10 @@ def create_application():
     if not user:
         return error("Please login to apply for a role.", 401)
     form = request.form
-    name  = clean(form.get("name"), 120)
-    email = clean(form.get("email"), 160)
+    email = clean(form.get("email"), 160).lower()
+    if email.lower() != (user.get("email") or "").lower():
+        return error("Applications must use the logged-in account email.", 403)
+    name = clean(form.get("name") or user.get("name"), 120)
     if not name or not valid_email(email):
         return error("Please enter your name and a valid email address.")
 
@@ -884,7 +942,7 @@ def assistant_reply():
 def current_user():
     """Read the bearer token; validate signature, expiry, AND active session."""
     header = request.headers.get("Authorization", "")
-    token = header[7:] if header.startswith("Bearer ") else request.args.get("token", "")
+    token = header[7:] if header.startswith("Bearer ") else ""
     payload = read_token(token)
     if not payload or "userId" not in payload:
         return None
@@ -892,6 +950,8 @@ def current_user():
     if not _session_valid(jti):
         return None  # session evicted by a newer login on another browser
     user = db.find("users", payload.get("userId"))
+    if user and not is_account_active(user):
+        return None
     if user:
         request._session_jti = jti
     return user
@@ -952,6 +1012,8 @@ def user_login():
             user = _user_idx.get(email)
     if not user or not verify_password(password, user.get("passwordHash", "")):
         return error("Those credentials don't match a user account.", 401)
+    if not is_account_active(user):
+        return error("This account is no longer active. Contact an administrator.", 403)
     # Build token first to extract jti, then register the session
     token = make_token({"userId": user["id"]})
     from security import read_token as _rt
@@ -995,7 +1057,7 @@ def login():
         audit(None, "login_failed", email)
         return error("Those credentials don't match an admin account.", 401)
     status = admin.get("status", "active")
-    if status in {"suspended", "terminated", "inactive"}:
+    if not is_account_active(admin):
         audit(admin, "login_blocked", f"account status: {status}")
         return error("This account is no longer active. Contact an administrator.", 403)
     role  = admin.get("role", "viewer")
@@ -1340,9 +1402,15 @@ def admin_audit_log():
 @admin_required
 def admin_download(filename):
     safe = secure_filename(filename)
-    if not os.path.exists(os.path.join(UPLOAD_DIR, safe)):
+    if not safe:
         return error("File not found.", 404)
-    return send_from_directory(UPLOAD_DIR, safe, as_attachment=True)
+    root = os.path.realpath(PRIVATE_UPLOAD_DIR)
+    private_path = os.path.realpath(os.path.join(root, safe))
+    if os.path.commonpath([root, private_path]) != root:
+        return error("File not found.", 404)
+    if not os.path.exists(private_path):
+        return error("File not found.", 404)
+    return send_from_directory(root, safe, as_attachment=True)
 
 
 # ─────────────────────────────────────────── attendance (check-in / check-out)
@@ -1924,10 +1992,12 @@ def admin_daily_reports_export():
 # ─────────────────────────────────────────── WorkPulse employee management
 
 @app.get("/api/admin/employees")
-@role_required("hr_manager", "recruiter", "team_lead", "content_manager", "viewer", "employee")
+@role_required("hr_manager", "team_lead")
 def workpulse_employees():
     """Return staff accounts in the shape used by the WorkPulse directory."""
     rows = [u for u in db.read("admins") if u.get("role") not in {"super_admin", "client"}]
+    if request.admin.get("role") == "team_lead":
+        rows = [u for u in rows if u.get("department") == request.admin.get("department")]
     query = clean(request.args.get("q", ""), 120).lower()
     department = clean(request.args.get("department", ""), 120).lower()
     if query:
@@ -1939,17 +2009,20 @@ def workpulse_employees():
 
 
 @app.get("/api/admin/performance")
-@role_required("hr_manager", "recruiter", "team_lead", "content_manager", "viewer", "employee")
+@role_required("hr_manager", "team_lead")
 def workpulse_performance():
-    """Calculate submission rate, streak, and attention flags from daily reports."""
+    """Calculate a safer submission-rate view for the current viewer."""
     now = _now_local()
     month = clean(request.args.get("month", ""), 7) or f"{now.year:04d}-{now.month:02d}"
     reports = [r for r in db.read("daily_reports") if r.get("date", "").startswith(month)]
-    users = [u for u in db.read("admins") if u.get("role") not in {"super_admin", "client"}]
+    rows = [u for u in db.read("admins") if u.get("role") not in {"super_admin", "client"}]
+    if request.admin.get("role") == "team_lead":
+        rows = [u for u in rows if u.get("department") == request.admin.get("department")]
     result = []
-    for user in users:
+    for user in rows:
         submitted = [r for r in reports if r.get("adminId") == user.get("id")]
-        rate = round(len(submitted) / max(1, len(set(r.get("date") for r in reports))) * 100, 1) if reports else 0
+        denominator = max(1, len({r.get("date") for r in reports if r.get("adminId") == user.get("id")}) or 1)
+        rate = round((len(submitted) / denominator) * 100, 1) if submitted else 0
         result.append({"id": user.get("id"), "name": user.get("name", ""), "role": user.get("role", ""),
                        "department": user.get("department", ""), "totalReports": len(submitted),
                        "submissionRate": rate, "attention": rate < 50})
@@ -1957,7 +2030,7 @@ def workpulse_performance():
 
 
 @app.get("/api/admin/performance/export.csv")
-@role_required("hr_manager", "recruiter", "team_lead", "content_manager", "viewer", "employee")
+@role_required("hr_manager", "team_lead")
 def workpulse_performance_export():
     data = workpulse_performance().get_json()
     buf = io.StringIO()
@@ -2017,6 +2090,9 @@ def update_workpulse_profile():
         if len(password) < 8:
             return error("Password must be at least 8 characters.")
         patch["passwordHash"] = hash_password(password)
+        for session in db.read("sessions"):
+            if session.get("owner_type") == "admin" and session.get("owner_id") == request.admin["id"]:
+                _revoke_session(session.get("jti", ""))
     if request.files and request.files.get("profilePhoto"):
         try:
             patch["profilePhoto"] = save_profile_image(request.files.get("profilePhoto"))
@@ -2285,7 +2361,7 @@ def list_roles():
 
 # ─────────────────────────────────────────── separate role tables endpoints
 
-@app.get("/api/admin/employees")
+@app.get("/api/admin/staff")
 @role_required("hr_manager", "team_lead")
 def list_employees():
     return jsonify(db.get_employees())

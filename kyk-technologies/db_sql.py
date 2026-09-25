@@ -136,6 +136,10 @@ def init_db():
 init_db()
 
 
+def _normalize_collection(collection):
+    return "audit_log" if collection in {"audit_log", "audit_logs"} else collection
+
+
 def health_check():
     """Verify that the configured SQL database accepts a real query."""
     from sqlalchemy import text
@@ -192,6 +196,7 @@ def _row_to_dict(row):
 
 
 def read(collection):
+    canonical = _normalize_collection(collection)
     with _Session() as session:
         if collection == "jobs":
             try:
@@ -214,7 +219,7 @@ def read(collection):
                     return [att.to_dict() for att in atts]
             except Exception:
                 pass
-        elif collection == "audit_log":
+        elif canonical == "audit_log":
             try:
                 logs = session.scalars(select(AuditLog).order_by(AuditLog.id.desc())).all()
                 if logs:
@@ -230,7 +235,7 @@ def read(collection):
                 pass
 
         rows = session.scalars(
-            select(Record).where(Record.collection == collection).order_by(Record.id)
+            select(Record).where(Record.collection == canonical).order_by(Record.id)
         ).all()
         return [_row_to_dict(r) for r in rows]
 
@@ -238,13 +243,14 @@ def read(collection):
 def write(collection, rows):
     """Replace every row in a collection. Kept for interface parity with
     the JSON store; SQL callers should prefer insert/update/remove."""
+    canonical = _normalize_collection(collection)
     with _lock, _Session() as session:
-        session.query(Record).filter(Record.collection == collection).delete()
+        session.query(Record).filter(Record.collection == canonical).delete()
         for row in rows:
             body = {k: v for k, v in row.items() if k not in ("id", "createdAt", "updatedAt")}
             session.add(
                 Record(
-                    collection=collection,
+                    collection=canonical,
                     id=row.get("id"),
                     data=body,
                     created_at=datetime.now(timezone.utc),
@@ -401,16 +407,17 @@ def _sync_user_remove(email):
 
 
 def insert(collection, row):
+    canonical = _normalize_collection(collection)
     with _lock, _Session() as session:
         next_id = (
             session.scalar(
-                select(func.max(Record.id)).where(Record.collection == collection)
+                select(func.max(Record.id)).where(Record.collection == canonical)
             )
             or 0
         ) + 1
         now = datetime.now(timezone.utc)
         body = {k: v for k, v in row.items() if k not in ("id", "createdAt", "updatedAt")}
-        record = Record(collection=collection, id=next_id, data=body, created_at=now)
+        record = Record(collection=canonical, id=next_id, data=body, created_at=now)
         session.add(record)
         session.commit()
         res = _row_to_dict(record)
@@ -469,7 +476,7 @@ def insert(collection, row):
                 )
                 session.merge(att)
                 session.commit()
-        elif collection == "audit_log":
+        elif canonical == "audit_log":
             with _Session() as session:
                 log = AuditLog(
                     id=next_id,
@@ -506,6 +513,7 @@ def insert(collection, row):
 
 
 def find(collection, row_id):
+    canonical = _normalize_collection(collection)
     with _Session() as session:
         if collection == "jobs":
             try:
@@ -514,13 +522,14 @@ def find(collection, row_id):
                     return job.to_dict()
             except Exception:
                 pass
-        row = session.get(Record, {"collection": collection, "id": row_id})
+        row = session.get(Record, {"collection": canonical, "id": row_id})
         return _row_to_dict(row) if row else None
 
 
 def update(collection, row_id, patch):
+    canonical = _normalize_collection(collection)
     with _lock, _Session() as session:
-        row = session.get(Record, {"collection": collection, "id": row_id})
+        row = session.get(Record, {"collection": canonical, "id": row_id})
         if not row:
             return None
         body = dict(row.data or {})
@@ -572,9 +581,10 @@ def update(collection, row_id, patch):
 
 
 def remove(collection, row_id):
+    canonical = _normalize_collection(collection)
     deleted_email = None
     with _lock, _Session() as session:
-        row = session.get(Record, {"collection": collection, "id": row_id})
+        row = session.get(Record, {"collection": canonical, "id": row_id})
         if not row:
             return False
         if collection in ("admins", "users") and row.data:
