@@ -43,8 +43,14 @@ import threading
 from flask import Flask, jsonify, request, send_from_directory, abort
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+
 try:
     from dotenv import load_dotenv
+    load_dotenv(os.path.join(BASE_DIR, ".env"))
+    load_dotenv(os.path.join(os.path.dirname(BASE_DIR), ".env"))
     load_dotenv()
 except ImportError:
     pass
@@ -53,10 +59,6 @@ import db
 import email_util
 from seed import seed, ROLES, ATTENDANCE_ROLES, DAILY_REPORT_ROLES, REPORTS_REVIEW_ROLES
 from security import hash_password, make_token, read_token, verify_password
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 
 ALLOWED_RESUME_EXT = {".pdf", ".doc", ".docx"}
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024   # 5 MB
@@ -86,13 +88,25 @@ def _add_perf_headers(response):
     # HTML pages — always revalidate (so auth changes show immediately)
     elif path.endswith(".html") or path == "/":
         response.headers["Cache-Control"] = "no-cache"
-    # API — never cache
+    # API — never cache + allow local dev cross-origin
     elif path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
+        response.headers.setdefault("Access-Control-Allow-Origin", "*")
+        response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        response.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
     # Security headers
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     return response
+
+
+@app.route("/api/<path:_subpath>", methods=["OPTIONS"])
+def api_options(_subpath):
+    res = app.make_response(("", 204))
+    res.headers["Access-Control-Allow-Origin"] = "*"
+    res.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    return res
 
 # ── Company-wide attendance configuration ──────────────────────────────
 # Critical fix: attendance dates/times were previously computed in UTC,
@@ -747,117 +761,283 @@ def stats():
 
 # ─────────────────────────────────────────── AI assistant
 
-_ASSISTANT_RULES = [
-    (("service","services","offer","do you build","software","web","cloud","devops"),
-     "KYK works across three areas: Global Recruitment, Software & Web Services, and AI · AGI · ASI. Which can I tell you more about?"),
-    (("job","jobs","career","careers","role","roles","hiring","vacan","opening"),
-     "Current openings are on the Careers page (/careers.html). You can search, filter and apply directly there."),
-    (("recruit","talent pool","candidate","hire someone","find talent"),
-     "Our Global Recruitment team places talent worldwide. Visit /global-recruitment.html to request talent or join the pool."),
-    (("ai","agi","asi","artificial intelligence","machine learning","generative","agent"),
-     "Our Intelligence practice covers AI, AGI and ASI — from production AI applications today to long-range research. See /ai.html."),
-    (("contact","email","reach","phone","talk to","get in touch"),
-     "Reach us at hello@kyktechnologies.com or via the Contact page (/contact.html). We reply within one business day."),
-    (("where","location","office","based","headquarters","address"),
-     "KYK Technologies is headquartered in Warangal, Telangana, India, and operates globally."),
-    (("resume","cv","apply","application","upload"),
-     "Apply to any open role from the Careers page — the form accepts PDF, DOC or DOCX resumes up to 5MB."),
-    (("kognitio","key to your","kyk mean","what is kyk"),
-     "KYK stands for Key to Your Kognitio — Knowledge, Yield, Kognitio — representing our philosophy of building knowledge into useful outcomes toward intelligent systems."),
+_KYK_PAGES = [
+    {"name": "Home", "path": "/index.html", "aliases": ["home", "homepage", "main page", "index", "landing", "main"]},
+    {"name": "Global Recruitment", "path": "/global-recruitment.html", "aliases": ["global recruitment", "recruitment", "recruiting", "recruit", "talent", "staffing", "hire someone"]},
+    {"name": "Intelligence & AI", "path": "/ai.html", "aliases": ["intelligence", "ai", "agi", "asi", "artificial intelligence", "machine learning", "ai solutions", "ai practice"]},
+    {"name": "Services", "path": "/services.html", "aliases": ["services", "service", "work", "software", "web development", "software development", "cloud", "devops", "solutions"]},
+    {"name": "Careers", "path": "/careers.html", "aliases": ["careers", "career", "jobs", "job", "openings", "open roles", "hiring", "positions", "vacancies", "vacan"]},
+    {"name": "Insights", "path": "/insights.html", "aliases": ["insights", "insight", "articles", "news", "blog", "blogs"]},
+    {"name": "About Us", "path": "/about.html", "aliases": ["about us", "about", "company", "who we are", "about company", "story", "mission"]},
+    {"name": "Contact", "path": "/contact.html", "aliases": ["contact us", "contact", "support", "help", "reach us", "get in touch", "address", "email", "phone"]},
+    {"name": "Login", "path": "/login.html", "aliases": ["login", "sign in", "signin", "log in"]},
+    {"name": "Signup", "path": "/login.html?mode=signup", "aliases": ["signup", "sign up", "register", "registration", "create account"]},
+    {"name": "Client Portal", "path": "/client-portal.html", "aliases": ["client portal", "client", "portal", "clients"]},
+    {"name": "Privacy Policy", "path": "/privacy.html", "aliases": ["privacy policy", "privacy"]},
+    {"name": "Terms of Service", "path": "/terms.html", "aliases": ["terms of service", "terms", "tos"]},
+    {"name": "Admin Dashboard", "path": "/admin.html", "aliases": ["admin dashboard", "admin page", "admin portal", "admin"]},
+    {"name": "HR Dashboard", "path": "/hr-dashboard.html", "aliases": ["hr dashboard", "human resources dashboard", "hr page", "hr"]},
+    {"name": "Recruiter Dashboard", "path": "/recruiter-dashboard.html", "aliases": ["recruiter dashboard", "recruiter page", "recruiter"]},
+    {"name": "Team Lead Dashboard", "path": "/team-lead-dashboard.html", "aliases": ["team lead dashboard", "team lead page", "team lead"]},
+    {"name": "Employee Dashboard", "path": "/employee-dashboard.html", "aliases": ["employee dashboard", "employee page", "employee"]},
+    {"name": "Content Dashboard", "path": "/content-dashboard.html", "aliases": ["content dashboard", "content page", "content"]},
+    {"name": "Viewer Dashboard", "path": "/viewer-dashboard.html", "aliases": ["viewer dashboard", "viewer page", "viewer"]},
 ]
 
-_COMPANY_SOURCES = (
-    "https://kyktechnologies.com/",
-    "https://www.linkedin.com/company/kyktechnologies?originalSubdomain=in",
-    "https://www.instagram.com/kyktechnologies/",
-)
-_company_context = {"expires": 0, "text": ""}
-_company_context_lock = threading.Lock()
+
+def _detect_page_navigation(message):
+    """Detect if the user wants to open or navigate to any page on the website."""
+    raw = (message or "").strip().lower()
+    clean_str = re.sub(r"[^\w\s\.-]", " ", raw)
+    clean_str = re.sub(r"\s+", " ", clean_str).strip()
+    if not clean_str:
+        return None
+
+    # Check for direct file names
+    for p in _KYK_PAGES:
+        fn = p["path"].split("/")[-1].split("?")[0].lower()
+        if fn in clean_str and re.search(r"\b(open|go|view|visit|show|navigate|load|launch)\b", clean_str):
+            return p
+
+    nav_words = r"\b(open|go\s*to|goto|navigate|visit|take\s*me\s*to|show\s*me|display|load|launch|bring\s*up|view)\b"
+    has_nav = bool(re.search(nav_words, clean_str, re.I))
+    ends_with_open = bool(re.search(r"\bopen\b", clean_str, re.I))
+
+    if not has_nav and not ends_with_open:
+        return None
+
+    stripped = re.sub(nav_words, " ", clean_str, flags=re.I)
+    stripped = re.sub(r"\b(open|page|pages|screen|portal|tab|website|webpage|the|me|to|please|can|you|i|want|would|like|just)\b", " ", stripped, flags=re.I)
+    stripped = re.sub(r"\s+", " ", stripped).strip()
+
+    best_match = None
+    best_score = 0
+    for page in _KYK_PAGES:
+        for alias in page["aliases"]:
+            alias_clean = alias.lower()
+            pattern = rf"(^|\s){re.escape(alias_clean)}(\s|$)"
+            if stripped == alias_clean:
+                score = 100
+            elif re.search(pattern, stripped):
+                score = 80 + len(alias_clean)
+            elif re.search(pattern, clean_str):
+                score = 50 + len(alias_clean)
+            else:
+                score = 0
+            if score > best_score:
+                best_score = score
+                best_match = page
+
+    return best_match if best_score > 0 else None
 
 
-def _company_web_context():
-    """Fetch short public source excerpts for the optional Groq assistant."""
-    now = time.time()
-    with _company_context_lock:
-        if _company_context["expires"] > now:
-            return _company_context["text"]
+def _smart_fallback_reply(message):
+    """Rich conversational AI engine fallback when LLM is unavailable or offline."""
+    m = message.lower().strip()
 
-    excerpts = []
-    for source in _COMPANY_SOURCES:
-        try:
-            source_request = Request(source, headers={"User-Agent": "KYK-AI/1.0"})
-            with urlopen(source_request, timeout=4) as response:
-                raw = response.read(120_000).decode("utf-8", errors="ignore")
-            text = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", " ", raw, flags=re.I)
-            text = re.sub(r"<[^>]+>", " ", text)
-            text = re.sub(r"\s+", " ", html.unescape(text)).strip()
-            if text:
-                excerpts.append(f"Source: {source}\n{text[:4_000]}")
-        except (OSError, URLError, UnicodeError):
-            continue
+    # Greetings & Pleasantries
+    if re.search(r"\b(hi|hii|hiii|hello|hey|heya|howdy|sup|greetings|good\s*(morning|afternoon|evening|day))\b", m):
+        return (
+            "Hello! 👋 I'm the **KYK Technologies AI Assistant**.\n\n"
+            "I'm here to help you learn about our **Global Recruitment**, **Software & Web Development**, and **Artificial Intelligence (AI / AGI / ASI)** solutions, or assist with job applications and company info.\n\n"
+            "💡 *Tip: You can also say **'open careers'** or **'contact open'** to go directly to any page!*"
+        )
 
-    context = "\n\n".join(excerpts)
-    with _company_context_lock:
-        _company_context.update(text=context, expires=now + 900)
-    return context
+    # About KYK Technologies / Who we are
+    if re.search(r"\b(who are you|what is kyk|about kyk|tell me about kyk|company info|what do you do|what does kyk do|key to your kognitio|kognitio)\b", m):
+        return (
+            "**KYK Technologies** (Key to Your Kognitio — Knowledge, Yield, Kognitio) is a high-impact technology and global talent enterprise headquartered in Warangal, Telangana, India, operating worldwide.\n\n"
+            "Our core focus spans three transformative pillars:\n"
+            "1. **Global Recruitment**: Connecting top-tier software engineers, AI researchers, and leadership talent with innovative companies worldwide.\n"
+            "2. **Software & Web Development**: Crafting scalable cloud platforms, modern web and mobile applications, API architectures, and seamless UI/UX.\n"
+            "3. **Artificial Intelligence**: Researching and deploying applied AI solutions, autonomous LLM agents, workflow automation, and long-range pathways toward AGI and ASI.\n\n"
+            "Explore our full story on our **About Us** page (/about.html) or say **'open about'**!"
+        )
+
+    # Services / Software / Web Development
+    if re.search(r"\b(service|services|software|web dev|web development|app development|mobile|cloud|devops|api|tech stack|build|offerings)\b", m):
+        return (
+            "**KYK Technologies** offers full-lifecycle software and digital product engineering:\n\n"
+            "• **Web & Application Development**: High-performance, scalable web applications built with modern frontend and backend architectures.\n"
+            "• **Enterprise Software**: Robust business applications, CRM/ERP integrations, and automated operational pipelines.\n"
+            "• **Cloud & DevOps**: Scalable deployments, CI/CD pipelines, containerization (Docker/Kubernetes), and high-availability cloud infrastructure.\n"
+            "• **API & Backend Engineering**: Secure REST & GraphQL endpoints, microservices, and database optimization.\n"
+            "• **UI/UX Design**: Responsive, intuitive interfaces designed for engagement and speed.\n\n"
+            "Say **'open services'** to explore our work or **'open contact'** to discuss a project with our team!"
+        )
+
+    # Global Recruitment / Talent / Hiring
+    if re.search(r"\b(recruit|recruitment|talent|staffing|hire|hiring candidate|talent pool|headhunt|sourcing)\b", m):
+        return (
+            "Our **Global Recruitment** division helps enterprises, startups, and high-growth organizations source and onboard elite technical talent across the globe:\n\n"
+            "• **Full-Cycle Talent Sourcing**: Identifying vetted software engineers, AI/ML specialists, cloud architects, and product leaders.\n"
+            "• **Global Talent Pool**: Connecting cross-border candidates with opportunities tailored to your tech stack and culture.\n"
+            "• **Flexible Staffing Models**: Contract, full-time placement, and dedicated remote engineering squads.\n\n"
+            "Visit our **Global Recruitment** page (/global-recruitment.html) or say **'open recruitment'** to get in touch!"
+        )
+
+    # AI / AGI / ASI / Machine Learning
+    if re.search(r"\b(ai|agi|asi|artificial intelligence|machine learning|generative ai|llm|agent|agents|deep learning|neural)\b", m):
+        return (
+            "At **KYK Technologies**, our Intelligence practice operates across three evolutionary frontiers:\n\n"
+            "• **Today — Applied & Generative AI**: Implementing large language models, retrieval-augmented systems, computer vision, and workflow automation for businesses.\n"
+            "• **Tomorrow — Autonomous AI Agents**: Building collaborative multi-agent architectures that execute complex, multi-step decisions reliably.\n"
+            "• **Future — AGI & ASI**: Active research into Artificial General Intelligence and Artificial Superintelligence frameworks.\n\n"
+            "Learn more on our dedicated **Intelligence** page (/ai.html) or simply say **'open ai'**!"
+        )
+
+    # Careers / Jobs / Openings / Applications / Resumes
+    if re.search(r"\b(career|careers|job|jobs|role|roles|opening|openings|vacancy|vacancies|hiring|apply|application|resume|cv)\b", m):
+        return (
+            "We are always looking for passionate talent to join the KYK team! 🚀\n\n"
+            "• **Open Roles**: Full Stack Engineers, AI/ML Researchers, Frontend/Backend Developers, UI/UX Designers, and Global Recruitment Specialists.\n"
+            "• **How to Apply**: Browse current openings on our **Careers** page (/careers.html) and submit your resume.\n"
+            "• **Supported Formats**: PDF, DOC, or DOCX (up to 5 MB).\n\n"
+            "Say **'careers open'** or **'open careers'** to view current openings and apply right now!"
+        )
+
+    # Contact / Email / Location / Office
+    if re.search(r"\b(contact|email|phone|address|location|headquarters|office|where are you|reach|get in touch|support)\b", m):
+        return (
+            "Here is how you can connect with KYK Technologies:\n\n"
+            "• **Email**: hello@kyktechnologies.com\n"
+            "• **Headquarters**: Warangal, Telangana, India (with global operations)\n"
+            "• **Inquiry Form**: Available directly on our Contact page (/contact.html)\n"
+            "• **Response Time**: Our team reviews and responds within one business day.\n\n"
+            "Say **'contact open'** or **'open contact'** to navigate to our contact form!"
+        )
+
+    # Dashboards / Portals / Login
+    if re.search(r"\b(dashboard|portals?|admin|hr|recruiter|employee|team lead|content|viewer|client portal|login|signup)\b", m):
+        return (
+            "KYK Technologies provides role-specific dashboards and portals:\n\n"
+            "• **Client Portal** (/client-portal.html): Project milestones & updates\n"
+            "• **HR Dashboard** (/hr-dashboard.html): Employee directory, attendance & leave\n"
+            "• **Admin Dashboard** (/admin.html): Platform settings & user management\n"
+            "• **Recruiter Dashboard** (/recruiter-dashboard.html): Candidate pipelines\n"
+            "• **Employee Dashboard** (/employee-dashboard.html): Daily check-ins & reports\n"
+            "• **Login / Signup** (/login.html): Secure access\n\n"
+            "Say **'open client portal'**, **'open admin'**, or **'open hr'** to jump straight to any portal!"
+        )
+
+    # Pricing / Cost / Engagement Models
+    if re.search(r"\b(price|pricing|cost|quote|rates|hire us|how much)\b", m):
+        return (
+            "We provide transparent, flexible engagement models tailored to project scale and objectives:\n\n"
+            "• **Dedicated Engineering Pods**: Month-to-month dedicated engineers and AI specialists.\n"
+            "• **Fixed-Price Milestones**: Scoped deliverables with agreed schedules and clear acceptance criteria.\n"
+            "• **Time & Materials / Agile Sprints**: Flexible velocity for evolving products.\n\n"
+            "Contact our solutions team at **hello@kyktechnologies.com** or say **'open contact'** for a personalized estimate!"
+        )
+
+    # Default Contextual Answer
+    return (
+        f"Thank you for asking about **'{clean(message, 60)}'**!\n\n"
+        "KYK Technologies specializes in **Global Recruitment**, **Software & Web Development**, and **Artificial Intelligence (AI / AGI / ASI)** solutions.\n\n"
+        "Here are a few quick things you can explore:\n"
+        "• Say **'open services'** to explore our software engineering offerings.\n"
+        "• Say **'open careers'** to view current job openings and apply.\n"
+        "• Say **'open ai'** to learn about our AI practice and research.\n"
+        "• Say **'open contact'** to speak with our team directly."
+    )
 
 
-def _groq_reply(message):
+def _groq_reply(message, history=None):
+    """Call Groq LLM with multi-model fallback and verified User-Agent header."""
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
     if not api_key:
         return None
 
-    source_context = _company_web_context()
-    prompt = (
-        "You are KYK Technologies' website assistant. Answer accurately and concisely "
-        "about KYK Technologies, its services, careers, and public company information. "
-        "Use the supplied source excerpts when relevant. Never invent facts, credentials, "
-        "pricing, staff, partnerships, or capabilities. If the sources do not answer the "
-        "question, say that clearly and point the user to the relevant source URL. "
-        "Do not claim to have browsed anything beyond these sources.\n\n"
-        f"Trusted source excerpts:\n{source_context or '(Sources unavailable; use only the known KYK context.)'}"
+    kyk_system_prompt = (
+        "You are the official KYK Technologies AI Assistant on kyktechnologies.com. "
+        "You are professional, articulate, friendly, and knowledgeable.\n\n"
+        "Company Background Ground Truth:\n"
+        "- Name: KYK Technologies (Key to Your Kognitio — Knowledge, Yield, Kognitio)\n"
+        "- Headquarters: Warangal, Telangana, India (Global operations)\n"
+        "- Contact: hello@kyktechnologies.com, /contact.html\n"
+        "- Three Main Pillars:\n"
+        "  1. Global Recruitment (/global-recruitment.html): Worldwide tech recruitment, talent acquisition, specialized engineering placement.\n"
+        "  2. Software & Web Services (/services.html): Enterprise software, full-stack web development, cloud & DevOps, APIs, UI/UX.\n"
+        "  3. Intelligence & AI Practice (/ai.html): Generative AI integrations, autonomous AI agents, enterprise automation, LLMs, research toward AGI and ASI.\n"
+        "- Careers (/careers.html): Accepting applications for Full Stack Developers, AI/ML Engineers, Frontend/Backend, Recruiters. Accepts PDF, DOC, DOCX up to 5 MB.\n"
+        "- Portals: Admin (/admin.html), HR (/hr-dashboard.html), Recruiter (/recruiter-dashboard.html), Team Lead (/team-lead-dashboard.html), Employee (/employee-dashboard.html), Content (/content-dashboard.html), Client Portal (/client-portal.html), Login (/login.html).\n\n"
+        "Instructions:\n"
+        "- Answer the user's question clearly, thoroughly, and helpfully in markdown format.\n"
+        "- When relevant, guide them to appropriate pages (e.g., Services, Careers, Contact, AI).\n"
+        "- If the user asks to open or navigate to any page, tell them you are opening that page for them and provide the link."
     )
-    payload = json.dumps({
-        "model": os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
-        "temperature": 0.2,
-        "max_tokens": 450,
-        "messages": [
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": message},
-        ],
-    }).encode("utf-8")
-    groq_request = Request(
-        "https://api.groq.com/openai/v1/chat/completions",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urlopen(groq_request, timeout=20) as response:
-            body = json.loads(response.read().decode("utf-8"))
-        return body["choices"][0]["message"]["content"].strip()
-    except (OSError, URLError, ValueError, KeyError, IndexError):
-        return None
+
+    messages = [{"role": "system", "content": kyk_system_prompt}]
+    if isinstance(history, list):
+        for turn in history[-8:]:
+            if isinstance(turn, dict) and turn.get("role") in ("user", "assistant"):
+                content = clean(turn.get("content"), 500)
+                if content:
+                    messages.append({"role": turn["role"], "content": content})
+    messages.append({"role": "user", "content": message})
+
+    models_to_try = [
+        os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b"),
+        "qwen/qwen3.8-27b",
+        "openai/gpt-oss-20b",
+        "allam-2-7b",
+    ]
+
+    for model_name in models_to_try:
+        try:
+            payload = json.dumps({
+                "model": model_name,
+                "temperature": 0.3,
+                "max_tokens": 700,
+                "messages": messages,
+            }).encode("utf-8")
+            groq_request = Request(
+                "https://api.groq.com/openai/v1/chat/completions",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                },
+                method="POST",
+            )
+            with urlopen(groq_request, timeout=10) as response:
+                body = json.loads(response.read().decode("utf-8"))
+            msg = body.get("choices", [{}])[0].get("message", {})
+            reply = (msg.get("content") or msg.get("reasoning") or "").strip()
+            if reply:
+                return reply
+        except Exception:
+            continue
+
+    return None
 
 
 @app.post("/api/assistant")
-@rate_limit(max_requests=30, window_seconds=600)
+@rate_limit(max_requests=120, window_seconds=600)
 def assistant_reply():
-    data    = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True) or {}
     message = clean(data.get("message"), 500)
     if not message:
-        return jsonify({"reply": "Ask me about our services, open roles, or how to get in touch."})
-    groq_reply = _groq_reply(message)
-    if groq_reply:
-        return jsonify({"reply": groq_reply})
-    normalized_message = message.lower()
-    for keywords, reply in _ASSISTANT_RULES:
-        if any(k in normalized_message for k in keywords):
-            return jsonify({"reply": reply})
-    return jsonify({"reply": "I can help with questions about KYK's services, open roles, recruitment, or how to contact the team."})
+        return jsonify({"reply": "Hi! I'm the KYK AI Assistant. Ask me about our services, open roles, AI research, or say 'open careers' to navigate to a page!"})
+
+    # Direct page open request check
+    nav_page = _detect_page_navigation(message)
+    if nav_page:
+        return jsonify({
+            "reply": f"Opening the **{nav_page['name']}** page ({nav_page['path']}) for you right now.",
+            "open_page": nav_page["path"],
+            "page_name": nav_page["name"]
+        })
+
+    # Try real Groq LLM first
+    groq_answer = _groq_reply(message, data.get("history"))
+    if groq_answer:
+        return jsonify({"reply": groq_answer})
+
+    # Fall back to smart conversational engine
+    fallback_answer = _smart_fallback_reply(message)
+    return jsonify({"reply": fallback_answer})
 
 
 # ─────────────────────────────────────────── auth

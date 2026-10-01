@@ -1077,12 +1077,21 @@ input::placeholder, textarea::placeholder{ color:var(--steel) !important; opacit
 .kyk-assistant-head b{ color:var(--on-dark); font-size:.92rem; }
 .kyk-assistant-head span{ color:var(--steel-light); font-size:.72rem; display:block; }
 .kyk-assistant-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
-.kyk-msg{ max-inline-size:85%; padding:9px 13px; border-radius:14px; font-size:.86rem; line-height:1.4; }
+.kyk-msg{ max-inline-size:85%; padding:9px 13px; border-radius:14px; font-size:.86rem; line-height:1.45; word-break:break-word; }
 .kyk-msg.bot{ background:rgba(255,255,255,.08); color:var(--on-dark); align-self:flex-start; border-end-start-radius:4px; }
+.kyk-msg.bot a{ color:var(--orange); text-decoration:underline; font-weight:600; }
+.kyk-msg.bot a:hover{ color:#fff; }
 .kyk-msg.user{ background:var(--orange); color:#fff; align-self:flex-end; border-end-end-radius:4px; }
 .kyk-msg.typing span{ display:inline-block; inline-size:5px; block-size:5px; border-radius:50%; background:var(--steel-light); margin-inline-end:3px; animation:kykTyping 1s infinite; }
 .kyk-msg.typing span:nth-child(2){ animation-delay:.15s; } .kyk-msg.typing span:nth-child(3){ animation-delay:.3s; }
 @keyframes kykTyping{ 0%,60%,100%{ opacity:.3; transform:translateY(0);} 30%{ opacity:1; transform:translateY(-2px);} }
+.kyk-chat-nav-btn{
+  display:inline-flex; align-items:center; gap:6px; margin-top:8px;
+  background:var(--orange); color:#fff !important; text-decoration:none !important;
+  padding:6px 12px; border-radius:8px; font-size:.8rem; font-weight:600;
+  box-shadow:0 4px 12px rgba(var(--glow),.3); transition:transform .15s ease, background .15s ease;
+}
+.kyk-chat-nav-btn:hover{ transform:scale(1.03); background:var(--orange-dark); }
 .kyk-assistant-quick{ display:flex; flex-wrap:wrap; gap:6px; padding:0 16px 10px; }
 .kyk-assistant-quick button{
   background:rgba(255,255,255,.06); border:1px solid var(--glass-border); color:var(--steel-light);

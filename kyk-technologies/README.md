@@ -31,6 +31,8 @@ Default admin credentials (change before any real use):
 | `SMTP_USER` | Optional | SMTP login username. |
 | `SMTP_PASSWORD` | Optional | SMTP login password. |
 | `SMTP_FROM` | Optional | Sender address. |
+| `GROQ_API_KEY` | Optional | Enables generative answers in the KYK AI assistant. Set this in `.env` locally or in your hosting environment; without it, the assistant uses its built-in conversational AI engine. |
+| `GROQ_MODEL` | Optional | Groq model name (default: `openai/gpt-oss-120b`, with multi-model fallback). |
 | `PORT` | Optional | HTTP port (default `3000`). |
 | `DEBUG` | Optional | Set `1` for Flask debug (never in production). |
 

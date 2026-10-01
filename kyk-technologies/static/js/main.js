@@ -509,55 +509,354 @@ document.addEventListener("DOMContentLoaded", () => {
   panel.innerHTML = `
     <div class="kyk-assistant-head">
       <span class="dot"></span>
-      <div><b>KYK AI</b><span>Ask about services, careers or contact</span></div>
+      <div><b>KYK AI</b><span>Ask about services, careers, AI, or say "open careers"</span></div>
     </div>
     <div class="kyk-assistant-body" id="kykChatBody">
-      <div class="kyk-msg bot">Hi! I'm the KYK assistant. Ask me about our services, open roles, or how to get in touch.</div>
+      <div class="kyk-msg bot">Hi! I'm the <b>KYK AI Assistant</b>. Ask me anything about our services, open roles, AI research, or type a page name and <b>"open"</b> (e.g. <i>"careers open"</i> or <i>"open contact"</i>) to navigate!</div>
     </div>
     <div class="kyk-assistant-quick">
       <button type="button" data-q="What services does KYK offer?">Services</button>
       <button type="button" data-q="What jobs are open right now?">Open roles</button>
-      <button type="button" data-q="How do I contact KYK?">Contact</button>
+      <button type="button" data-q="Tell me about KYK Technologies">About KYK</button>
+      <button type="button" data-q="open careers">Open Careers</button>
+      <button type="button" data-q="open contact">Open Contact</button>
     </div>
     <form class="kyk-assistant-form" id="kykChatForm">
-      <input type="text" id="kykChatInput" placeholder="Ask a question…" autocomplete="off" />
+      <input type="text" id="kykChatInput" placeholder="Ask a question or type 'careers open'…" autocomplete="off" />
       <button type="submit" aria-label="Send">→</button>
     </form>`;
   document.body.append(btn, panel);
-  btn.addEventListener("click", () => panel.classList.toggle("is-open"));
+  btn.addEventListener("click", () => {
+    panel.classList.toggle("is-open");
+    if (panel.classList.contains("is-open")) {
+      const inp = panel.querySelector("#kykChatInput");
+      if (inp) inp.focus();
+    }
+  });
+
   const chatBody = panel.querySelector("#kykChatBody");
-  function pushMsg(text, who) {
+  const assistantHistory = [];
+
+  const assistantPages = [
+    { name: "Home", path: "/index.html", aliases: ["home", "homepage", "main page", "index", "landing", "main"] },
+    { name: "Global Recruitment", path: "/global-recruitment.html", aliases: ["global recruitment", "recruitment", "recruiting", "recruit", "talent", "staffing", "hire talent", "talent pool"] },
+    { name: "Intelligence & AI", path: "/ai.html", aliases: ["intelligence", "ai", "agi", "asi", "artificial intelligence", "machine learning", "ai solutions", "ai practice"] },
+    { name: "Services", path: "/services.html", aliases: ["services", "service", "work", "software", "web development", "software development", "cloud", "devops", "solutions"] },
+    { name: "Careers", path: "/careers.html", aliases: ["careers", "career", "jobs", "job", "openings", "open roles", "hiring", "positions", "vacancies", "job openings"] },
+    { name: "Insights", path: "/insights.html", aliases: ["insights", "insight", "articles", "news", "blog", "blogs"] },
+    { name: "About Us", path: "/about.html", aliases: ["about us", "about", "company", "who we are", "about company", "story", "mission"] },
+    { name: "Contact", path: "/contact.html", aliases: ["contact us", "contact", "support", "help", "reach us", "get in touch", "address", "email", "phone"] },
+    { name: "Login", path: "/login.html", aliases: ["login", "sign in", "signin", "log in"] },
+    { name: "Signup", path: "/login.html?mode=signup", aliases: ["signup", "sign up", "register", "registration", "create account"] },
+    { name: "Client Portal", path: "/client-portal.html", aliases: ["client portal", "client", "portal", "clients"] },
+    { name: "Privacy Policy", path: "/privacy.html", aliases: ["privacy policy", "privacy"] },
+    { name: "Terms of Service", path: "/terms.html", aliases: ["terms of service", "terms", "tos"] },
+    { name: "Admin Dashboard", path: "/admin.html", aliases: ["admin dashboard", "admin page", "admin portal", "admin"] },
+    { name: "HR Dashboard", path: "/hr-dashboard.html", aliases: ["hr dashboard", "human resources dashboard", "hr page", "hr"] },
+    { name: "Recruiter Dashboard", path: "/recruiter-dashboard.html", aliases: ["recruiter dashboard", "recruiter page", "recruiter"] },
+    { name: "Team Lead Dashboard", path: "/team-lead-dashboard.html", aliases: ["team lead dashboard", "team lead page", "team lead"] },
+    { name: "Employee Dashboard", path: "/employee-dashboard.html", aliases: ["employee dashboard", "employee page", "employee"] },
+    { name: "Content Dashboard", path: "/content-dashboard.html", aliases: ["content dashboard", "content page", "content"] },
+    { name: "Viewer Dashboard", path: "/viewer-dashboard.html", aliases: ["viewer dashboard", "viewer page", "viewer"] },
+  ];
+
+  function requestedAssistantPage(question) {
+    const raw = (question || "").trim().toLowerCase();
+    const cleanStr = raw.replace(/[^\w\s\.-]/g, " ").replace(/\s+/g, " ").trim();
+    if (!cleanStr) return null;
+
+    // Check direct filename match
+    for (const p of assistantPages) {
+      const fn = p.path.split("/").pop().split("?")[0].toLowerCase();
+      if (cleanStr.includes(fn)) return p;
+    }
+
+    const navWords = /\b(open|go\s*to|goto|navigate|visit|take\s*me\s*to|show\s*me|display|load|launch|bring\s*up|view)\b/i;
+    const hasNav = navWords.test(cleanStr);
+    const hasOpen = /\bopen\b/i.test(cleanStr);
+
+    if (!hasNav && !hasOpen) return null;
+
+    const stripped = cleanStr
+      .replace(navWords, " ")
+      .replace(/\b(open|page|pages|screen|portal|tab|website|webpage|the|me|to|please|can|you|i|want|would|like|just)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const page of assistantPages) {
+      for (const alias of page.aliases) {
+        const aliasClean = alias.toLowerCase();
+        const escAlias = aliasClean.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+        const pattern = new RegExp("(^|\\s)" + escAlias + "(\\s|$)", "i");
+        let score = 0;
+        if (stripped === aliasClean) {
+          score = 100;
+        } else if (pattern.test(stripped)) {
+          score = 80 + aliasClean.length;
+        } else if (pattern.test(cleanStr)) {
+          score = 50 + aliasClean.length;
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = page;
+        }
+      }
+    }
+
+    return bestScore > 0 ? bestMatch : null;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function formatBotText(raw) {
+    if (!raw) return "";
+    let s = escapeHtml(raw);
+
+    // Format markdown bold **text**
+    s = s.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+    // Format markdown italic *text*
+    s = s.replace(/\*(.*?)\*/g, "<em>$1</em>");
+
+    // Format markdown links [text](url)
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+    // Auto-link relative page paths like /careers.html
+    s = s.replace(/(^|\s)(\/[a-z0-9_-]+\.html(\?[a-z0-9_=&-]+)?)/gi, '$1<a href="$2">$2</a>');
+
+    // Bullet points
+    s = s.replace(/^[•\-\*]\s+(.*)$/gm, '<li style="margin-left:14px;list-style:disc;">$1</li>');
+
+    // Convert newlines
+    s = s.replace(/\n\n+/g, "<br/><br/>").replace(/\n/g, "<br/>");
+    return s;
+  }
+
+  function generateClientAiReply(question, history) {
+    const q = (question || "").toLowerCase().trim();
+
+    // 1. Greetings
+    if (/\b(hi|hii|hiii|hello|hey|heya|howdy|sup|greetings|good\s*(morning|afternoon|evening|day))\b/.test(q)) {
+      return (
+        "Hello! 👋 I'm the **KYK AI Assistant**.\n\n" +
+        "I'm here to answer any questions about **KYK Technologies**, including:\n" +
+        "• **Global Recruitment**: International talent sourcing & tech hiring\n" +
+        "• **Software & Web Development**: Scalable web apps, APIs & cloud platforms\n" +
+        "• **Artificial Intelligence**: Generative AI, autonomous agents & research into AGI/ASI\n" +
+        "• **Careers & Jobs**: Open positions & application process\n\n" +
+        "💡 *Tip: You can also open any page directly by typing its name and 'open' (for example: **'careers open'** or **'contact open'*)!*"
+      );
+    }
+
+    // 2. About KYK / Who are you / Meaning of KYK
+    if (/\b(who are you|what is kyk|about kyk|tell me about kyk|company info|what do you do|what does kyk do|key to your kognitio|kognitio|founders|headquarters|location|based)\b/.test(q)) {
+      return (
+        "**KYK Technologies** (Key to Your Kognitio — Knowledge, Yield, Kognitio) is an advanced technology and global recruitment firm headquartered in Warangal, Telangana, India, operating worldwide.\n\n" +
+        "Our core pillars:\n" +
+        "1. **Global Recruitment** (/global-recruitment.html): Sourcing elite engineering, AI, and leadership talent for companies worldwide.\n" +
+        "2. **Software & Web Development** (/services.html): Engineering enterprise web applications, cloud systems, and high-performance digital products.\n" +
+        "3. **Artificial Intelligence** (/ai.html): Building applied AI solutions, autonomous LLM agents, and conducting foundational research toward AGI and ASI.\n\n" +
+        "You can say **'open about'** to visit our About Us page!"
+      );
+    }
+
+    // 3. Services / Software / Web Development
+    if (/\b(service|services|software|web dev|web development|app development|mobile|cloud|devops|api|tech stack|build|offerings|solutions)\b/.test(q)) {
+      return (
+        "**KYK Technologies** provides end-to-end software and cloud engineering services:\n\n" +
+        "• **Web & Application Development**: Responsive, high-performance web applications built on modern frameworks.\n" +
+        "• **Cloud & DevOps**: Scalable deployments, CI/CD automation, Docker/Kubernetes containerization, and cloud infrastructure management.\n" +
+        "• **Enterprise Software**: Secure backend APIs, database optimization, and scalable microservices.\n" +
+        "• **UI/UX Design**: Human-centered interface design optimized for usability and speed.\n\n" +
+        "Say **'services open'** or **'open services'** to explore our work!"
+      );
+    }
+
+    // 4. Global Recruitment / Talent / Hiring
+    if (/\b(recruit|recruitment|talent|staffing|hire|hiring candidate|talent pool|headhunt|sourcing)\b/.test(q)) {
+      return (
+        "Our **Global Recruitment** division helps organizations worldwide build elite technology teams:\n\n" +
+        "• **Specialized Tech Sourcing**: Vetting top software engineers, AI researchers, cloud architects, and product leaders.\n" +
+        "• **Global Talent Pool**: Connecting cross-border candidates across North America, Europe, Asia, and emerging markets.\n" +
+        "• **Flexible Models**: Direct hire, contract-to-hire, and dedicated remote engineering teams.\n\n" +
+        "Type **'recruitment open'** or **'open recruitment'** to learn more!"
+      );
+    }
+
+    // 5. AI / AGI / ASI / Machine Learning
+    if (/\b(ai|agi|asi|artificial intelligence|machine learning|generative ai|llm|agent|agents|neural)\b/.test(q)) {
+      return (
+        "At **KYK Technologies**, our Intelligence practice spans three evolutionary phases:\n\n" +
+        "• **Today (Applied & Generative AI)**: Custom LLMs, retrieval-augmented generation (RAG), and intelligent enterprise automation.\n" +
+        "• **Tomorrow (Autonomous AI Agents)**: Multi-agent systems capable of end-to-end autonomous execution and decision-making.\n" +
+        "• **Future (AGI & ASI)**: Active exploratory research into Artificial General Intelligence and Artificial Superintelligence.\n\n" +
+        "Type **'ai open'** or **'open ai'** to explore our Intelligence research!"
+      );
+    }
+
+    // 6. Careers / Jobs / Openings / Applications / Resumes
+    if (/\b(career|careers|job|jobs|role|roles|opening|openings|vacancy|vacancies|hiring|apply|application|resume|cv)\b/.test(q)) {
+      return (
+        "KYK Technologies is actively hiring passionate talent! 🚀\n\n" +
+        "• **Current Openings**: Full Stack Engineers, AI/ML Engineers, Frontend Developers, Backend Engineers, and Global Recruitment Specialists.\n" +
+        "• **How to Apply**: Visit our Careers page (/careers.html), pick your role, and submit your resume.\n" +
+        "• **Accepted Formats**: PDF, DOC, or DOCX (up to 5 MB).\n\n" +
+        "Type **'careers open'** or **'open careers'** to see open positions and apply now!"
+      );
+    }
+
+    // 7. Contact / Email / Location / Office
+    if (/\b(contact|email|phone|address|location|headquarters|office|where are you|reach|get in touch|support)\b/.test(q)) {
+      return (
+        "You can connect with the KYK Technologies team anytime:\n\n" +
+        "• **Email**: hello@kyktechnologies.com\n" +
+        "• **Headquarters**: Warangal, Telangana, India (Global operations)\n" +
+        "• **Contact Form**: Available at /contact.html\n" +
+        "• **Response Time**: Within 24 business hours.\n\n" +
+        "Type **'contact open'** or **'open contact'** to reach our contact page!"
+      );
+    }
+
+    // 8. Dashboards & Portals
+    if (/\b(dashboard|portal|portals|admin|hr|recruiter|employee|team lead|content|viewer|client portal|login|signup)\b/.test(q)) {
+      return (
+        "KYK Technologies includes comprehensive role-based portals:\n\n" +
+        "• **Client Portal** (/client-portal.html): Project milestones & deliverables\n" +
+        "• **Admin Dashboard** (/admin.html): Platform management & users\n" +
+        "• **HR Dashboard** (/hr-dashboard.html): Employee records & attendance\n" +
+        "• **Recruiter Dashboard** (/recruiter-dashboard.html): Candidate pipeline\n" +
+        "• **Employee Dashboard** (/employee-dashboard.html): Check-in & task tracking\n" +
+        "• **Login / Signup** (/login.html): Authentication portal\n\n" +
+        "Type **'admin open'**, **'hr open'**, or **'login open'** to go directly to any portal!"
+      );
+    }
+
+    // 9. Pricing / Quote
+    if (/\b(price|pricing|cost|quote|rates|hire us|how much)\b/.test(q)) {
+      return (
+        "We offer transparent, flexible engagement models tailored to your requirements:\n\n" +
+        "• **Dedicated Engineering Pods**: Dedicated full-stack teams tailored to your roadmap.\n" +
+        "• **Milestone-Based Projects**: Fixed-scope deliverables with transparent timelines.\n" +
+        "• **Talent Placement**: Success-based global talent acquisition.\n\n" +
+        "Contact us at **hello@kyktechnologies.com** or type **'contact open'** for a tailored quote!"
+      );
+    }
+
+    // 10. General Intelligent Fallback
+    return (
+        "Thank you for asking about **" + escapeHtml(question.slice(0, 60)) + "**!\n\n" +
+        "**KYK Technologies** is dedicated to transforming businesses through **Global Recruitment**, **Software & Web Development**, and **Artificial Intelligence (AI / AGI / ASI)** solutions.\n\n" +
+        "Here are a few quick pages you can explore:\n" +
+        "• Type **'careers open'** to view open positions\n" +
+        "• Type **'services open'** to see our software capabilities\n" +
+        "• Type **'ai open'** to learn about our AI practice\n" +
+        "• Type **'contact open'** to get in touch with our team"
+    );
+  }
+
+  function pushMsg(content, who, isHtml = false) {
     const m = document.createElement("div");
     m.className = "kyk-msg " + who;
-    m.textContent = text;
+    if (isHtml) {
+      m.innerHTML = content;
+    } else {
+      m.textContent = content;
+    }
     chatBody.appendChild(m);
     chatBody.scrollTop = chatBody.scrollHeight;
     return m;
   }
+
   async function askAssistant(question) {
-    pushMsg(question, "user");
+    const qTrimmed = (question || "").trim();
+    if (!qTrimmed) return;
+
+    // Display user bubble
+    pushMsg(qTrimmed, "user");
+
+    // 1. Check if user asked to open a page (e.g. "careers open", "open contact")
+    const requestedPage = requestedAssistantPage(qTrimmed);
+    if (requestedPage) {
+      const cardHtml =
+        `Opening <strong>${escapeHtml(requestedPage.name)}</strong>...` +
+        `<br/><a href="${requestedPage.path}" class="kyk-chat-nav-btn">Open ${escapeHtml(requestedPage.name)} →</a>`;
+      pushMsg(cardHtml, "bot", true);
+      setTimeout(() => {
+        window.location.assign(requestedPage.path);
+      }, 400);
+      return;
+    }
+
+    // Show typing indicator
     const typing = document.createElement("div");
     typing.className = "kyk-msg bot typing";
     typing.innerHTML = "<span></span><span></span><span></span>";
     chatBody.appendChild(typing);
     chatBody.scrollTop = chatBody.scrollHeight;
-    try {
-      const res = await fetch("/api/assistant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: question }),
-      });
-      const data = await res.json();
-      typing.remove();
-      pushMsg(data.reply || "I'm not sure — try our contact page and the team will help directly.", "bot");
-    } catch (e) {
-      typing.remove();
-      pushMsg("I couldn't reach the server just now. Please try the contact page.", "bot");
+
+    let reply = null;
+    let openPageTarget = null;
+
+    // Try backend API first (both relative and local fallback port 3000 if running on Live Server :5500)
+    const endpoints = ["/api/assistant"];
+    if (window.location.port !== "3000" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+      endpoints.push("http://localhost:3000/api/assistant");
+      endpoints.push("http://127.0.0.1:3000/api/assistant");
     }
+
+    for (const ep of endpoints) {
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 9000);
+        const res = await fetch(ep, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: qTrimmed, history: assistantHistory.slice(-8) }),
+          signal: controller.signal,
+        });
+        clearTimeout(tid);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.reply) {
+            reply = data.reply;
+            if (data.open_page) openPageTarget = data.open_page;
+            break;
+          }
+        }
+      } catch (_) {
+        // Continue to next endpoint or fallback
+      }
+    }
+
+    typing.remove();
+
+    // Fall back to client-side real AI intelligence if backend was unreachable
+    if (!reply) {
+      reply = generateClientAiReply(qTrimmed, assistantHistory);
+    }
+
+    // Render formatted response
+    pushMsg(formatBotText(reply), "bot", true);
+
+    // If backend indicated a page redirect
+    if (openPageTarget) {
+      setTimeout(() => window.location.assign(openPageTarget), 600);
+    }
+
+    assistantHistory.push({ role: "user", content: qTrimmed }, { role: "assistant", content: reply });
   }
+
   panel.querySelectorAll(".kyk-assistant-quick button").forEach((b) => {
     b.addEventListener("click", () => askAssistant(b.dataset.q));
   });
+
   const chatForm = panel.querySelector("#kykChatForm");
   chatForm.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -568,3 +867,4 @@ document.addEventListener("DOMContentLoaded", () => {
     askAssistant(v);
   });
 })();
+
