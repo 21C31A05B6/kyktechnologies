@@ -1,6 +1,6 @@
-if (!document.querySelector('script[src="/js/pwa.js"]')) {
+if (!document.querySelector('script[src^="/js/pwa.js"]')) {
   const pwaScript = document.createElement("script");
-  pwaScript.src = "/js/pwa.js";
+  pwaScript.src = "/js/pwa.js?v=20261001-logo-2";
   document.head.appendChild(pwaScript);
 }
 
@@ -51,6 +51,7 @@ function setFormMsg(el,msg,ok){ if(!el) return; el.textContent=msg; el.className
 
 on('loginBtn','click',async()=>{
   const msg=$('loginMsg');
+  const loginButton=$('loginBtn');
   const email=$('loginEmail').value;
   const pass=$('loginPassword').value;
   const isAdminLogin = String(document.body.dataset.adminLogin || '0') === '1';
@@ -69,10 +70,10 @@ on('loginBtn','click',async()=>{
     if (isAdminLogin || d.role && ROLE_HOME[d.role]) {
       gToken=d.token; localStorage.setItem(TOKEN_KEY,gToken);
       const adminHome = ROLE_HOME[d.role] || 'admin.html';
-      location.replace(loginBtn.dataset.redirect || `/${adminHome}`);
+      location.replace(loginButton.dataset.redirect || `/${adminHome}`);
     } else {
       localStorage.setItem(LOGIN_USER_TOKEN_KEY, d.token);
-      location.replace(loginBtn.dataset.redirect || '/user-dashboard.html');
+      location.replace(loginButton.dataset.redirect || '/user-dashboard.html');
     }
   } catch(e){ setFormMsg(msg,e.message,false); }
 });
@@ -379,7 +380,7 @@ async function loadApplications(){
     tr.cells[2].appendChild(badge);
     if(a.resumeFile){
       const filePath='/api/admin/files/'+encodeURIComponent(a.resumeFile)+'?token='+encodeURIComponent(gToken);
-      const viewLink=document.createElement('a'); viewLink.href=filePath; viewLink.textContent='View'; viewLink.target='_blank'; viewLink.rel='noopener'; viewLink.style.cssText='color:var(--orange);font-size:.8rem;margin-right:10px;';
+      const viewLink=document.createElement('a'); viewLink.href=filePath; viewLink.textContent='View'; viewLink.target='_blank'; viewLink.rel='noopener'; viewLink.style.cssText='color:var(--orange);font-size:.8rem;margin-inline-end:10px;';
       const downloadLink=document.createElement('a'); downloadLink.href=filePath+'&download=1'; downloadLink.textContent='Download'; downloadLink.style.cssText='color:var(--orange);font-size:.8rem;';
       tr.cells[3].append(viewLink,downloadLink);
     } else {tr.cells[3].textContent='—';}
@@ -1012,7 +1013,7 @@ async function loadEmployees(){
 }
 function showEmployeeDetails(user){
   let panel=$('employeeDetailsPanel');
-  if(!panel){panel=document.createElement('section');panel.id='employeeDetailsPanel';panel.className='form-card';panel.style.cssText='margin-top:18px;max-width:760px;';$('panel-employees')?.appendChild(panel);}
+  if(!panel){panel=document.createElement('section');panel.id='employeeDetailsPanel';panel.className='form-card';panel.style.cssText='margin-block-start:18px;max-inline-size:760px;';$('panel-employees')?.appendChild(panel);}
   panel.innerHTML=''; const heading=document.createElement('h3'); heading.textContent='Complete profile details'; panel.appendChild(heading);
   const grid=document.createElement('div'); grid.className='profile-detail-grid'; panel.appendChild(grid);
   [['Name',user.name],['Email',user.email],['Role',(user.role||'').replace(/_/g,' ')],['Department',user.department],['Designation',user.designation],['Phone',user.phone],['Joining date',user.joiningDate],['Shift',user.shift],['Status',user.status],['Created',user.createdAt?new Date(user.createdAt).toLocaleString():'']].forEach(([label,value])=>{const item=document.createElement('div');const key=document.createElement('b');key.textContent=label;const val=document.createElement('span');val.textContent=value||'—';item.append(key,val);grid.appendChild(item);});

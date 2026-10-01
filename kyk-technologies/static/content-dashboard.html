@@ -16,7 +16,7 @@
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <a href="/index.html" class="logo" aria-label="KYK home"><img src="/kyk_logo.webp" alt="KYK Technologies" style="width:38px;height:38px;object-fit:contain;display:block;"/></a>
+      <a href="/index.html" class="logo" aria-label="KYK home"><img src="/kyk_logo.webp" alt="KYK Technologies" style="inline-size:38px;block-size:38px;object-fit:contain;display:block;"/></a>
       <div class="role-badge" id="roleLabel">Loading…</div>
     </div>
     <nav id="sidebarNav"><!-- tabs rendered by JS based on role --></nav>
@@ -31,19 +31,19 @@
   <main class="main-content">
     <!-- Overview -->
     <div class="panel active" id="panel-overview">
-      <h2 style="font-family:var(--font-display);margin-bottom:20px;">Content Overview</h2>
+      <h2 style="font-family:var(--font-display);margin-block-end:20px;">Content Overview</h2>
       <div class="stat-cards" id="statCards"></div>
-      <div class="chart-card" style="margin-bottom:24px;">
+      <div class="chart-card" style="margin-block-end:24px;">
         <b style="font-family:var(--font-display);font-size:.9rem;">Applications — last 14 days</b>
-        <canvas id="appsChart" height="180" style="margin-top:14px;width:100%;display:block;"></canvas>
+        <canvas id="appsChart" height="180" style="margin-block-start:14px;inline-size:100%;display:block;"></canvas>
       </div>
     </div>
 
     <!-- Insights -->
     <div class="panel" id="panel-insights">
-      <details style="margin-bottom:20px;" id="insightDetails">
+      <details style="margin-block-end:20px;" id="insightDetails">
         <summary class="btn btn-primary" style="display:inline-flex;cursor:pointer;" id="insightFormToggle">+ New article</summary>
-        <form id="insightForm" class="form-card" style="margin-top:16px;max-width:700px;">
+        <form id="insightForm" class="form-card" style="margin-block-start:16px;max-inline-size:700px;">
           <input type="hidden" id="insightEditId"/>
           <div class="field"><label>Title *</label><input id="insightTitle" required/></div>
           <div class="job-form-grid">
@@ -53,8 +53,8 @@
                 <option>Software &amp; Web Services</option><option>Technology</option><option>Company</option>
               </select>
             </div>
-            <div class="field" style="display:flex;align-items:center;gap:8px;padding-top:20px;">
-              <input type="checkbox" id="insightPublished" checked style="width:16px;height:16px;accent-color:var(--orange);"/>
+            <div class="field" style="display:flex;align-items:center;gap:8px;padding-block-start:20px;">
+              <input type="checkbox" id="insightPublished" checked style="inline-size:16px;block-size:16px;accent-color:var(--orange);"/>
               <label for="insightPublished" style="margin:0;font-weight:500;">Published</label>
             </div>
           </div>
@@ -73,7 +73,7 @@
 
     <!-- My Attendance -->
     <div class="panel" id="panel-my_attendance">
-      <h3 style="font-family:var(--font-display);margin-bottom:16px;">My Attendance</h3>
+      <h3 style="font-family:var(--font-display);margin-block-end:16px;">My Attendance</h3>
       <div class="punch-card form-card glass-glow">
         <div class="punch-status" id="punchStatusLabel">Loading…</div>
         <div class="punch-time" id="punchTimeLabel">—</div>
@@ -93,8 +93,8 @@
   
     <!-- Daily Report -->
     <div class="panel" id="panel-daily_report">
-      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Daily Report</h3>
-      <form id="reportForm" class="form-card glass-glow" style="margin-bottom:24px;">
+      <h3 style="font-family:var(--font-display);margin-block-end:16px;">Daily Report</h3>
+      <form id="reportForm" class="form-card glass-glow" style="margin-block-end:24px;">
         <div class="field">
           <label for="reportSummary">Work summary * <span style="font-weight:400;color:var(--steel-light);">(min 20 characters)</span></label>
           <textarea id="reportSummary" rows="4" maxlength="2000" required></textarea>
@@ -122,7 +122,7 @@
             <button type="button" data-mood="great">😄</button>
           </div>
         </div>
-        <button type="submit" class="btn btn-primary" id="reportSubmitBtn" style="margin-top:10px;">Submit report</button>
+        <button type="submit" class="btn btn-primary" id="reportSubmitBtn" style="margin-block-start:10px;">Submit report</button>
         <div class="form-msg" id="reportMsg"></div>
       </form>
 
@@ -136,22 +136,22 @@
     </div>
 
     <div class="panel" id="panel-performance">
-      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Performance Summary</h3>
+      <h3 style="font-family:var(--font-display);margin-block-end:16px;">Performance Summary</h3>
       <div class="toolbar"><input type="month" id="performanceMonth"/><button class="btn btn-primary" id="performanceRefresh">Refresh</button></div>
       <table><thead><tr><th>Employee</th><th>Department</th><th>Reports</th><th>Submission rate</th><th>Status</th></tr></thead><tbody id="performanceBody"></tbody></table>
     </div>
     <div class="panel" id="panel-report_history">
-      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Report History</h3>
+      <h3 style="font-family:var(--font-display);margin-block-end:16px;">Report History</h3>
       <div class="month-nav"><button class="small-btn" id="reportHistoryPrev">← Prev</button><b id="reportHistoryLabel">—</b><button class="small-btn" id="reportHistoryNext">Next →</button></div>
       <table><thead><tr><th>Date</th><th>Report preview</th><th>Hours</th><th>Mood</th><th>Status</th></tr></thead><tbody id="reportHistoryBody"></tbody></table>
     </div>
     <div class="panel" id="panel-my_profile">
-      <h3 style="font-family:var(--font-display);margin-bottom:16px;">My Profile</h3>
-      <form id="profileForm" class="form-card glass-glow" style="max-width:660px;"><div class="field"><label>Full name</label><input id="profileName" required/></div><div class="field"><label>Email</label><input id="profileEmail" disabled/></div><div class="field"><label>Role</label><input id="profileRole" disabled/></div><div class="field"><label>Phone</label><input id="profilePhone"/></div><div class="field"><label>New password</label><input id="profilePassword" type="password" minlength="8" autocomplete="new-password"/></div><div id="profileStats" class="stat-cards"></div><button class="btn btn-primary" type="submit">Save profile</button><div class="form-msg" id="profileMsg"></div></form>
+      <h3 style="font-family:var(--font-display);margin-block-end:16px;">My Profile</h3>
+      <form id="profileForm" class="form-card glass-glow" style="max-inline-size:660px;"><div class="field"><label>Full name</label><input id="profileName" required/></div><div class="field"><label>Email</label><input id="profileEmail" disabled/></div><div class="field"><label>Role</label><input id="profileRole" disabled/></div><div class="field"><label>Phone</label><input id="profilePhone"/></div><div class="field"><label>New password</label><input id="profilePassword" type="password" minlength="8" autocomplete="new-password"/></div><div id="profileStats" class="stat-cards"></div><button class="btn btn-primary" type="submit">Save profile</button><div class="form-msg" id="profileMsg"></div></form>
     </div>
     <div class="panel" id="panel-settings">
-      <h3 style="font-family:var(--font-display);margin-bottom:16px;">Portal Settings</h3>
-      <form id="settingsForm" class="form-card glass-glow" style="max-width:660px;"><div class="field"><label>Daily report deadline</label><input type="time" id="settingsDeadline" disabled/></div><div class="field"><label>Departments</label><input id="settingsDepartments" disabled/></div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="settingsNotifications" disabled/> Missed report notifications enabled</label><div class="field"><label>Working days</label><input id="settingsWorkingDays" disabled/></div><div class="form-msg show ok" id="settingsMsg">Settings are managed by HR.</div></form>
+      <h3 style="font-family:var(--font-display);margin-block-end:16px;">Portal Settings</h3>
+      <form id="settingsForm" class="form-card glass-glow" style="max-inline-size:660px;"><div class="field"><label>Daily report deadline</label><input type="time" id="settingsDeadline" disabled/></div><div class="field"><label>Departments</label><input id="settingsDepartments" disabled/></div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="settingsNotifications" disabled/> Missed report notifications enabled</label><div class="field"><label>Working days</label><input id="settingsWorkingDays" disabled/></div><div class="form-msg show ok" id="settingsMsg">Settings are managed by HR.</div></form>
     </div>
   </main>
 </div>

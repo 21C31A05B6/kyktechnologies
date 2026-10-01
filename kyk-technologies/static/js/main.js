@@ -1,7 +1,7 @@
 // main.js — shared behavior across all pages.
-if (!document.querySelector('script[src="/js/pwa.js"]')) {
+if (!document.querySelector('script[src^="/js/pwa.js"]')) {
   const pwaScript = document.createElement("script");
-  pwaScript.src = "/js/pwa.js";
+  pwaScript.src = "/js/pwa.js?v=20261001-logo-2";
   document.head.appendChild(pwaScript);
 }
 const API = "/api";
@@ -494,7 +494,7 @@ document.addEventListener("DOMContentLoaded", () => {
     overlay.innerHTML = `
       <svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="24"/><path d="M18 31l8 8 16-18"/></svg>
       <div style="font-family:var(--font-display); font-weight:700; font-size:1.05rem;">${title}</div>
-      <p style="margin:0; max-width:260px; font-size:.88rem;">${subtitle}</p>`;
+      <p style="margin:0; max-inline-size:260px; font-size:.88rem;">${subtitle}</p>`;
     formCardEl.appendChild(overlay);
     setTimeout(() => overlay.remove(), 4200);
   };

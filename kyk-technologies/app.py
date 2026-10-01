@@ -77,7 +77,9 @@ def _add_perf_headers(response):
     """Add Cache-Control and essential security headers to every response."""
     path = request.path
     # Static assets (CSS, JS, images, fonts) — cache 7 days, revalidate
-    if path.startswith(("/css/", "/js/")) or path.endswith(
+    if path == "/service-worker.js":
+        response.headers["Cache-Control"] = "no-cache"
+    elif path.startswith(("/css/", "/js/")) or path.endswith(
         (".webp", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".woff2", ".woff")
     ):
         response.headers["Cache-Control"] = "public, max-age=604800, stale-while-revalidate=86400"
