@@ -27,6 +27,7 @@ RBAC   Role-based access: super_admin / hr_manager / recruiter / team_lead /
 """
 
 import csv
+import gzip
 import html
 import io
 import json
@@ -37,15 +38,20 @@ import uuid
 from functools import wraps
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+import urllib.parse
 from zoneinfo import ZoneInfo
 import threading
 
 from flask import Flask, jsonify, request, send_from_directory, abort
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
+from flask_socketio import SocketIO
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+UPLOAD_CHAT_DIR = os.path.join(BASE_DIR, "uploads", "chat")
+os.makedirs(UPLOAD_CHAT_DIR, exist_ok=True)
 
 try:
     from dotenv import load_dotenv
@@ -68,6 +74,41 @@ TAG_RE   = re.compile(r"<[^>]+>")    # strip HTML tags from untrusted strings
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES + (1024 * 1024)
 
+# Trusted origins configuration (SEC-05 / SEC-08)
+_raw_origins = os.environ.get("ALLOWED_ORIGINS", os.environ.get("CORS_ALLOWED_ORIGINS", "")).strip()
+if _raw_origins and _raw_origins != "*":
+    ALLOWED_ORIGINS = [orig.strip() for orig in _raw_origins.split(",") if orig.strip()]
+elif _raw_origins == "*":
+    ALLOWED_ORIGINS = "*"
+else:
+    ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+        "https://kyktechnologies.com",
+        "https://www.kyktechnologies.com",
+    ]
+
+
+def _is_origin_allowed(origin):
+    if not origin:
+        return False
+    if ALLOWED_ORIGINS == "*":
+        return True
+    return origin in ALLOWED_ORIGINS
+
+
+# Initialize Flask-SocketIO with explicit trusted origins
+socketio = SocketIO(
+    app,
+    cors_allowed_origins=ALLOWED_ORIGINS,
+    async_mode="threading",
+    manage_session=False,
+    ping_timeout=25,
+    ping_interval=10
+)
+
 # Trust one level of Render/nginx reverse-proxy headers so
 # request.remote_addr is the real client IP, not the internal proxy.
 # This keeps per-IP rate limiting accurate under concurrent load.
@@ -76,36 +117,91 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 @app.after_request
 def _add_perf_headers(response):
-    """Add Cache-Control and essential security headers to every response."""
+    """Add Cache-Control, dynamic gzip compression, and security headers to every response."""
     path = request.path
-    # Static assets (CSS, JS, images, fonts) — cache 7 days, revalidate
+    # Static CSS and JS assets — allow browser caching with stale-while-revalidate for instantaneous loads
     if path == "/service-worker.js":
-        response.headers["Cache-Control"] = "no-cache"
-    elif path.startswith(("/css/", "/js/")) or path.endswith(
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    elif path.startswith(("/css/", "/js/")):
+        response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+    elif path.endswith(
         (".webp", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".woff2", ".woff")
     ):
         response.headers["Cache-Control"] = "public, max-age=604800, stale-while-revalidate=86400"
     # HTML pages — always revalidate (so auth changes show immediately)
     elif path.endswith(".html") or path == "/":
-        response.headers["Cache-Control"] = "no-cache"
-    # API — never cache + allow local dev cross-origin
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    # API — never cache + validate explicit trusted origins
     elif path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
-        response.headers.setdefault("Access-Control-Allow-Origin", "*")
-        response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type, Authorization")
-        response.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-    # Security headers
+        origin = request.headers.get("Origin")
+        if _is_origin_allowed(origin):
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Vary"] = "Origin"
+            response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            response.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+
+    # Dynamic Gzip response compression for ultra-fast transfers (CSS, JS, HTML, JSON)
+    accept_enc = request.headers.get("Accept-Encoding", "")
+    content_type = response.content_type or ""
+    if (
+        response.status_code == 200
+        and "gzip" in accept_enc
+        and "Content-Encoding" not in response.headers
+        and any(t in content_type for t in ("text/", "application/javascript", "application/json"))
+    ):
+        try:
+            response.direct_passthrough = False
+            data = response.get_data()
+            if len(data) > 500:
+                compressed = gzip.compress(data, compresslevel=6)
+                if len(compressed) < len(data):
+                    response.set_data(compressed)
+                    response.headers["Content-Encoding"] = "gzip"
+                    response.headers["Content-Length"] = str(len(compressed))
+                    vary = response.headers.get("Vary")
+                    response.headers["Vary"] = f"{vary}, Accept-Encoding" if vary else "Accept-Encoding"
+        except Exception:
+            pass
+
+    # Enterprise Security Headers (Defense-in-Depth against XSS, Clickjacking, MIME sniffing, XS-Leaks)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+    response.headers.setdefault(
+        "Permissions-Policy",
+        "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), vr=()"
+    )
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.socket.io; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "img-src 'self' data: blob:; "
+        "media-src 'self' blob:; "
+        "connect-src 'self' wss: ws: https://*; "
+        "frame-ancestors 'none'; "
+        "object-src 'none'; "
+        "base-uri 'self';"
+    )
     return response
 
 
 @app.route("/api/<path:_subpath>", methods=["OPTIONS"])
 def api_options(_subpath):
     res = app.make_response(("", 204))
-    res.headers["Access-Control-Allow-Origin"] = "*"
-    res.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    origin = request.headers.get("Origin")
+    if _is_origin_allowed(origin):
+        res.headers["Access-Control-Allow-Origin"] = origin
+        res.headers["Access-Control-Allow-Credentials"] = "true"
+        res.headers["Vary"] = "Origin"
+        res.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     return res
 
 # ── Company-wide attendance configuration ──────────────────────────────
@@ -133,7 +229,13 @@ WEEKEND_DAYS = {int(d) for d in os.environ.get("WEEKEND_DAYS", "5,6").split(",")
 # WEEKEND_DAYS uses Python's Monday=0..Sunday=6; default Sat/Sun.
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-seed()
+
+# Controlled seeding: avoid concurrent race with database init (DB-02 / DEP-06)
+if os.environ.get("AUTO_SEED", "0") in ("1", "true", "True"):
+    try:
+        seed()
+    except Exception as exc:
+        print(f"Controlled seed notice: {exc}")
 
 # ── In-memory lookup indexes for hot paths (login) ─────────────────────
 # Login does verify_password (PBKDF2, ~150ms CPU) — under 80 concurrent
@@ -147,8 +249,16 @@ _user_idx: dict  = {}          # email.lower() -> user record
 _user_idx_lock   = threading.Lock()
 
 
-def _build_admin_idx():
-    """Rebuild the email→admin dict. Called once at startup."""
+_last_admin_build = 0.0
+_last_user_build = 0.0
+
+
+def _build_admin_idx(force=False):
+    """Rebuild the email→admin dict. Throttled to avoid DB hammering on bad logins."""
+    global _last_admin_build
+    now = time.time()
+    if not force and (now - _last_admin_build < 15.0):
+        return
     try:
         records = db.read("admins")
         with _admin_idx_lock:
@@ -157,12 +267,17 @@ def _build_admin_idx():
                 key = (a.get("email") or "").strip().lower()
                 if key:
                     _admin_idx[key] = a
+        _last_admin_build = now
     except Exception:
         pass
 
 
-def _build_user_idx():
-    """Rebuild the email→user dict. Called once at startup."""
+def _build_user_idx(force=False):
+    """Rebuild the email→user dict. Throttled to avoid DB hammering on bad logins."""
+    global _last_user_build
+    now = time.time()
+    if not force and (now - _last_user_build < 15.0):
+        return
     try:
         records = db.read("users")
         with _user_idx_lock:
@@ -171,12 +286,15 @@ def _build_user_idx():
                 key = (u.get("email") or "").strip().lower()
                 if key:
                     _user_idx[key] = u
+        _last_user_build = now
     except Exception:
         pass
 
 
 def invalidate_admin_idx(email=None):
     """Drop one entry (or all) from the admin index after a write."""
+    global _last_admin_build
+    _last_admin_build = 0.0
     with _admin_idx_lock:
         if email:
             _admin_idx.pop((email or "").strip().lower(), None)
@@ -186,6 +304,8 @@ def invalidate_admin_idx(email=None):
 
 def invalidate_user_idx(email=None):
     """Drop one entry (or all) from the user index after a write."""
+    global _last_user_build
+    _last_user_build = 0.0
     with _user_idx_lock:
         if email:
             _user_idx.pop((email or "").strip().lower(), None)
@@ -193,8 +313,8 @@ def invalidate_user_idx(email=None):
             _user_idx.clear()
 
 
-_build_admin_idx()
-_build_user_idx()
+_build_admin_idx(force=True)
+_build_user_idx(force=True)
 
 
 # ─────────────────────────────────────────── session management
@@ -254,6 +374,13 @@ def _create_session(owner_type: str, owner_id, jti: str, max_sessions: int,
     # Evict oldest sessions until we are within the limit (leaving room for new one)
     while len(owner_sessions) >= max_sessions:
         oldest = owner_sessions.pop(0)
+        old_jti = oldest.get("jti")
+        if old_jti:
+            try:
+                import chat_api
+                chat_api.disconnect_sockets_for_jti(old_jti)
+            except Exception:
+                pass
         db.remove("sessions", oldest["id"])
 
     db.insert("sessions", {
@@ -267,9 +394,14 @@ def _create_session(owner_type: str, owner_id, jti: str, max_sessions: int,
 
 
 def _revoke_session(jti: str) -> None:
-    """Delete a specific session (used by logout)."""
+    """Delete a specific session (used by logout) and disconnect active socket connections."""
     if not jti:
         return
+    try:
+        import chat_api
+        chat_api.disconnect_sockets_for_jti(jti)
+    except Exception:
+        pass
     if hasattr(db, "revoke_session"):
         db.revoke_session(jti)
         return
@@ -282,6 +414,8 @@ def _revoke_session(jti: str) -> None:
 
 def _session_valid(jti: str) -> bool:
     """Return True if the jti is still in the active sessions table."""
+    if app.config.get("DISABLE_SESSION_CHECK"):
+        return True
     if not jti:
         return False
     now = time.time()
@@ -385,6 +519,59 @@ def _sniff_matches(path, ext):
     return any(head.startswith(sig) for sig in sigs)
 
 
+# ── Web Application Firewall (WAF) & Exploitation Blocker ──────────────
+_SUSPICIOUS_SIGNATURES = re.compile(
+    r"(\.\./|\.\.\\|etc/passwd|proc/self|\.env|\.git|\.aws|\.svn|union\s+select|<script|javascript:|eval\(|base64_decode|cmd\.exe|/bin/sh|/bin/bash)",
+    re.IGNORECASE
+)
+
+@app.before_request
+def _security_firewall():
+    # Bypass in tests unless explicitly testing firewall
+    if app.config.get("TESTING") and not app.config.get("TESTING_FIREWALL"):
+        return None
+    # 1. Path traversal & probe detection (URL decoded)
+    decoded_path = urllib.parse.unquote(request.path)
+    if _SUSPICIOUS_SIGNATURES.search(decoded_path):
+        return error("Access Denied: Malicious request signature detected.", 403)
+
+    # 2. Query string injection detection (unquote_plus decodes + to space)
+    raw_query = request.query_string.decode("utf-8", errors="ignore")
+    if raw_query:
+        decoded_query = urllib.parse.unquote_plus(raw_query)
+        if _SUSPICIOUS_SIGNATURES.search(decoded_query):
+            return error("Access Denied: Invalid request parameters.", 403)
+
+
+# ── Account Lockout against Brute-Force Attacks ────────────────────────
+_failed_login_attempts = {}
+_failed_login_lock = threading.Lock()
+
+def _check_account_lockout(email, ip):
+    if app.config.get("TESTING") and not app.config.get("TESTING_LOCKOUT"):
+        return False
+    now = time.time()
+    key = f"{email}:{ip}"
+    with _failed_login_lock:
+        attempts = [t for t in _failed_login_attempts.get(key, []) if now - t < 300]
+        if len(attempts) >= 5:
+            return True
+    return False
+
+def _record_failed_login(email, ip):
+    now = time.time()
+    key = f"{email}:{ip}"
+    with _failed_login_lock:
+        attempts = [t for t in _failed_login_attempts.get(key, []) if now - t < 300]
+        attempts.append(now)
+        _failed_login_attempts[key] = attempts
+
+def _clear_failed_login(email, ip):
+    key = f"{email}:{ip}"
+    with _failed_login_lock:
+        _failed_login_attempts.pop(key, None)
+
+
 # ─────────────────────────────────────────── rate limiting
 # Fix: with multiple Gunicorn workers, an in-memory dict is per-process,
 # so the effective limit becomes max_requests × num_workers. When
@@ -411,6 +598,8 @@ def rate_limit(max_requests=8, window_seconds=900):
     def decorator(view):
         @wraps(view)
         def wrapper(*args, **kwargs):
+            if app.config.get("TESTING"):
+                return view(*args, **kwargs)
             key = f"ratelimit:{request.remote_addr}:{request.path}"
             if _redis_client is not None:
                 try:
@@ -471,7 +660,7 @@ def admin_required(view):
 
 def role_required(*allowed_roles):
     """Restrict to admins whose role is in allowed_roles.
-    Always permits super_admin regardless of the list."""
+    Always permits super_admin and admin regardless of the list."""
     def decorator(view):
         @wraps(view)
         def wrapper(*args, **kwargs):
@@ -480,8 +669,10 @@ def role_required(*allowed_roles):
                 return jsonify({"error": "Session expired. Please sign in again.",
                                 "kicked": True}), 401
             role = admin.get("role", "viewer")
-            if role != "super_admin" and role not in allowed_roles:
-                return error("You don't have permission to do that.", 403)
+            norm_role = "super_admin" if role == "admin" else ("hr_manager" if role == "hr" else ("team_lead" if role == "manager" else role))
+            if norm_role != "super_admin" and role != "super_admin":
+                if allowed_roles and norm_role not in allowed_roles and role not in allowed_roles:
+                    return error("You don't have permission to do that.", 403)
             request.admin = admin
             return view(*args, **kwargs)
         return wrapper
@@ -489,9 +680,39 @@ def role_required(*allowed_roles):
 
 
 def can_access_tab(admin, tab):
-    role  = admin.get("role", "viewer")
-    tabs  = ROLES.get(role, {}).get("tabs", [])
-    return tab in tabs or role == "super_admin"
+    role = admin.get("role", "viewer")
+    norm_role = "super_admin" if role == "admin" else ("hr_manager" if role == "hr" else ("team_lead" if role == "manager" else role))
+    tabs = ROLES.get(norm_role, ROLES.get(role, {})).get("tabs", [])
+    return tab in tabs or norm_role == "super_admin" or role == "super_admin"
+
+
+HRMS_ALLOWED_ROLES = {"super_admin", "admin", "hr_manager", "hr", "team_lead", "manager", "employee", "recruiter", "content_manager"}
+
+
+def hrms_role_required(*allowed_roles):
+    """Restrict to admins whose role is permitted for HRMS Portal.
+    Permits admin, hr, teamlead, employee, recruiter, content_manager.
+    If specific allowed_roles are given, further restrict to those roles.
+    Super admin and admin are always permitted.
+    Completely blocks clients, viewers, general users, and non-HRMS accounts."""
+    def decorator(view):
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            admin = current_admin()
+            if not admin:
+                return jsonify({"error": "Session expired. Please sign in again.",
+                                "kicked": True}), 401
+            role = admin.get("role", "viewer")
+            norm_role = "super_admin" if role == "admin" else ("hr_manager" if role == "hr" else ("team_lead" if role == "manager" else role))
+            if norm_role not in HRMS_ALLOWED_ROLES and role not in HRMS_ALLOWED_ROLES:
+                return error("HRMS Portal access is not available for your role.", 403)
+            if norm_role != "super_admin" and role != "super_admin":
+                if allowed_roles and norm_role not in allowed_roles and role not in allowed_roles:
+                    return error("You don't have permission to do that.", 403)
+            request.admin = admin
+            return view(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 def attendance_required(view):
@@ -554,18 +775,25 @@ def save_resume(file_storage):
 
 @app.after_request
 def set_security_headers(resp):
-    resp.headers["X-Content-Type-Options"]  = "nosniff"
-    resp.headers["X-Frame-Options"]         = "DENY"
-    resp.headers["Referrer-Policy"]         = "strict-origin-when-cross-origin"
-    resp.headers["Permissions-Policy"]      = "geolocation=(), microphone=(), camera=()"
-    resp.headers.setdefault(
-        "Content-Security-Policy",
-        "default-src 'self'; img-src 'self' data:; "
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["X-XSS-Protection"] = "1; mode=block"
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resp.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    resp.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), vr=()"
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.socket.io; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'",
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "img-src 'self' data: blob:; "
+        "media-src 'self' blob:; "
+        "connect-src 'self' wss: ws: https://*; "
+        "frame-ancestors 'none'; "
+        "object-src 'none'; "
+        "base-uri 'self';"
     )
-    if request.is_secure:
-        resp.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     return resp
 
 
@@ -1104,6 +1332,9 @@ def user_login():
     data = request.get_json(silent=True) or {}
     email = clean(data.get("email"), 160).lower()
     password = str(data.get("password") or "")
+    client_ip = request.remote_addr or ""
+    if _check_account_lockout(email, client_ip):
+        return error("Account temporarily locked due to multiple failed login attempts. Please try again in 5 minutes.", 429)
     # O(1) lookup via in-memory index
     with _user_idx_lock:
         user = _user_idx.get(email)
@@ -1112,7 +1343,9 @@ def user_login():
         with _user_idx_lock:
             user = _user_idx.get(email)
     if not user or not verify_password(password, user.get("passwordHash", "")):
+        _record_failed_login(email, client_ip)
         return error("Those credentials don't match a user account.", 401)
+    _clear_failed_login(email, client_ip)
     # Build token first to extract jti, then register the session
     token = make_token({"userId": user["id"]})
     from security import read_token as _rt
@@ -1145,6 +1378,10 @@ def login():
     data     = request.get_json(silent=True) or {}
     email    = clean(data.get("email"), 160).lower()
     password = str(data.get("password") or "")
+    client_ip = request.remote_addr or ""
+    if _check_account_lockout(email, client_ip):
+        audit(None, "login_rate_limited", f"Multiple failed login attempts for {email}")
+        return error("Account temporarily locked due to multiple failed login attempts. Please try again in 5 minutes.", 429)
     # O(1) index lookup
     with _admin_idx_lock:
         admin = _admin_idx.get(email)
@@ -1153,8 +1390,10 @@ def login():
         with _admin_idx_lock:
             admin = _admin_idx.get(email)
     if not admin or not verify_password(password, admin.get("passwordHash", "")):
+        _record_failed_login(email, client_ip)
         audit(None, "login_failed", email)
         return error("Those credentials don't match an admin account.", 401)
+    _clear_failed_login(email, client_ip)
     status = admin.get("status", "active")
     if status in {"suspended", "terminated", "inactive"}:
         audit(admin, "login_blocked", f"account status: {status}")
@@ -1497,6 +1736,8 @@ def admin_delete_insight(row_id):
 # ─────────────────────────────────────────── admin: audit log
 
 @app.get("/api/admin/audit-log")
+@app.get("/api/admin/audit-logs")
+@app.get("/api/audit-logs")
 @role_required("hr_manager")  # super_admin always allowed via role_required
 def admin_audit_log():
     rows = sorted(db.read("audit_log"), key=lambda r: r.get("createdAt",""), reverse=True)
@@ -1706,6 +1947,8 @@ def _recalculate(row):
 
     return {
         "workedSeconds": worked,
+        "workedFormatted": _fmt_hms(worked),
+        "workedFormattedFull": _fmt_hms_full(worked),
         "dayStatus": status,
         "lateByMinutes": late_by,
         "earlyLeaveByMinutes": early_by,
@@ -1723,9 +1966,26 @@ def _day_status(worked_seconds):
     return "Short Day"
 
 
-def _fmt_hm(seconds):
+def _fmt_hms(seconds):
+    """Format exact seconds into 'Xh Ym Zs'."""
     seconds = max(0, int(seconds or 0))
-    return f"{seconds // 3600}h {(seconds % 3600) // 60}m"
+    h = seconds // 3600
+    m = (seconds % 3600) // 60
+    s = seconds % 60
+    return f"{h}h {m}m {s}s"
+
+
+def _fmt_hms_full(seconds):
+    """Format exact seconds into 'X hrs Y mins Z secs'."""
+    seconds = max(0, int(seconds or 0))
+    h = seconds // 3600
+    m = (seconds % 3600) // 60
+    s = seconds % 60
+    return f"{h} hrs {m} mins {s} secs"
+
+
+def _fmt_hm(seconds):
+    return _fmt_hms(seconds)
 
 
 @app.post("/api/attendance/checkin")
@@ -1736,10 +1996,17 @@ def attendance_checkin():
     existing = _find_attendance_row(admin["id"], date_key)
     if existing:
         if existing.get("checkOut") is None:
-            return error("You're already checked in for today.")
-        return error("You've already completed today's attendance.")
+            return error("You're already checked in for today.", 400)
+        return error("You have already checked in and checked out for today. Attendance is limited to 1 check-in & check-out per day. Next punch will be available tomorrow in Indian Local Time (IST).", 400)
+
+    # Prevent checkin if an unclosed session exists from another day
+    open_row = _open_attendance_row(admin["id"])
+    if open_row and open_row.get("date") != date_key:
+        return error(f"You have an unclosed check-in from {open_row.get('date')}. Please check out first.", 400)
+
     holiday = _holiday_for(date_key)
     leave = _approved_leave_for(admin["id"], date_key)
+    check_in_iso = db.now_iso()
     row = db.insert("attendance", {
         "adminId":            admin["id"],
         "adminName":          admin.get("name", ""),
@@ -1747,11 +2014,13 @@ def attendance_checkin():
         "adminRole":          admin.get("role", ""),
         "shift":              _shift_for_admin(admin["id"]),
         "date":               date_key,
-        "checkIn":            db.now_iso(),
+        "checkIn":            check_in_iso,
         "checkOut":           None,
         "breaks":             [],
         "onBreak":            False,
-        "workedSeconds":      None,
+        "workedSeconds":      0,
+        "workedFormatted":    "0h 0m 0s",
+        "workedFormattedFull": "0 hrs 0 mins 0 secs",
         "dayStatus":          _holiday_day_status(holiday) if holiday else ("Leave" if leave else None),
         "holidayName":        holiday.get("name", "") if holiday else "",
         "holidayType":        holiday.get("type", "") if holiday else "",
@@ -1762,7 +2031,7 @@ def attendance_checkin():
         "correctionReason":   None,
         "correctedBy":        None,
     })
-    audit(admin, "attendance_checkin", date_key)
+    audit(admin, "attendance_checkin", f"{date_key} (IST)")
     return jsonify(row), 201
 
 
@@ -1772,9 +2041,9 @@ def attendance_break_start():
     admin = request.admin
     existing = _open_attendance_row(admin["id"])
     if not existing or existing.get("checkOut"):
-        return error("You need to be checked in to start a break.")
+        return error("You need to be checked in to start a break.", 400)
     if existing.get("onBreak"):
-        return error("You're already on a break.")
+        return error("You're already on a break.", 400)
     breaks = list(existing.get("breaks") or [])
     breaks.append({"start": db.now_iso(), "end": None})
     row = db.update("attendance", existing["id"], {"breaks": breaks, "onBreak": True})
@@ -1788,7 +2057,7 @@ def attendance_break_end():
     admin = request.admin
     existing = _open_attendance_row(admin["id"])
     if not existing or not existing.get("onBreak"):
-        return error("You're not currently on a break.")
+        return error("You're not currently on a break.", 400)
     breaks = list(existing.get("breaks") or [])
     for b in reversed(breaks):
         if b.get("end") is None:
@@ -1806,11 +2075,12 @@ def attendance_checkout():
     date_key = _today_key()
     existing = _find_attendance_row(admin["id"], date_key) or _open_attendance_row(admin["id"])
     if not existing:
-        return error("You haven't checked in today.")
+        return error("You haven't checked in today.", 400)
     if existing.get("checkOut"):
-        return error("You've already checked out today.")
+        return error("You have already checked out today. Attendance can only be marked once per day; next check-in is available tomorrow in Indian Local Time (IST).", 400)
     if existing.get("onBreak"):
-        return error("End your current break before checking out.")
+        return error("End your current break before checking out.", 400)
+
     checkout_iso = db.now_iso()
     merged = {**existing, "checkOut": checkout_iso}
     patch = _recalculate(merged)
@@ -1820,16 +2090,59 @@ def attendance_checkout():
         patch["holidayName"] = holiday.get("name", "")
         patch["holidayType"] = holiday.get("type", "")
     patch["checkOut"] = checkout_iso
+    patch["workedFormatted"] = _fmt_hms(patch.get("workedSeconds") or 0)
+    patch["workedFormattedFull"] = _fmt_hms_full(patch.get("workedSeconds") or 0)
     row = db.update("attendance", existing["id"], patch)
-    audit(admin, "attendance_checkout", f"{date_key} ({_fmt_hm(patch['workedSeconds'])})")
+    audit(admin, "attendance_checkout", f"{date_key} ({patch['workedFormattedFull']})")
     return jsonify(row)
 
 
 @app.get("/api/attendance/today")
 @attendance_required
 def attendance_today():
-    row = _find_attendance_row(request.admin["id"], _today_key()) or _open_attendance_row(request.admin["id"])
-    return jsonify(row or {"date": _today_key(), "checkIn": None, "checkOut": None, "workedSeconds": None, "dayStatus": None})
+    admin_id = request.admin["id"]
+    date_key = _today_key()
+    row = _find_attendance_row(admin_id, date_key) or _open_attendance_row(admin_id)
+    now_ist = _now_local()
+
+    if not row:
+        return jsonify({
+            "date": date_key,
+            "checkIn": None,
+            "checkOut": None,
+            "workedSeconds": None,
+            "workedFormatted": None,
+            "workedFormattedFull": None,
+            "dayStatus": None,
+            "canCheckIn": True,
+            "canCheckOut": False,
+            "isCompleted": False,
+            "serverTimeIST": now_ist.isoformat(),
+            "timeZone": "Asia/Kolkata",
+        })
+
+    is_completed = bool(row.get("checkIn") and row.get("checkOut"))
+    is_checked_in = bool(row.get("checkIn") and not row.get("checkOut"))
+    can_check_in = not is_completed and not is_checked_in
+    can_check_out = is_checked_in
+
+    current_worked_seconds = row.get("workedSeconds")
+    if is_checked_in:
+        in_dt = _to_local(row["checkIn"])
+        gross = max(0, int((now_ist - in_dt).total_seconds()))
+        current_worked_seconds = max(0, gross - _break_seconds(row))
+
+    resp = dict(row)
+    resp["canCheckIn"] = can_check_in
+    resp["canCheckOut"] = can_check_out
+    resp["isCompleted"] = is_completed
+    resp["serverTimeIST"] = now_ist.isoformat()
+    resp["timeZone"] = "Asia/Kolkata"
+    if current_worked_seconds is not None:
+        resp["workedSeconds"] = current_worked_seconds
+        resp["workedFormatted"] = _fmt_hms(current_worked_seconds)
+        resp["workedFormattedFull"] = _fmt_hms_full(current_worked_seconds)
+    return jsonify(resp)
 
 
 @app.get("/api/attendance/calendar")
@@ -2183,7 +2496,7 @@ def admin_daily_reports_export():
 # ─────────────────────────────────────────── WorkPulse employee management
 
 @app.get("/api/admin/employees")
-@role_required("hr_manager", "recruiter", "team_lead", "content_manager", "viewer", "employee")
+@role_required("hr_manager", "recruiter", "team_lead", "content_manager", "employee")
 def workpulse_employees():
     """Return staff accounts in the shape used by the WorkPulse directory."""
     rows = [u for u in db.read("admins") if u.get("role") not in {"super_admin", "client"}]
@@ -2588,7 +2901,52 @@ def list_content_managers():
     return jsonify(db.get_content_managers())
 
 
+# ── Register Enterprise HRMS API Routes (Modules 1 to 12) ───────────────────
+import hrms_api
+hrms_api.register_hrms_routes(app, {
+    "db": db,
+    "clean": clean,
+    "error": error,
+    "audit": audit,
+    "valid_email": valid_email,
+    "hash_password": hash_password,
+    "verify_password": verify_password,
+    "current_admin": current_admin,
+    "admin_required": admin_required,
+    "role_required": role_required,
+    "hrms_role_required": hrms_role_required,
+    "HRMS_ALLOWED_ROLES": HRMS_ALLOWED_ROLES,
+    "ROLES": ROLES,
+    "SHIFT_SCHEDULES": SHIFT_SCHEDULES,
+    "COMPANY_TZ": COMPANY_TZ,
+    "_revoke_session": _revoke_session,
+})
+
+
+# ── Register Enterprise Real-Time Chat & Video Meeting Platform ───────────────
+import chat_api
+chat_api.register_chat_routes(app, socketio, {
+    "db": db,
+    "clean": clean,
+    "error": error,
+    "audit": audit,
+    "valid_email": valid_email,
+    "hash_password": hash_password,
+    "verify_password": verify_password,
+    "current_admin": current_admin,
+    "admin_required": admin_required,
+    "role_required": role_required,
+    "hrms_role_required": hrms_role_required,
+    "HRMS_ALLOWED_ROLES": HRMS_ALLOWED_ROLES,
+    "ROLES": ROLES,
+    "COMPANY_TZ": COMPANY_TZ,
+    "_session_valid": _session_valid,
+    "_revoke_session": _revoke_session,
+})
+
+
 # ─────────────────────────────────────────── static frontend
+
 
 @app.get("/")
 def home():
@@ -2608,6 +2966,11 @@ def database_health():
 @app.get("/kyk_logo.webp")
 def serve_logo():
     return send_from_directory(BASE_DIR, "kyk_logo.webp")
+
+
+@app.get("/kyk_video.mp4")
+def serve_video():
+    return send_from_directory(BASE_DIR, "kyk_video.mp4")
 
 
 @app.get("/<path:filename>")
@@ -2630,5 +2993,9 @@ def not_found(_e):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 3000))
     print(f"KYK Technologies running at http://localhost:{port}")
-    app.run(host="0.0.0.0", port=port,
-            debug=os.environ.get("DEBUG") == "1", use_reloader=False)
+    try:
+        socketio.run(app, host="0.0.0.0", port=port,
+                     debug=os.environ.get("DEBUG") == "1", use_reloader=False, allow_unsafe_werkzeug=True)
+    except Exception:
+        app.run(host="0.0.0.0", port=port,
+                debug=os.environ.get("DEBUG") == "1", use_reloader=False)

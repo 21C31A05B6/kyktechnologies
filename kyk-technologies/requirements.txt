@@ -2,6 +2,8 @@
 # ──────────────────────────────────────────────────────────────────────────
 # Core (always required)
 Flask>=3.0
+Flask-SocketIO>=5.4
+simple-websocket>=1.1
 SQLAlchemy>=2.0
 
 # PostgreSQL driver & env (required when DATABASE_URL=postgresql://...)

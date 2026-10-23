@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KYK Connect — Enterprise Chat & Video Meetings</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23E8622C%22/><text x=%2250%22 y=%2266%22 font-size=%2250%22 fill=%22white%22 text-anchor=%22middle%22 font-family=%22sans-serif%22>K</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/style.css?v=20261016-portal-v27" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/communication.css" />
+</head>
+<body style="margin:0;padding:0;background:var(--comm-bg);overflow:hidden;">
+
+<div class="comm-shell">
+  <!-- 1. Left Navigation Rail -->
+  <aside class="comm-rail">
+    <a href="/index.html" class="comm-rail-logo" title="KYK Technologies Home">
+      <img src="/kyk_logo.webp" alt="KYK Logo" />
+    </a>
+
+    <nav class="comm-rail-nav">
+      <button class="comm-rail-btn active" id="railChatBtn" title="Chats & Channels">
+        💬
+        <span class="comm-rail-badge" id="railUnreadBadge" style="display:none;">0</span>
+      </button>
+      <button class="comm-rail-btn" id="railInstantMeetBtn" onclick="window.commApp.startInstantMeeting && window.commApp.startInstantMeeting()" title="Instant Video Meeting">
+        📹
+      </button>
+      <button class="comm-rail-btn" id="railScheduleBtn" onclick="window.commApp.openScheduleMeetingModal && window.commApp.openScheduleMeetingModal()" title="Schedule Meeting">
+        📅
+      </button>
+      <button class="comm-rail-btn" id="railDirectoryBtn" onclick="window.commApp.openNewChatModal && window.commApp.openNewChatModal()" title="Colleagues Directory">
+        👥
+      </button>
+    </nav>
+
+    <div class="comm-rail-footer">
+      <a href="/admin.html" id="backToDashLink" class="comm-icon-btn" title="Back to Dashboard" style="text-decoration:none;">
+        ⬅️
+      </a>
+      <div class="comm-avatar-btn" id="userAvatar" title="My Profile">
+        U
+        <div class="comm-presence-dot online" id="connBadge"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 2. Channels & Direct Messages Sidebar -->
+  <aside class="comm-sidebar" id="commSidebar">
+    <div class="comm-sidebar-header">
+      <div class="comm-sidebar-title-row">
+        <h2>KYK Connect</h2>
+        <div class="comm-new-btn-group">
+          <button class="comm-icon-btn" id="newChatBtn" title="Start Direct Chat">✏️</button>
+          <button class="comm-icon-btn" id="newGroupBtn" title="Create Group or Channel">➕</button>
+        </div>
+      </div>
+      <div class="comm-search-box">
+        <span class="comm-search-icon">🔍</span>
+        <input type="text" class="comm-search-input" id="searchConvInput" placeholder="Search conversations & people…" />
+      </div>
+    </div>
+
+    <div class="comm-filter-tabs">
+      <button class="comm-filter-tab active" data-filter="all">All</button>
+      <button class="comm-filter-tab" data-filter="direct">Direct</button>
+      <button class="comm-filter-tab" data-filter="group">Groups</button>
+      <button class="comm-filter-tab" data-filter="department">Channels</button>
+      <button class="comm-filter-tab" data-filter="announcement">Announcements</button>
+    </div>
+
+    <div class="comm-conv-list" id="conversationList">
+      <!-- Conversation items rendered dynamically by communication.js -->
+    </div>
+  </aside>
+
+  <!-- 3. Main Chat View -->
+  <main class="comm-main" id="commMain">
+    <!-- Header -->
+    <header class="comm-chat-header">
+      <div class="comm-chat-meta">
+        <div>
+          <h3 class="comm-header-title" id="chatHeaderTitle">
+            <span>#</span>
+            <span>Select a conversation</span>
+          </h3>
+          <div class="comm-header-sub" id="chatHeaderSub">
+            <span>Encrypted internal company communication</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comm-chat-actions" id="chatCallBtns" style="display:none;">
+        <button class="comm-action-btn" id="headerAudioCallBtn" title="Start Audio Call">
+          📞 <span>Audio</span>
+        </button>
+        <button class="comm-action-btn primary" id="headerVideoCallBtn" title="Start Video Meeting">
+          📹 <span>Video Meet</span>
+        </button>
+        <button class="comm-action-btn" id="scheduleMeetingBtn" title="Schedule Meeting">
+          📅 <span>Schedule</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Pinned message banner -->
+    <div class="comm-pinned-banner" id="pinnedBanner" style="display:none;"></div>
+
+    <!-- Messages Container -->
+    <div class="comm-messages-scroll" id="messagesContainer">
+      <div style="text-align:center;padding:60px 20px;color:var(--comm-steel);">
+        <div style="font-size:2.5rem;margin-bottom:12px;">💬</div>
+        <h3 style="margin:0 0 8px;font-size:1.15rem;color:var(--comm-ink);">Welcome to KYK Connect</h3>
+        <p style="margin:0;font-size:0.85rem;">Select an employee or channel from the sidebar to start messaging.</p>
+      </div>
+    </div>
+
+    <!-- Typing bar -->
+    <div class="comm-typing-bar" id="typingBar" style="display:none;"></div>
+
+    <!-- Composer -->
+    <div class="comm-composer-box">
+      <div class="comm-composer-card">
+        <div class="comm-reply-banner" id="replyBanner" style="display:none;"></div>
+        <div class="comm-upload-preview-bar" id="uploadPreviewBar" style="display:none;"></div>
+
+        <div class="comm-composer-input-row">
+          <input type="file" id="chatFileInput" style="display:none;" />
+          <button class="comm-icon-btn" id="attachFileBtn" title="Attach file or image" type="button" style="border:none;background:none;font-size:1.1rem;color:var(--comm-steel);">
+            📎
+          </button>
+          <textarea class="comm-composer-textarea" id="composerTextarea" placeholder="Type a message… (Shift+Enter for new line)" rows="1"></textarea>
+          <button class="comm-send-btn" id="sendMsgBtn" title="Send (Enter)">
+            ➤
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ===================== Video Meeting Suite Overlay ===================== -->
+<div class="comm-meeting-overlay" id="meetingOverlay" style="display:none;">
+  <header class="comm-meeting-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="font-size:1.3rem;">📹</span>
+      <div>
+        <b id="meetingTitleHeader" style="font-size:0.95rem;color:#fff;">Meeting Room</b>
+        <div style="font-size:0.75rem;color:var(--comm-steel);">
+          Code: <span id="meetingCodeTag" style="font-family:monospace;color:var(--comm-cyan);"></span>
+          &bull; <span style="color:var(--comm-green);">● LIVE</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="comm-action-btn" id="copyMeetingLinkBtn" onclick="navigator.clipboard.writeText(location.href);alert('Meeting link copied to clipboard!');">
+        🔗 Copy Link
+      </button>
+      <button class="comm-action-btn primary" id="meetingChatToggleBtn">
+        💬 Meeting Chat
+      </button>
+    </div>
+  </header>
+
+  <!-- Video Grid -->
+  <div class="comm-meeting-grid" id="meetingVideoGrid">
+    <!-- Local Participant Tile -->
+    <div class="comm-video-tile" id="localTileContainer">
+      <video class="comm-video-el" id="localVideoTile" autoplay playsinline muted></video>
+      <div class="comm-tile-tag">
+        <span id="localMicIcon">🎤</span>
+        <span>You (Self)</span>
+      </div>
+    </div>
+    <!-- Remote participant tiles dynamically inserted by communication.js -->
+  </div>
+
+  <!-- Bottom Dock -->
+  <footer class="comm-meeting-dock">
+    <button class="comm-dock-btn" id="toggleMicBtn" title="Toggle Microphone">🎤</button>
+    <button class="comm-dock-btn" id="toggleCamBtn" title="Toggle Camera">📹</button>
+    <button class="comm-dock-btn" id="toggleScreenBtn" title="Share Screen">🖥️</button>
+    <button class="comm-dock-btn leave-btn" id="leaveMeetingBtn" title="Leave Meeting">📞</button>
+    <button class="comm-dock-btn" id="endMeetingAllBtn" title="End Meeting for All" style="background:#450a0a;border-color:#b91c1c;color:#fca5a5;">🛑</button>
+  </footer>
+
+  <!-- Slide-out In-Meeting Chat Drawer -->
+  <div id="meetingChatDrawer" style="display:none;position:absolute;top:60px;right:0;bottom:80px;width:320px;background:#0d1017;border-left:1px solid var(--comm-border);z-index:20;flex-direction:column;">
+    <div style="padding:14px;border-bottom:1px solid var(--comm-border);display:flex;justify-content:space-between;align-items:center;">
+      <b style="font-size:0.9rem;">Meeting Chat</b>
+      <button style="background:none;border:none;color:var(--comm-steel);cursor:pointer;font-size:1.1rem;" onclick="$('meetingChatDrawer').style.display='none'">&times;</button>
+    </div>
+    <div id="meetingChatMessages" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="padding:12px;border-top:1px solid var(--comm-border);display:flex;gap:6px;">
+      <input type="text" id="meetingChatInput" placeholder="Message participants…" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid var(--comm-border);border-radius:8px;padding:8px 10px;color:#fff;outline:none;font-size:0.82rem;" />
+      <button id="sendMeetingChatBtn" class="comm-action-btn primary" style="padding:8px 12px;">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODALS ===================== -->
+
+<!-- 1. Start Direct Chat Modal -->
+<div class="comm-modal-overlay" id="newChatModal">
+  <div class="comm-modal-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:1.1rem;">New Direct Chat</h3>
+      <button class="comm-icon-btn" onclick="window.commApp.closeModals()">&times;</button>
+    </div>
+    <p style="color:var(--comm-steel);font-size:0.82rem;margin-top:0;">Select a colleague to start a private conversation:</p>
+    <div id="newChatDirectoryList" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+  </div>
+</div>
+
+<!-- 2. Create Group Modal -->
+<div class="comm-modal-overlay" id="newGroupModal">
+  <div class="comm-modal-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:1.1rem;">Create New Group Channel</h3>
+      <button class="comm-icon-btn" onclick="window.commApp.closeModals()">&times;</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Group Name *</label>
+        <input type="text" id="newGroupTitleInput" placeholder="e.g. Core Engineering, Project Titan" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid var(--comm-border);border-radius:8px;padding:8px 10px;color:#fff;outline:none;" />
+      </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Description</label>
+        <input type="text" id="newGroupDescInput" placeholder="Channel purpose and topics" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid var(--comm-border);border-radius:8px;padding:8px 10px;color:#fff;outline:none;" />
+      </div>
+      <div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;cursor:pointer;">
+          <input type="checkbox" id="newGroupIsAnnounceInput" style="accent-color:var(--comm-accent);" />
+          <span>Read-only announcement channel (Admins &amp; HR post only)</span>
+        </label>
+      </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:6px;">Add Members</label>
+        <div id="newGroupMembersChecklist" style="max-height:160px;overflow-y:auto;background:rgba(255,255,255,0.03);border:1px solid var(--comm-border);border-radius:8px;padding:8px;"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">
+        <button class="comm-action-btn" onclick="window.commApp.closeModals()">Cancel</button>
+        <button class="comm-action-btn primary" onclick="window.commApp.createGroupSubmit()">Create Group</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Schedule Meeting Modal -->
+<div class="comm-modal-overlay" id="scheduleMeetingModal">
+  <div class="comm-modal-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:1.1rem;">Schedule Video Meeting</h3>
+      <button class="comm-icon-btn" onclick="window.commApp.closeModals()">&times;</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Meeting Title *</label>
+        <input type="text" id="scheduleTitleInput" placeholder="e.g. Weekly Engineering Sync" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid var(--comm-border);border-radius:8px;padding:8px 10px;color:#fff;outline:none;" />
+      </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Agenda / Description</label>
+        <input type="text" id="scheduleDescInput" placeholder="Topics to cover, links, notes" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid var(--comm-border);border-radius:8px;padding:8px 10px;color:#fff;outline:none;" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Start Date &amp; Time *</label>
+          <input type="datetime-local" id="scheduleStartInput" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid var(--comm-border);border-radius:8px;padding:8px;color:#fff;outline:none;" />
+        </div>
+        <div>
+          <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">End Time</label>
+          <input type="datetime-local" id="scheduleEndInput" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid var(--comm-border);border-radius:8px;padding:8px;color:#fff;outline:none;" />
+        </div>
+      </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:6px;">Invite Colleagues</label>
+        <div id="scheduleMeetingMembersChecklist" style="max-height:140px;overflow-y:auto;background:rgba(255,255,255,0.03);border:1px solid var(--comm-border);border-radius:8px;padding:8px;"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">
+        <button class="comm-action-btn" onclick="window.commApp.closeModals()">Cancel</button>
+        <button class="comm-action-btn primary" onclick="window.commApp.scheduleMeetingSubmit()">Schedule Meeting</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Vendor Scripts -->
+<script src="/js/socket.io.min.js"></script>
+<script src="/js/communication.js"></script>
+</body>
+</html>

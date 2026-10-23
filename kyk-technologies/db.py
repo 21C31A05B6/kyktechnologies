@@ -64,6 +64,7 @@ if _has_valid_db_url:
             create_session,
             revoke_session,
             health_check,
+            invalidate_cache,
         )
     except Exception as e:
         print(f"Warning: Failed to load db_sql ({e}). Falling back to JSON store.")
@@ -76,6 +77,9 @@ if not _has_valid_db_url:
             "string in Render Environment Variables before deploying."
         )
     from db_json import read, write, insert, find, update, remove, now_iso  # noqa: F401
+
+    def invalidate_cache(collection=None):
+        pass
 
     def health_check():
         return {"backend": "json", "database": "local file store"}

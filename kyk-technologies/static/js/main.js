@@ -1,4 +1,108 @@
 // main.js — shared behavior across all pages.
+function ensureBackgroundVideo() {
+  function setupVideoEvents(v, wrapElem) {
+    if (!v) return;
+    v.muted = true;
+    v.defaultMuted = true;
+    v.playsInline = true;
+    v.setAttribute("playsinline", "");
+    v.setAttribute("webkit-playsinline", "");
+    v.setAttribute("muted", "");
+
+    // Immediately remove any legacy video toggle buttons if found in DOM
+    var container = wrapElem || document.getElementById("kykBackgroundVideoWrap");
+    if (container) {
+      container.querySelectorAll("#kykBgVideoToggle, .kyk-bg-video-toggle").forEach(function(el) { el.remove(); });
+    }
+    document.querySelectorAll("#kykBgVideoToggle, .kyk-bg-video-toggle").forEach(function(el) { el.remove(); });
+
+    function doPlay() {
+      v.muted = true;
+      var prom = v.play();
+      if (prom !== undefined) {
+        prom.catch(function() {
+          var onGesture = function() {
+            v.muted = true;
+            v.play().catch(function() {});
+            ["click", "touchstart", "scroll", "keydown"].forEach(function(ev) {
+              window.removeEventListener(ev, onGesture);
+            });
+          };
+          ["click", "touchstart", "scroll", "keydown"].forEach(function(ev) {
+            window.addEventListener(ev, onGesture, { once: true, passive: true });
+          });
+        });
+      }
+    }
+
+    doPlay();
+
+    v.addEventListener("ended", function() {
+      v.currentTime = 0;
+      v.play().catch(function() {});
+    });
+
+    document.addEventListener("visibilitychange", function() {
+      if (!document.hidden && v.paused) {
+        v.play().catch(function() {});
+      }
+    });
+  }
+
+  var existing = document.getElementById("kykBackgroundVideoWrap");
+  if (existing) {
+    existing.querySelectorAll("#kykBgVideoToggle, .kyk-bg-video-toggle").forEach(function(el) { el.remove(); });
+    var ev = existing.querySelector("video");
+    if (ev) setupVideoEvents(ev, existing);
+    return;
+  }
+
+  var wrap = document.createElement("div");
+  wrap.id = "kykBackgroundVideoWrap";
+  wrap.className = "kyk-bg-video-wrap";
+  wrap.setAttribute("aria-hidden", "true");
+  wrap.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;z-index:-1;overflow:hidden;pointer-events:none;background:#05060a;";
+  wrap.innerHTML = `
+    <video id="kykBgVideo" class="kyk-bg-video" autoplay muted loop playsinline webkit-playsinline preload="none" style="position:absolute;top:50%;left:50%;min-width:100%;min-height:100%;width:100vw;height:100vh;transform:translate(-50%,-50%);object-fit:cover;opacity:0.85;filter:saturate(1.15) contrast(1.1);pointer-events:none;">
+      <source data-src="/kyk_video.mp4" type="video/mp4">
+    </video>
+    <div class="kyk-bg-video-overlay" style="position:absolute;inset:0;width:100%;height:100%;background:radial-gradient(ellipse at 50% 35%, rgba(5,6,10,0.15) 0%, rgba(5,6,10,0.55) 70%, rgba(5,6,10,0.85) 100%), linear-gradient(180deg, rgba(5,6,10,0.2) 0%, rgba(5,6,10,0.4) 45%, rgba(5,6,10,0.85) 100%);pointer-events:none;"></div>
+  `;
+  var v = wrap.querySelector("video");
+
+  function loadVideoDeferred() {
+    if (!v) return;
+    var src = v.querySelector("source");
+    if (src && src.dataset && src.dataset.src && !src.src) {
+      src.src = src.dataset.src;
+      try {
+        v.load();
+        v.play().catch(function() {});
+      } catch(e) {}
+    }
+  }
+
+  function attachWrap() {
+    if (!document.getElementById("kykBackgroundVideoWrap") && document.body) {
+      document.body.prepend(wrap);
+      setupVideoEvents(v, wrap);
+      // Defer loading 6MB video so initial styles, fonts, and critical API calls load instantaneously
+      if (window.requestIdleCallback) {
+        requestIdleCallback(function() { setTimeout(loadVideoDeferred, 600); }, { timeout: 2000 });
+      } else {
+        setTimeout(loadVideoDeferred, 1000);
+      }
+    }
+  }
+
+  if (document.body) {
+    attachWrap();
+  } else {
+    document.addEventListener("DOMContentLoaded", attachWrap);
+  }
+}
+ensureBackgroundVideo();
+
 if (!document.querySelector('script[src^="/js/pwa.js"]')) {
   const pwaScript = document.createElement("script");
   pwaScript.src = "/js/pwa.js?v=20261001-logo-2";
@@ -17,6 +121,18 @@ const PUBLIC_ROLE_HOME = {
   employee: "employee-dashboard.html",
   viewer: "viewer-dashboard.html",
 };
+
+const HRMS_ALLOWED_ROLES = new Set([
+  "super_admin",
+  "admin",
+  "hr_manager",
+  "hr",
+  "team_lead",
+  "manager",
+  "employee",
+  "recruiter",
+  "content_manager"
+]);
 
 function getUserToken() {
   return localStorage.getItem(USER_TOKEN_KEY) || "";
@@ -72,6 +188,7 @@ async function updateAuthNavigation() {
   const userToken = getUserToken();
   const adminToken = getAdminToken();
   let dashboardPath = userToken ? "user-dashboard.html" : "";
+  let currentRole = userToken ? "user" : "";
 
   if (adminToken) {
     // Use cached role if available (avoids an API round-trip on every page)
@@ -80,6 +197,7 @@ async function updateAuthNavigation() {
     const tokenSig = adminToken.slice(-12); // last 12 chars as a cheap token fingerprint
 
     if (cached && cached.sig === tokenSig && cached.role) {
+      currentRole = cached.role;
       dashboardPath = PUBLIC_ROLE_HOME[cached.role] || "admin.html";
       // Silently refresh in background — doesn't block UI
       fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${adminToken}` } })
@@ -87,6 +205,10 @@ async function updateAuthNavigation() {
         .then(data => {
           if (data && data.admin) {
             localStorage.setItem(ROLE_CACHE_KEY, JSON.stringify({ sig: tokenSig, role: data.admin.role }));
+            if (!HRMS_ALLOWED_ROLES.has(data.admin.role)) {
+              const hl = navCta.querySelector(".hrms-portal-link");
+              if (hl) hl.remove();
+            }
           } else {
             localStorage.removeItem(ADMIN_TOKEN_KEY);
             localStorage.removeItem(ROLE_CACHE_KEY);
@@ -99,9 +221,9 @@ async function updateAuthNavigation() {
         });
         if (!response.ok) throw new Error("Admin session expired");
         const data = await response.json();
-        const role = data.admin && data.admin.role;
-        dashboardPath = PUBLIC_ROLE_HOME[role] || "admin.html";
-        localStorage.setItem(ROLE_CACHE_KEY, JSON.stringify({ sig: tokenSig, role }));
+        currentRole = (data.admin && data.admin.role) || "";
+        dashboardPath = PUBLIC_ROLE_HOME[currentRole] || "admin.html";
+        localStorage.setItem(ROLE_CACHE_KEY, JSON.stringify({ sig: tokenSig, role: currentRole }));
       } catch (error) {
         localStorage.removeItem(ADMIN_TOKEN_KEY);
         localStorage.removeItem("kyk_admin_role_cache");
@@ -117,6 +239,27 @@ async function updateAuthNavigation() {
   if (loggedIn) addDashboardLink(navCta, dashboardPath);
   dashboardLink = navCta.querySelector(".dashboard-link");
   setAuthControlVisible(dashboardLink, loggedIn);
+
+  let hrmsLink = navCta.querySelector(".hrms-portal-link");
+  const canAccessHrms = Boolean(loggedIn && !userToken && currentRole && HRMS_ALLOWED_ROLES.has(currentRole));
+  if (canAccessHrms) {
+    if (!hrmsLink) {
+      hrmsLink = document.createElement("a");
+      hrmsLink.className = "btn btn-outline-light hrms-portal-link";
+      hrmsLink.style.cssText = "padding:9px 18px;font-size:.85rem;border-color:var(--orange);color:var(--orange);font-weight:600;display:inline-flex;align-items:center;gap:6px;";
+      hrmsLink.textContent = "🏢 HRMS Portal";
+    }
+    hrmsLink.href = "/hrms-portal.html";
+    if (dashboardLink && dashboardLink.nextSibling !== hrmsLink) {
+      if (dashboardLink.nextSibling) {
+        navCta.insertBefore(hrmsLink, dashboardLink.nextSibling);
+      } else {
+        navCta.appendChild(hrmsLink);
+      }
+    }
+  } else {
+    document.querySelectorAll(".hrms-portal-link, a[href*='hrms-portal'], .hrms-portal-btn").forEach(el => el.remove());
+  }
 
   const logoutButton = addLogoutButton(navCta, loginLink, async () => {
     const at = getAdminToken();
@@ -178,6 +321,14 @@ async function apiFetch(path, opts = {}) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Proactively remove any HRMS links/buttons for unauthenticated users, clients, viewers, and general users
+  const _at = getAdminToken();
+  const _ut = getUserToken();
+  const _cached = (() => { try { return JSON.parse(localStorage.getItem("kyk_admin_role_cache") || "null"); } catch(e) { return null; } })();
+  if (!_at || _ut || (_cached && !HRMS_ALLOWED_ROLES.has(_cached.role))) {
+    document.querySelectorAll(".hrms-portal-link, a[href*='hrms-portal'], .hrms-portal-btn").forEach(el => el.remove());
+  }
+
   // Mobile nav toggle
   const toggle = document.querySelector(".nav-toggle");
   const links = document.querySelector(".nav-links");
@@ -432,30 +583,25 @@ document.addEventListener("DOMContentLoaded", () => {
     onScroll();
   }
 
-  /* ---------- Theme toggle (dark / light / aurora) ---------- */
-  const THEME_KEY = "kyk_theme";
-  const saved = localStorage.getItem(THEME_KEY) || "dark";
-  if (saved !== "dark") document.documentElement.setAttribute("data-theme", saved);
-  const navCta = document.querySelector(".nav-cta");
-  if (navCta) {
-    const wrap = document.createElement("div");
-    wrap.className = "theme-toggle";
-    wrap.innerHTML = `
-      <button data-theme="dark" title="Dark" aria-label="Dark theme">☾</button>
-      <button data-theme="light" title="Light" aria-label="Light theme">☀</button>
-      <button data-theme="aurora" title="Aurora" aria-label="Aurora theme">◐</button>`;
-    navCta.prepend(wrap);
-    const markActive = (t) => wrap.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.theme === t));
-    markActive(saved);
-    wrap.addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-theme]");
-      if (!btn) return;
-      const t = btn.dataset.theme;
-      if (t === "dark") document.documentElement.removeAttribute("data-theme");
-      else document.documentElement.setAttribute("data-theme", t);
-      localStorage.setItem(THEME_KEY, t);
-      markActive(t);
-    });
+  /* ---------- Single unified attractive theme (no toggle) ---------- */
+  try {
+    localStorage.removeItem("kyk_theme");
+  } catch (e) {}
+  document.documentElement.removeAttribute("data-theme");
+  const purgeToggles = () => {
+    document.querySelectorAll(".theme-toggle, [data-theme-toggle], button[data-theme]").forEach(el => el.remove());
+  };
+  purgeToggles();
+  setTimeout(purgeToggles, 100);
+  setTimeout(purgeToggles, 500);
+
+  // Clear any stale Service Worker caches from older builds
+  if ("caches" in window) {
+    caches.keys().then(keys => {
+      for (const key of keys) {
+        if (key !== "kyk-shell-v9-unified-theme") caches.delete(key);
+      }
+    }).catch(() => {});
   }
 
   /* ---------- Generic drag & drop resume upload ---------- */
@@ -632,7 +778,7 @@ document.addEventListener("DOMContentLoaded", () => {
     s = s.replace(/(^|\s)(\/[a-z0-9_-]+\.html(\?[a-z0-9_=&-]+)?)/gi, '$1<a href="$2">$2</a>');
 
     // Bullet points
-    s = s.replace(/^[•\-\*]\s+(.*)$/gm, '<li style="margin-left:14px;list-style:disc;">$1</li>');
+    s = s.replace(/^[•\-\*]\s+(.*)$/gm, '<li style="margin-inline-start:14px;list-style:disc;">$1</li>');
 
     // Convert newlines
     s = s.replace(/\n\n+/g, "<br/><br/>").replace(/\n/g, "<br/>");

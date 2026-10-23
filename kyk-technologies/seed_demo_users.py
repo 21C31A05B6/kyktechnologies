@@ -23,60 +23,60 @@ from security import hash_password
 # role -> (email, display name). super_admin is intentionally excluded —
 # it comes from the ADMIN_EMAIL / ADMIN_PASSWORD env vars in seed.py.
 DEMO_USERS = {
-    "hr_manager":      ("hr.manager@kyktechnologies.com",      "Demo HR Manager"),
-    "recruiter":       ("recruiter@kyktechnologies.com",       "Demo Recruiter"),
-    "content_manager": ("content.manager@kyktechnologies.com", "Demo Content Manager"),
-    "team_lead":       ("team.lead@kyktechnologies.com",       "Demo Team Lead"),
-    "employee":        ("employee@kyktechnologies.com",        "Demo Employee"),
-    "viewer":          ("viewer@kyktechnologies.com",          "Demo Viewer"),
-    "client":          ("client@kyktechnologies.com",          "Demo Client"),
+    "super_admin":     ("admin@kyktechnologies.com",           "Rajesh Sharma (Admin)",        "Admin@12345"),
+    "hr_manager":      ("hr.manager@kyktechnologies.com",      "Priya Nambiar (HR Manager)",   "Hr@12345"),
+    "team_lead":       ("team.lead@kyktechnologies.com",       "Vikram Adiga (Team Lead)",     "Lead@12345"),
+    "employee":        ("employee@kyktechnologies.com",        "Ananya Rao (Employee)",        "Emp@12345"),
+    "recruiter":       ("recruiter@kyktechnologies.com",       "Sneha Patel (Recruiter)",      "Recruiter@12345"),
+    "content_manager": ("content.manager@kyktechnologies.com", "Content Manager",              "Content@12345"),
+    "viewer":          ("viewer@kyktechnologies.com",          "Demo Viewer",                  "Viewer@12345"),
+    "client":          ("client@kyktechnologies.com",          "Demo Client",                  "Client@12345"),
 }
 
 
 def main():
     fixed_password = os.environ.get("DEMO_PASSWORD", "")
-    existing_emails = {a.get("email", "").lower() for a in db.read("admins")}
+    existing_admins = {a.get("email", "").lower(): a for a in db.read("admins")}
 
     created = []
-    skipped = []
+    updated = []
 
-    for role, (email, name) in DEMO_USERS.items():
-        if email.lower() in existing_emails:
-            skipped.append((role, email))
-            continue
-        password = fixed_password or secrets.token_urlsafe(10)
-        db.insert("admins", {
-            "email": email,
-            "passwordHash": hash_password(password),
-            "name": name,
-            "role": role,
-        })
-        created.append((role, email, password))
+    for role, (email, name, def_pwd) in DEMO_USERS.items():
+        pwd = fixed_password or def_pwd
+        email_key = email.lower()
+        if email_key in existing_admins:
+            cur = existing_admins[email_key]
+            db.update("admins", cur["id"], {
+                "name": name,
+                "role": role,
+                "passwordHash": hash_password(pwd),
+                "status": "active",
+            })
+            updated.append((role, email, pwd))
+        else:
+            db.insert("admins", {
+                "email": email,
+                "passwordHash": hash_password(pwd),
+                "name": name,
+                "role": role,
+                "status": "active",
+            })
+            created.append((role, email, pwd))
 
-    print("=" * 72)
-    if created:
-        print("  Demo credentials (save these now — passwords aren't stored anywhere):")
-        print("-" * 72)
-        for role, email, password in created:
-            print(f"  {role:<17} {email:<32} {password}")
-    else:
-        print("  No new demo accounts created.")
-    if skipped:
-        print("-" * 72)
-        print("  Already existed, left untouched:")
-        for role, email in skipped:
-            print(f"  {role:<17} {email}")
-    print("=" * 72)
-    print("  Sign in for each role at its own page:")
-    print("    hr_manager      -> /hr-dashboard.html")
-    print("    recruiter       -> /recruiter-dashboard.html")
-    print("    content_manager -> /content-dashboard.html")
-    print("    client          -> /client-portal.html")
-    print("    team_lead       -> /team-lead-dashboard.html")
-    print("    employee        -> /employee-dashboard.html (has attendance)")
-    print("    viewer          -> /viewer-dashboard.html (read-only, no attendance)")
-    print("=" * 72)
+    print("=" * 76)
+    print("  KYK HRMS Portal — Demo Credentials Ready:")
+    print("-" * 76)
+    for role, email, password in (created + updated):
+        print(f"  {role:<16} | {email:<32} | Password: {password}")
+    print("=" * 76)
+    print("  Sign in destinations:")
+    print("    Role 1 — Admin:    admin@kyktechnologies.com     -> /admin.html")
+    print("    Role 2 — HR:       hr.manager@kyktechnologies.com -> /hr-dashboard.html")
+    print("    Role 3 — Manager:  team.lead@kyktechnologies.com  -> /team-lead-dashboard.html")
+    print("    Role 4 — Employee: employee@kyktechnologies.com   -> /employee-dashboard.html")
+    print("=" * 76)
 
 
 if __name__ == "__main__":
     main()
+

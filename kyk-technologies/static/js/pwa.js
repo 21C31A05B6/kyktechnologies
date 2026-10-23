@@ -50,7 +50,11 @@
   };
 
   addManifest();
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/service-worker.js", { updateViaCache: "none" }).catch(() => {});
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/service-worker.js", { updateViaCache: "none" })
+      .then((reg) => { if (reg) reg.update(); })
+      .catch(() => {});
+  }
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     installPrompt = event;

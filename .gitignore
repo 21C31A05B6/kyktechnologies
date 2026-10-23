@@ -38,6 +38,25 @@ htmlcov/
 .env.*
 !.env.example
 
+# Database files & local SQLite stores (SEC-06)
+*.db
+*.sqlite
+*.sqlite3
+kyk-technologies/kyk_fallback.db
+kyk-technologies/test_sessions.db
+
+# User uploads & private documents (SEC-06)
+uploads/*
+!uploads/.gitkeep
+kyk-technologies/uploads/*
+!kyk-technologies/uploads/.gitkeep
+kyk-technologies/uploads/private/
+kyk-technologies/uploads/chat/
+
+# Local JSON data storage (SEC-06)
+data/*.json
+kyk-technologies/data/*.json
+
 # Temporary / Local Workspace Repositories
 _github_repo/
 

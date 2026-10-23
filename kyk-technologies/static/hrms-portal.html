@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>KYK Technologies — Enterprise HRMS Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="/css/style.css?v=20261016-portal-v27"/>
+<link rel="stylesheet" href="/css/dashboard.css"/>
+</head>
+<body class="admin-page">
+<!-- HRMS Shell (hidden until session verified) -->
+<div class="admin-shell" id="dashShell" style="display:none;">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="/index.html" class="logo" aria-label="KYK home">
+        <img src="/kyk_logo.webp" alt="KYK Technologies" style="inline-size:38px;block-size:38px;object-fit:contain;display:block;"/>
+      </a>
+      <div class="role-badge" id="roleLabel">Loading…</div>
+    </div>
+
+    <!-- Quick Switcher to Work Dashboard -->
+    <div style="padding: 0 12px 14px; margin-bottom: 8px; border-bottom: 1px solid var(--glass-border);">
+      <a href="#" id="backToDashBtn" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);border-radius:10px;color:var(--steel-light);font-size:0.8rem;text-decoration:none;font-weight:600;transition:all 0.2s ease;">
+        <span>💼</span> <span>Back to Dashboard</span>
+      </a>
+    </div>
+
+    <!-- Navigation tabs rendered dynamically based on role's HRMS permissions -->
+    <nav id="sidebarNav"></nav>
+
+    <div class="sidebar-footer">
+      <div class="admin-name" id="adminName"></div>
+      <div style="font-size:.74rem;color:var(--steel);" id="adminEmail"></div>
+      <button class="logout-btn" id="logoutBtn">Sign out</button>
+    </div>
+  </aside>
+
+  <!-- Main HRMS Content -->
+  <main class="main-content">
+    <!-- HRMS Command Centre Overview -->
+    <div class="panel active" id="panel-overview">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-block-end:20px;flex-wrap:wrap;gap:12px;">
+        <h2 style="font-family:var(--font-display);margin:0;">HRMS Command Centre</h2>
+        <span class="badge badge-published" style="padding:6px 14px;font-size:0.8rem;">🏢 Enterprise HRMS Active</span>
+      </div>
+      <div class="stat-cards" id="statCards"></div>
+      <div class="chart-card" style="margin-block-end:24px;">
+        <canvas id="appsChart" height="180" style="margin-block-start:14px;inline-size:100%;display:block;"></canvas>
+      </div>
+    </div>
+
+    <!-- My Attendance Panel (Available for Employee, Manager, HR) -->
+    <div class="panel" id="panel-my_attendance">
+      <h3 style="font-family:var(--font-display);margin-block-end:16px;">My Attendance</h3>
+      <div class="punch-card form-card glass-glow">
+        <div class="punch-status" id="punchStatusLabel">Loading…</div>
+        <div class="punch-time" id="punchTimeLabel">—</div>
+        <button class="btn btn-primary" id="checkInBtn">Check in</button>
+        <button class="btn btn-outline" id="checkOutBtn" style="display:none;">Check out</button>
+        <div class="form-msg" id="punchMsg"></div>
+      </div>
+      <div class="month-nav">
+        <button class="small-btn" id="myCalPrev">← Prev</button>
+        <b id="myCalLabel">—</b>
+        <button class="small-btn" id="myCalNext">Next →</button>
+      </div>
+      <div class="stat-cards" id="myCalSummary"></div>
+      <table>
+        <thead><tr><th>Date</th><th>Check in</th><th>Check out</th><th>Hours worked</th><th>Status</th></tr></thead>
+        <tbody id="myCalBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Org Attendance Register (HR/Admin) -->
+    <div class="panel" id="panel-attendance">
+      <div class="panel-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3>Company Attendance Register</h3>
+        <div style="display:flex;gap:8px;">
+          <a href="/api/reports/export/attendance" class="btn btn-outline btn-sm" download>📥 Export CSV</a>
+        </div>
+      </div>
+      <div class="filter-bar">
+        <input type="date" id="attDate"/>
+        <select id="attDept"><option value="">All departments</option></select>
+        <button class="btn btn-primary" id="attRefresh">Filter</button>
+      </div>
+      <div class="stat-cards" id="attStats"></div>
+      <table>
+        <thead><tr><th>Employee</th><th>Department</th><th>Shift</th><th>Check in</th><th>Check out</th><th>Hours</th><th>Status</th></tr></thead>
+        <tbody id="attBody"></tbody>
+      </table>
+    </div>
+
+    <!-- All other role panels (my_leaves, leave_mgmt, my_payslips, payroll, my_timesheets, timesheets, my_goals, team_goals, team_reviews, my_documents, documents, employees, departments, branches, onboarding, lifecycle, reports, audit_log, team, team_attendance, team_leaves, team_calendar) will be injected dynamically by ensureRolePanels() based on user role -->
+  </main>
+</div>
+
+<script src="/js/main.js?v=20261016-portal-v27" defer></script>
+<script src="/js/dash-common.js?v=20261016-portal-v27"></script>
+</body>
+</html>

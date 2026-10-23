@@ -26,22 +26,34 @@ import sys
 import time
 
 # ----------------------------------------------------------------------- key
-# Priority: SECRET_KEY (documented in README) → APP_SECRET (legacy) → dev placeholder.
+# Priority: SECRET_KEY (documented in README) → APP_SECRET (legacy).
 # In production, SECRET_KEY must be set to a long random string.
-_raw_secret = (
-    os.environ.get("SECRET_KEY")
-    or os.environ.get("APP_SECRET")
-    or "kyk-dev-secret-change-me"
+_raw_secret = (os.environ.get("SECRET_KEY") or os.environ.get("APP_SECRET") or "").strip()
+_is_production = bool(
+    os.environ.get("RENDER")
+    or os.environ.get("KYK_PRODUCTION")
+    or os.environ.get("FLASK_ENV") == "production"
+    or os.environ.get("ENVIRONMENT") == "production"
+    or os.environ.get("ENV") == "production"
 )
 
-if _raw_secret == "kyk-dev-secret-change-me":
-    if os.environ.get("FLASK_ENV") == "production" or os.environ.get("KYK_PRODUCTION"):
+if not _raw_secret:
+    if _is_production:
         sys.exit(
-            "FATAL: SECRET_KEY is not set. "
-            "Set SECRET_KEY to a long random string before running in production.\n"
+            "FATAL: SECRET_KEY is not configured in production environment. "
+            "Set SECRET_KEY to a cryptographically secure random value before starting.\n"
             "  python -c \"import secrets; print(secrets.token_hex(32))\""
         )
-    print("WARNING: Using dev placeholder SECRET_KEY — not safe for production.")
+    # Ephemeral random key generated for local dev/test if not set: prevents predictable token forgery (SEC-09)
+    _raw_secret = secrets.token_hex(32)
+    print("NOTE: No SECRET_KEY configured; generated ephemeral random secret for development.")
+elif _raw_secret in ("kyk-dev-secret-change-me", "changeme", "secret"):
+    if _is_production:
+        sys.exit(
+            "FATAL: Insecure default SECRET_KEY detected in production environment. "
+            "Set SECRET_KEY to a secure random value."
+        )
+    print("WARNING: Using known default SECRET_KEY in non-production.")
 
 SECRET = _raw_secret
 TOKEN_TTL = 60 * 60 * 8   # 8 hours

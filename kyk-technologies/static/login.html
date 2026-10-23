@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
-<link rel="stylesheet" href="/css/style.css"/>
+<link rel="stylesheet" href="/css/style.css?v=20261016-portal-v27"/>
 <link rel="stylesheet" href="/css/dashboard.css?v=20261001-login-1"/>
 </head>
 <body class="admin-page login-page" data-auth-mode="login" data-admin-login="0">
@@ -28,7 +28,10 @@
       <div class="field"><label for="loginPassword">Password</label><input id="loginPassword" type="password" autocomplete="current-password" required/></div>
       <button class="btn btn-primary btn-block" id="loginBtn" type="button">Login</button>
       <div class="form-msg" id="loginMsg"></div>
-      <a href="#" class="admin-link" id="adminLoginLink">Admin access</a>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+        <a href="#" class="admin-link" id="adminLoginLink">Admin access</a>
+        <a href="/hrms-portal.html" style="color:var(--orange);font-size:.82rem;text-decoration:none;font-weight:600;">🏢 HRMS Portal →</a>
+      </div>
     </div>
 
     <div class="auth-panel" id="signupPanel" role="tabpanel">
@@ -41,7 +44,7 @@
   </div>
 </div>
 
-<script src="/js/dash-common.js?v=20261001-login-1" defer></script>
+<script src="/js/dash-common.js?v=20261016-portal-v27" defer></script>
 <script src="/js/login.js?v=20261001-login-1" defer></script>
 </body>
 </html>

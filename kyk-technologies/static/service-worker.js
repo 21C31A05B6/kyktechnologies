@@ -1,11 +1,16 @@
-const CACHE_NAME = "kyk-shell-v2";
+const CACHE_NAME = "kyk-shell-v27-communication";
 const APP_SHELL = [
   "/",
   "/index.html",
+  "/hrms-portal.html",
+  "/communication.html",
   "/css/style.css",
   "/css/dashboard.css",
+  "/css/communication.css",
   "/js/main.js",
   "/js/dash-common.js",
+  "/js/communication.js",
+  "/js/socket.io.min.js",
   "/js/pwa.js",
   "/manifest.webmanifest",
   "/kyk_logo.webp"
@@ -35,24 +40,14 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        return response;
-      }).catch(() => caches.match(request).then((cached) => cached || caches.match("/index.html")))
-    );
-    return;
-  }
-
+  // Network-first for HTML, JS and CSS to guarantee instant updates
   event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      if (response.ok) {
+    fetch(request).then((response) => {
+      if (response && response.ok) {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
       }
       return response;
-    }))
+    }).catch(() => caches.match(request).then((cached) => cached || (request.mode === "navigate" ? caches.match("/index.html") : null)))
   );
 });
