@@ -1,4 +1,4 @@
-const CACHE_NAME = "kyk-shell-v27-communication";
+const CACHE_NAME = "kyk-shell-v28-instant-video";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -36,7 +36,16 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
-  if (request.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/")) {
+  // Bypass API calls, media streaming (MP4/video), and HTTP range requests to allow native, unbuffered streaming
+  if (
+    request.method !== "GET" ||
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith("/api/") ||
+    url.pathname.endsWith(".mp4") ||
+    url.pathname.endsWith(".webm") ||
+    url.pathname.endsWith(".ogv") ||
+    request.headers.has("range")
+  ) {
     return;
   }
 

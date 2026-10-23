@@ -8,6 +8,7 @@ function ensureBackgroundVideo() {
     v.setAttribute("playsinline", "");
     v.setAttribute("webkit-playsinline", "");
     v.setAttribute("muted", "");
+    v.setAttribute("autoplay", "");
 
     // Immediately remove any legacy video toggle buttons if found in DOM
     var container = wrapElem || document.getElementById("kykBackgroundVideoWrap");
@@ -37,6 +38,11 @@ function ensureBackgroundVideo() {
 
     doPlay();
 
+    // Ensure playback triggers as soon as initial metadata or frame is available
+    v.addEventListener("loadedmetadata", function() { if (v.paused) doPlay(); }, { once: true });
+    v.addEventListener("canplay", function() { if (v.paused) doPlay(); }, { once: true });
+    v.addEventListener("loadeddata", function() { if (v.paused) doPlay(); }, { once: true });
+
     v.addEventListener("ended", function() {
       v.currentTime = 0;
       v.play().catch(function() {});
@@ -63,35 +69,17 @@ function ensureBackgroundVideo() {
   wrap.setAttribute("aria-hidden", "true");
   wrap.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;z-index:-1;overflow:hidden;pointer-events:none;background:#05060a;";
   wrap.innerHTML = `
-    <video id="kykBgVideo" class="kyk-bg-video" autoplay muted loop playsinline webkit-playsinline preload="none" style="position:absolute;top:50%;left:50%;min-width:100%;min-height:100%;width:100vw;height:100vh;transform:translate(-50%,-50%);object-fit:cover;opacity:0.85;filter:saturate(1.15) contrast(1.1);pointer-events:none;">
-      <source data-src="/kyk_video.mp4" type="video/mp4">
+    <video id="kykBgVideo" class="kyk-bg-video" autoplay muted loop playsinline webkit-playsinline preload="auto" src="/kyk_video.mp4" style="position:absolute;top:50%;left:50%;min-width:100%;min-height:100%;width:100vw;height:100vh;transform:translate(-50%,-50%);object-fit:cover;opacity:0.85;filter:saturate(1.15) contrast(1.1);pointer-events:none;">
+      <source src="/kyk_video.mp4" type="video/mp4">
     </video>
     <div class="kyk-bg-video-overlay" style="position:absolute;inset:0;width:100%;height:100%;background:radial-gradient(ellipse at 50% 35%, rgba(5,6,10,0.15) 0%, rgba(5,6,10,0.55) 70%, rgba(5,6,10,0.85) 100%), linear-gradient(180deg, rgba(5,6,10,0.2) 0%, rgba(5,6,10,0.4) 45%, rgba(5,6,10,0.85) 100%);pointer-events:none;"></div>
   `;
   var v = wrap.querySelector("video");
 
-  function loadVideoDeferred() {
-    if (!v) return;
-    var src = v.querySelector("source");
-    if (src && src.dataset && src.dataset.src && !src.src) {
-      src.src = src.dataset.src;
-      try {
-        v.load();
-        v.play().catch(function() {});
-      } catch(e) {}
-    }
-  }
-
   function attachWrap() {
     if (!document.getElementById("kykBackgroundVideoWrap") && document.body) {
       document.body.prepend(wrap);
       setupVideoEvents(v, wrap);
-      // Defer loading 6MB video so initial styles, fonts, and critical API calls load instantaneously
-      if (window.requestIdleCallback) {
-        requestIdleCallback(function() { setTimeout(loadVideoDeferred, 600); }, { timeout: 2000 });
-      } else {
-        setTimeout(loadVideoDeferred, 1000);
-      }
     }
   }
 

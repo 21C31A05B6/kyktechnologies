@@ -4,7 +4,7 @@
   const loginButton = document.getElementById('loginBtn');
   const signupButton = document.getElementById('signupBtn');
   const adminLoginLink = document.getElementById('adminLoginLink');
-  if (!loginPanel || !signupPanel || !loginButton || !signupButton || !adminLoginLink) return;
+  if (!loginPanel || !signupPanel || !loginButton || !signupButton) return;
 
   function setAuthMode(mode, adminMode = false) {
     const showLogin = mode === 'login';
@@ -28,10 +28,12 @@
     tab.addEventListener('click', () => setAuthMode(tab.dataset.authMode));
   });
 
-  adminLoginLink.addEventListener('click', (event) => {
-    event.preventDefault();
-    setAuthMode('login', true);
-  });
+  if (adminLoginLink) {
+    adminLoginLink.addEventListener('click', (event) => {
+      event.preventDefault();
+      setAuthMode('login', true);
+    });
+  }
 
   signupButton.addEventListener('click', async () => {
     if (signupButton.disabled) return;

@@ -128,6 +128,9 @@ def _add_perf_headers(response):
         (".webp", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".woff2", ".woff")
     ):
         response.headers["Cache-Control"] = "public, max-age=604800, stale-while-revalidate=86400"
+    elif path.endswith((".mp4", ".webm", ".ogv")):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        response.headers["Accept-Ranges"] = "bytes"
     # HTML pages — always revalidate (so auth changes show immediately)
     elif path.endswith(".html") or path == "/":
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
@@ -2970,7 +2973,11 @@ def serve_logo():
 
 @app.get("/kyk_video.mp4")
 def serve_video():
-    return send_from_directory(BASE_DIR, "kyk_video.mp4")
+    target_dir = BASE_DIR if os.path.isfile(os.path.join(BASE_DIR, "kyk_video.mp4")) else STATIC_DIR
+    response = send_from_directory(target_dir, "kyk_video.mp4", max_age=31536000, conditional=True)
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    response.headers["Accept-Ranges"] = "bytes"
+    return response
 
 
 @app.get("/<path:filename>")
