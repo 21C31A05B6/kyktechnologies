@@ -299,11 +299,11 @@ tr:hover td{background:rgba(255,255,255,.025);}
 
 /* ── Global Background Video ── */
 .kyk-bg-video-wrap{
-  position:fixed;inset:0;width:100vw;height:100vh;z-index:-1;overflow:hidden;pointer-events:none;background:#05060a;
+  position:fixed;inset:0;width:100%;height:100%;height:100dvh;min-height:100vh;z-index:-1;overflow:hidden;pointer-events:none;background:#05060a;contain:paint layout;
 }
 .kyk-bg-video{
-  position:absolute;top:50%;left:50%;min-width:100%;min-height:100%;width:100vw;height:100vh;
-  transform:translate(-50%,-50%);object-fit:cover;opacity:0.85;filter:saturate(1.15) contrast(1.1);pointer-events:none;
+  position:absolute;top:50%;left:50%;min-width:100%;min-height:100%;width:100%;height:100%;
+  transform:translate3d(-50%,-50%,0);-webkit-transform:translate3d(-50%,-50%,0);will-change:transform;object-fit:cover;object-position:center center;opacity:0.85;filter:saturate(1.15) contrast(1.1);pointer-events:none;backface-visibility:hidden;-webkit-backface-visibility:hidden;
 }
 .kyk-bg-video-overlay{
   position:absolute;inset:0;width:100%;height:100%;

@@ -25,12 +25,14 @@ function ensureBackgroundVideo() {
           var onGesture = function() {
             v.muted = true;
             v.play().catch(function() {});
-            ["click", "touchstart", "scroll", "keydown"].forEach(function(ev) {
+            ["click", "touchstart", "touchend", "pointerdown", "scroll", "keydown"].forEach(function(ev) {
               window.removeEventListener(ev, onGesture);
+              document.removeEventListener(ev, onGesture);
             });
           };
-          ["click", "touchstart", "scroll", "keydown"].forEach(function(ev) {
+          ["click", "touchstart", "touchend", "pointerdown", "scroll", "keydown"].forEach(function(ev) {
             window.addEventListener(ev, onGesture, { once: true, passive: true });
+            document.addEventListener(ev, onGesture, { once: true, passive: true });
           });
         });
       }
@@ -67,9 +69,9 @@ function ensureBackgroundVideo() {
   wrap.id = "kykBackgroundVideoWrap";
   wrap.className = "kyk-bg-video-wrap";
   wrap.setAttribute("aria-hidden", "true");
-  wrap.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;z-index:-1;overflow:hidden;pointer-events:none;background:#05060a;";
+  wrap.style.cssText = "position:fixed;inset:0;width:100%;height:100%;height:100dvh;min-height:100vh;z-index:-1;overflow:hidden;pointer-events:none;background:#05060a;";
   wrap.innerHTML = `
-    <video id="kykBgVideo" class="kyk-bg-video" autoplay muted loop playsinline webkit-playsinline preload="auto" src="/kyk_video.mp4" style="position:absolute;top:50%;left:50%;min-width:100%;min-height:100%;width:100vw;height:100vh;transform:translate(-50%,-50%);object-fit:cover;opacity:0.85;filter:saturate(1.15) contrast(1.1);pointer-events:none;">
+    <video id="kykBgVideo" class="kyk-bg-video" autoplay muted loop playsinline webkit-playsinline preload="auto" src="/kyk_video.mp4" style="position:absolute;top:50%;left:50%;min-width:100%;min-height:100%;width:100%;height:100%;transform:translate3d(-50%,-50%,0);-webkit-transform:translate3d(-50%,-50%,0);object-fit:cover;object-position:center center;opacity:0.85;filter:saturate(1.15) contrast(1.1);pointer-events:none;">
       <source src="/kyk_video.mp4" type="video/mp4">
     </video>
     <div class="kyk-bg-video-overlay" style="position:absolute;inset:0;width:100%;height:100%;background:radial-gradient(ellipse at 50% 35%, rgba(5,6,10,0.15) 0%, rgba(5,6,10,0.55) 70%, rgba(5,6,10,0.85) 100%), linear-gradient(180deg, rgba(5,6,10,0.2) 0%, rgba(5,6,10,0.4) 45%, rgba(5,6,10,0.85) 100%);pointer-events:none;"></div>
