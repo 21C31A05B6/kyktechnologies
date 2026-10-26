@@ -119,16 +119,16 @@ ROLES = {
     "hr":               {"label": "HR Specialist",     "tabs": ["overview","employees","departments","branches","onboarding","attendance","leave_mgmt","payroll","recruitment","documents","lifecycle","reports","my_attendance","daily_report","reports_review","settings","my_profile","performance","jobs","applications","pipeline","talent","contacts","my_leaves","my_payslips","my_timesheets","my_goals","my_documents","timesheets","communication"]},
     "team_lead":        {"label": "Team Lead",         "tabs": ["overview","team","team_attendance","timesheets","team_leaves","team_goals","team_reviews","team_calendar","my_attendance","daily_report","report_history","my_profile","settings","jobs","performance","employees","my_leaves","my_payslips","my_timesheets","my_goals","my_documents","communication"]},
     "manager":          {"label": "Manager",           "tabs": ["overview","team","team_attendance","timesheets","team_leaves","team_goals","team_reviews","team_calendar","my_attendance","daily_report","report_history","my_profile","settings","jobs","performance","employees","my_leaves","my_payslips","my_timesheets","my_goals","my_documents","communication"]},
-    "employee":         {"label": "Employee",          "tabs": ["overview","my_attendance","my_leaves","my_payslips","my_timesheets","my_goals","my_documents","daily_report","report_history","my_profile","settings","performance","employees","communication"]},
-    "recruiter":        {"label": "Recruiter",         "tabs": ["overview","recruitment","onboarding","performance","my_attendance","daily_report","report_history","my_profile","settings","jobs","applications","pipeline","talent","employees","my_leaves","my_payslips","my_timesheets","my_goals","my_documents","communication"]},
-    "content_manager":  {"label": "Content Manager",   "tabs": ["overview","performance","insights","my_attendance","daily_report","report_history","my_profile","settings","employees","my_leaves","my_payslips","my_timesheets","my_goals","my_documents","communication"]},
-    "viewer":           {"label": "Viewer",            "tabs": ["overview","performance","daily_report","report_history","my_profile","settings","communication"]},
+    "employee":         {"label": "Employee",          "tabs": ["overview","my_attendance","my_leaves","my_payslips","my_timesheets","my_goals","my_documents","daily_report","report_history","my_profile","settings","communication"]},
+    "recruiter":        {"label": "Recruiter",         "tabs": ["overview","recruitment","onboarding","jobs","applications","pipeline","talent","my_attendance","daily_report","report_history","my_profile","settings","my_leaves","my_payslips","my_timesheets","my_goals","my_documents","communication"]},
+    "content_manager":  {"label": "Content Manager",   "tabs": ["overview","insights","my_attendance","daily_report","report_history","my_profile","settings","my_leaves","my_payslips","my_timesheets","my_goals","my_documents","communication"]},
+    "viewer":           {"label": "Viewer",            "tabs": ["overview","my_profile","settings"]},
     "client":           {"label": "Client",            "tabs": ["overview"]},
 }
 
 ATTENDANCE_ROLES = {"hr_manager", "hr", "recruiter", "content_manager", "team_lead", "manager", "employee"}
 HRMS_ROLES = {"super_admin", "admin", "hr_manager", "hr", "team_lead", "manager", "employee", "recruiter", "content_manager"}
-DAILY_REPORT_ROLES = {"hr_manager", "hr", "recruiter", "content_manager", "team_lead", "manager", "employee", "viewer"}
+DAILY_REPORT_ROLES = {"hr_manager", "hr", "recruiter", "content_manager", "team_lead", "manager", "employee"}
 REPORTS_REVIEW_ROLES = {"hr_manager", "hr", "super_admin", "admin"}
 
 COMPANIES = [

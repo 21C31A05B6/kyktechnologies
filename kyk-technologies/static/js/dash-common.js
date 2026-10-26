@@ -27,11 +27,37 @@ function on(id,evt,fn){ const el=$(id); if(el) el.addEventListener(evt,fn); }
 const TOKEN_KEY='kyk_admin_token';
 const LOGIN_USER_TOKEN_KEY='kyk_user_token';
 const LOGIN_PAGE='login.html';
-let gToken=localStorage.getItem(TOKEN_KEY)||'';
+
+const urlToken = new URLSearchParams(window.location.search).get('token') || '';
+let parentToken = '';
+try {
+  if (window.parent && window.parent !== window && window.parent.gToken) {
+    parentToken = window.parent.gToken;
+  }
+} catch(e) {}
+let openerToken = '';
+try {
+  if (window.opener && window.opener.gToken) {
+    openerToken = window.opener.gToken;
+  }
+} catch(e) {}
+
+let gToken = urlToken || localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LOGIN_USER_TOKEN_KEY) || parentToken || openerToken || '';
+if (gToken) {
+  try {
+    localStorage.setItem(TOKEN_KEY, gToken);
+    localStorage.setItem(LOGIN_USER_TOKEN_KEY, gToken);
+  } catch(e) {}
+}
 let gAdmin=null;
 
 function currentPage(){ return location.pathname.split('/').pop() || 'index.html'; }
-function goToLogin(){ if(currentPage()!==LOGIN_PAGE) location.replace('/'+LOGIN_PAGE); }
+function goToLogin(){
+  if(currentPage()!==LOGIN_PAGE) {
+    if(window.self !== window.top) return;
+    location.replace('/'+LOGIN_PAGE);
+  }
+}
 
 async function api(path,opts={}){
   const res=await fetch('/api'+path,{...opts,headers:{...(opts.headers||{}),Authorization:'Bearer '+gToken}});
@@ -39,9 +65,12 @@ async function api(path,opts={}){
   try { d = await res.json(); } catch(e) { d = {}; }
   if(!res.ok){
     if(res.status === 401 && gToken){
-      localStorage.removeItem(TOKEN_KEY);
-      sessionStorage.setItem('kyk_session_notice', d.error || 'Your session expired or you were logged in from another device.');
-      goToLogin();
+      if(window.self === window.top) {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(LOGIN_USER_TOKEN_KEY);
+        sessionStorage.setItem('kyk_session_notice', d.error || 'Your session expired or you were logged in from another device.');
+        goToLogin();
+      }
     }
     throw new Error(d.error||'Request failed');
   }
@@ -67,13 +96,16 @@ on('loginBtn','click',async()=>{
       d=await res.json();
     }
     if(!res.ok) throw new Error(d.error || 'Login failed');
+    gToken=d.token;
+    localStorage.setItem(TOKEN_KEY,gToken);
+    localStorage.setItem(LOGIN_USER_TOKEN_KEY,gToken);
     if (isAdminLogin || d.role && ROLE_HOME[d.role]) {
-      gToken=d.token; localStorage.setItem(TOKEN_KEY,gToken);
       const adminHome = ROLE_HOME[d.role] || 'admin.html';
-      location.replace(loginButton.dataset.redirect || `/${adminHome}`);
+      const redirectUrl = loginButton.dataset.redirect || `/${adminHome}`;
+      location.replace(redirectUrl + (redirectUrl.indexOf('?') === -1 ? `?token=${encodeURIComponent(gToken)}` : `&token=${encodeURIComponent(gToken)}`));
     } else {
-      localStorage.setItem(LOGIN_USER_TOKEN_KEY, d.token);
-      location.replace(loginButton.dataset.redirect || '/user-dashboard.html');
+      const redirectUrl = loginButton.dataset.redirect || '/user-dashboard.html';
+      location.replace(redirectUrl + (redirectUrl.indexOf('?') === -1 ? `?token=${encodeURIComponent(gToken)}` : `&token=${encodeURIComponent(gToken)}`));
     }
   } catch(e){ setFormMsg(msg,e.message,false); }
 });
@@ -86,6 +118,7 @@ on('logoutBtn','click',async()=>{
     }catch(e){}
   }
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(LOGIN_USER_TOKEN_KEY);
   location.replace('/'+LOGIN_PAGE);
 });
 
@@ -236,12 +269,12 @@ function showDashboard(d){
   // Only allowed HRMS roles (admin, hr, teamlead, employee, recruiter, content_manager) can access HRMS portal.
   // Clients and viewers are forbidden and redirected immediately to their home page.
   if(isHrms && !isHrmsRole(d.role)){
-    location.replace('/' + home);
+    location.replace('/' + home + (gToken ? '?token=' + encodeURIComponent(gToken) : ''));
     return;
   }
 
-  if(!isHrms && current !== home){
-    location.replace('/' + home);
+  if(!isHrms && current !== home && current !== 'communication.html'){
+    location.replace('/' + home + (gToken ? '?token=' + encodeURIComponent(gToken) : ''));
     return;
   }
   if(current === LOGIN_PAGE) return; // safety net
@@ -249,11 +282,11 @@ function showDashboard(d){
   const ls = $('loginScreen'); if(ls) ls.style.display = 'none';
   const shell = $('dashShell'); if(!shell) return;
   shell.style.display = 'flex';
-  ensureTopBarAndModals(isHrms);
+  ensureTopBarAndModals(isHrms, d.role);
 
   // Wire switcher back button if on HRMS page
   const backBtn = $('backToDashBtn');
-  if(backBtn) backBtn.href = '/' + home;
+  if(backBtn) backBtn.href = '/' + home + (gToken ? '?token=' + encodeURIComponent(gToken) : '');
 
   txt($('adminName'), d.name||'Admin');
   txt($('adminEmail'), d.email||'');
@@ -263,10 +296,21 @@ function showDashboard(d){
   const userTabs = d.tabs || ['overview'];
   const allowedSet = isHrms ? HRMS_MODULE_TABS : WORK_DASHBOARD_TABS;
   let activeTabs = userTabs.filter(t => allowedSet.has(t));
+  if(d.role === 'viewer' || d.role === 'user'){
+    activeTabs = activeTabs.filter(t => t !== 'communication');
+  }
   if(!activeTabs.includes('overview') && userTabs.includes('overview')){
     activeTabs.unshift('overview');
   }
   if(!activeTabs.length) activeTabs = ['overview'];
+
+  // Strict role privacy: strip any panels in the DOM that the user is not authorized to see
+  document.querySelectorAll('.panel').forEach(p => {
+    const tabName = p.id.replace('panel-', '');
+    if(tabName && tabName !== 'overview' && !activeTabs.includes(tabName)){
+      p.remove();
+    }
+  });
 
   ensureRolePanels(activeTabs);
   buildSidebar(activeTabs, isHrms, home, d.role);
@@ -279,7 +323,9 @@ function showDashboard(d){
   startTopbarClock();
 }
 
-function ensureTopBarAndModals(isHrms = false){
+function ensureTopBarAndModals(isHrms = false, role = ''){
+  const userRole = role || (gAdmin && gAdmin.role) || '';
+  const canAccessChat = !['viewer', 'user'].includes(userRole);
   const main=document.querySelector('.main-content');
   if(main && !$('hrmsTopbar')){
     const topbar=document.createElement('header');
@@ -288,6 +334,10 @@ function ensureTopBarAndModals(isHrms = false){
     topbar.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:12px 20px;margin-bottom:24px;background:rgba(255,255,255,0.02);border:1px solid var(--glass-border);border-radius:14px;';
     const topTitle = isHrms ? 'KYK Enterprise HRMS' : 'KYK Work Dashboard';
     const topIcon = isHrms ? '🏢' : '💼';
+    const chatBtnHtml = canAccessChat ? `
+        <a href="/communication.html?token=${encodeURIComponent(gToken)}" target="_blank" rel="noopener" class="notif-btn" id="topbarChatBtn" title="Launch Chat & Video Meetings" style="background:rgba(232,98,44,0.12);border:1px solid var(--orange);border-radius:10px;padding:8px 12px;color:var(--orange);cursor:pointer;display:flex;align-items:center;gap:6px;text-decoration:none;font-weight:600;font-size:0.82rem;">
+          💬 <span>Connect</span>
+        </a>` : '';
     topbar.innerHTML=`
       <div style="display:flex;align-items:center;gap:12px;">
         <span style="font-size:1.4rem;">${topIcon}</span>
@@ -298,9 +348,7 @@ function ensureTopBarAndModals(isHrms = false){
       </div>
       <div style="display:flex;align-items:center;gap:14px;">
         <span id="topbarClock" style="font-family:monospace;font-size:0.84rem;color:var(--steel-light);"></span>
-        <a href="/communication.html" target="_blank" rel="noopener" class="notif-btn" id="topbarChatBtn" title="Launch Chat & Video Meetings" style="background:rgba(232,98,44,0.12);border:1px solid var(--orange);border-radius:10px;padding:8px 12px;color:var(--orange);cursor:pointer;display:flex;align-items:center;gap:6px;text-decoration:none;font-weight:600;font-size:0.82rem;">
-          💬 <span>Connect</span>
-        </a>
+        ${chatBtnHtml}
         <div style="position:relative;">
           <button type="button" class="notif-btn" id="topbarNotifBtn" title="Announcements & Alerts" style="background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);border-radius:10px;padding:8px 12px;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:6px;">
             🔔 <span id="topbarNotifBadge" class="notif-badge" style="display:none;background:var(--orange);color:#fff;border-radius:999px;padding:2px 7px;font-size:0.7rem;font-weight:700;">0</span>
@@ -585,11 +633,11 @@ function ensureRolePanels(tabs){
       <div class="panel-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <h3>KYK Connect — Enterprise Chat &amp; Video Meetings</h3>
         <div style="display:flex;gap:8px;">
-          <a href="/communication.html" class="btn btn-primary btn-sm" target="_blank" rel="noopener">⛶ Open Fullscreen App</a>
+          <a href="/communication.html?token=${encodeURIComponent(gToken)}" class="btn btn-primary btn-sm" target="_blank" rel="noopener">⛶ Open Fullscreen App</a>
         </div>
       </div>
       <div style="height:calc(100vh - 220px);border-radius:14px;overflow:hidden;border:1px solid var(--glass-border);background:var(--bg);">
-        <iframe src="/communication.html" style="width:100%;height:100%;border:none;display:block;" title="KYK Communication Platform"></iframe>
+        <iframe src="/communication.html?token=${encodeURIComponent(gToken)}" style="width:100%;height:100%;border:none;display:block;" title="KYK Communication Platform"></iframe>
       </div>`,
   };
   tabs.forEach(tab=>{
@@ -609,7 +657,7 @@ function buildSidebar(tabs, isHrms = false, home = 'admin.html', role = ''){
     hrmsBox.className = 'hrms-sidebar-btn-box';
     hrmsBox.style.cssText = 'padding:0 8px 12px;margin-bottom:8px;border-bottom:1px solid var(--glass-border);';
     hrmsBox.innerHTML = `
-      <a href="/hrms-portal.html" class="hrms-portal-btn" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 12px;background:rgba(232,98,44,0.12);border:1px solid var(--orange);border-radius:10px;color:var(--orange);font-size:0.8rem;text-decoration:none;font-weight:700;">
+      <a href="/hrms-portal.html${gToken ? '?token=' + encodeURIComponent(gToken) : ''}" class="hrms-portal-btn" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 12px;background:rgba(232,98,44,0.12);border:1px solid var(--orange);border-radius:10px;color:var(--orange);font-size:0.8rem;text-decoration:none;font-weight:700;">
         <span>🏢</span> <span>HRMS Portal →</span>
       </a>
     `;
@@ -660,6 +708,12 @@ function switchTab(tab){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   const panel=$('panel-'+tab);
   if(panel) panel.classList.add('active');
+  if(tab === 'communication' && panel && gToken){
+    const iframe = panel.querySelector('iframe');
+    if(iframe && (!iframe.src || iframe.src.indexOf('token=') === -1)){
+      iframe.src = '/communication.html?token=' + encodeURIComponent(gToken);
+    }
+  }
   const m=TAB_META[tab];
   if(m && $('topbarTitle')) $('topbarTitle').textContent=m.label;
   const loaders=getLoaders();
@@ -901,7 +955,7 @@ async function loadOverview(){
               <h4 style="margin:0 0 6px;color:var(--orange);font-family:var(--font-display);">🏢 Enterprise HRMS Portal</h4>
               <p style="margin:0;font-size:0.85rem;color:var(--steel-light);">Manage your daily attendance check-in/out, leave requests, monthly payslips, and weekly timesheets in the dedicated HRMS Portal.</p>
             </div>
-            <a href="/hrms-portal.html" class="btn btn-primary" style="font-size:0.85rem;padding:9px 18px;white-space:nowrap;">Open HRMS Portal →</a>
+            <a href="/hrms-portal.html${gToken ? '?token=' + encodeURIComponent(gToken) : ''}" class="btn btn-primary" style="font-size:0.85rem;padding:9px 18px;white-space:nowrap;">Open HRMS Portal →</a>
           </div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;">
             <button type="button" class="btn btn-outline" onclick="switchTab('daily_report')" style="flex:1;min-width:200px;text-align:left;padding:14px;display:flex;align-items:center;gap:12px;">
@@ -947,7 +1001,7 @@ async function loadOverview(){
               <h4 style="margin:0 0 6px;color:var(--orange);font-family:var(--font-display);">🏢 Enterprise HRMS Portal</h4>
               <p style="margin:0;font-size:0.85rem;color:var(--steel-light);">Access Team Attendance, Timesheet Approvals, Leave Management, and Team Performance KPIs.</p>
             </div>
-            <a href="/hrms-portal.html" class="btn btn-primary" style="font-size:0.85rem;padding:9px 18px;white-space:nowrap;">Open HRMS Portal →</a>
+            <a href="/hrms-portal.html${gToken ? '?token=' + encodeURIComponent(gToken) : ''}" class="btn btn-primary" style="font-size:0.85rem;padding:9px 18px;white-space:nowrap;">Open HRMS Portal →</a>
           </div>
           <button type="button" class="btn btn-outline" onclick="switchTab('reports_review')" style="text-align:left;padding:14px;display:flex;align-items:center;gap:12px;width:100%;">
             <span style="font-size:1.5rem;">✅</span>
@@ -956,6 +1010,52 @@ async function loadOverview(){
         `;
       }
     }catch(e){console.error('Work manager overview error', e);}
+    return;
+  }
+
+  if(role === 'content_manager'){
+    try{
+      const [history, insights] = await Promise.all([
+        api('/reports/my-history').catch(()=>[]),
+        api('/admin/insights').catch(()=>([])),
+      ]);
+      const todayIso = new Date().toISOString().slice(0,10);
+      const todayReport = (history||[]).find(r=>r.date===todayIso);
+      cards.innerHTML = '';
+      [
+        [(insights||[]).length, 'Published Insights'],
+        [todayReport ? '✓ Submitted' : 'Pending Today', 'Daily Work Report'],
+        [(history||[]).length + ' Reports', 'Reports Submitted'],
+        ['Content Hub', 'Active Focus'],
+      ].forEach(([v,l])=>{
+        const d=document.createElement('div');
+        d.className='stat-card glass-glow';
+        d.innerHTML=`<b>${v}</b><span>${l}</span>`;
+        cards.appendChild(d);
+      });
+      const chartCard = document.querySelector('.chart-card');
+      if(chartCard){
+        chartCard.innerHTML = `
+          <div style="background:rgba(232,98,44,0.08);border:1px solid rgba(232,98,44,0.25);border-radius:12px;padding:18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
+            <div>
+              <h4 style="margin:0 0 6px;color:var(--orange);font-family:var(--font-display);">🏢 Enterprise HRMS Portal</h4>
+              <p style="margin:0;font-size:0.85rem;color:var(--steel-light);">Manage your daily attendance, leave requests, monthly payslips, and timesheets.</p>
+            </div>
+            <a href="/hrms-portal.html${gToken ? '?token=' + encodeURIComponent(gToken) : ''}" class="btn btn-primary" style="font-size:0.85rem;padding:9px 18px;white-space:nowrap;">Open HRMS Portal →</a>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-outline" onclick="switchTab('insights')" style="flex:1;min-width:200px;text-align:left;padding:14px;display:flex;align-items:center;gap:12px;">
+              <span style="font-size:1.5rem;">📝</span>
+              <div><b>Manage Insights</b><br/><small style="color:var(--steel-light);">Create & publish articles</small></div>
+            </button>
+            <button type="button" class="btn btn-outline" onclick="switchTab('daily_report')" style="flex:1;min-width:200px;text-align:left;padding:14px;display:flex;align-items:center;gap:12px;">
+              <span style="font-size:1.5rem;">📓</span>
+              <div><b>Submit Daily Report</b><br/><small style="color:var(--steel-light);">Log today's completed work</small></div>
+            </button>
+          </div>
+        `;
+      }
+    }catch(e){console.error('Work content manager overview error', e);}
     return;
   }
 
@@ -1007,7 +1107,7 @@ async function loadOverview(){
             <h4 style="margin:0 0 6px;color:var(--orange);font-family:var(--font-display);">🏢 Enterprise HRMS Portal</h4>
             <p style="margin:0;font-size:0.85rem;color:var(--steel-light);">Access complete HR management: Employee Directory, Attendance Register, Payroll & Salaries, Leave Quotas, Onboarding/Offboarding, and Security Audit Logs.</p>
           </div>
-          <a href="/hrms-portal.html" class="btn btn-primary" style="font-size:0.85rem;padding:9px 18px;white-space:nowrap;">Open HRMS Portal →</a>
+          <a href="/hrms-portal.html${gToken ? '?token=' + encodeURIComponent(gToken) : ''}" class="btn btn-primary" style="font-size:0.85rem;padding:9px 18px;white-space:nowrap;">Open HRMS Portal →</a>
         </div>` : '';
       chartCard.innerHTML = `
         ${hrmsBanner}
@@ -1397,49 +1497,220 @@ on('clearActivityBtn','click',async()=>{
 });
 
 /* ────── ADMIN USERS ────── */
+const ADMIN_ONLY_ROLES = [
+  { value: 'super_admin', label: 'Super Admin' },
+  { value: 'admin',       label: 'Admin' }
+];
+
+const OTHER_STAFF_ROLES = [
+  { value: 'employee',        label: 'Employee' },
+  { value: 'hr_manager',      label: 'HR Manager' },
+  { value: 'hr',              label: 'HR Specialist' },
+  { value: 'team_lead',       label: 'Team Lead' },
+  { value: 'manager',         label: 'Manager' },
+  { value: 'recruiter',       label: 'Recruiter' },
+  { value: 'content_manager', label: 'Content Manager' },
+  { value: 'client',          label: 'Client' },
+  { value: 'viewer',          label: 'Viewer' }
+];
+
+let userFormMode = null; // 'admin' | 'employee' | 'edit'
+
+function populateUserRoles(mode, selectedValue){
+  const select = $('uRole');
+  if(!select) return;
+  select.innerHTML = '';
+  if(mode === 'admin'){
+    ADMIN_ONLY_ROLES.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.value;
+      opt.textContent = r.label;
+      if(selectedValue ? r.value === selectedValue : r.value === 'super_admin') opt.selected = true;
+      select.appendChild(opt);
+    });
+  } else if(mode === 'employee'){
+    OTHER_STAFF_ROLES.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.value;
+      opt.textContent = r.label;
+      if(selectedValue ? r.value === selectedValue : r.value === 'employee') opt.selected = true;
+      select.appendChild(opt);
+    });
+  } else {
+    const adminGrp = document.createElement('optgroup');
+    adminGrp.label = 'Admin Roles';
+    ADMIN_ONLY_ROLES.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.value;
+      opt.textContent = r.label;
+      if(r.value === selectedValue) opt.selected = true;
+      adminGrp.appendChild(opt);
+    });
+    select.appendChild(adminGrp);
+
+    const staffGrp = document.createElement('optgroup');
+    staffGrp.label = 'Employees & Other Roles';
+    OTHER_STAFF_ROLES.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.value;
+      opt.textContent = r.label;
+      if(r.value === selectedValue) opt.selected = true;
+      staffGrp.appendChild(opt);
+    });
+    select.appendChild(staffGrp);
+    if(selectedValue) select.value = selectedValue;
+  }
+}
+
+function openNewAdminModal(){
+  const details = $('userDetails');
+  if(details && details.open && userFormMode === 'admin'){
+    resetUserForm();
+    return;
+  }
+  resetUserForm();
+  userFormMode = 'admin';
+  populateUserRoles('admin');
+  if($('userFormTitle')) $('userFormTitle').textContent = 'Create New Admin User';
+  const badge = $('userFormTypeBadge');
+  if(badge){
+    badge.textContent = 'Admin Roles Only';
+    badge.style.display = 'inline-flex';
+    badge.style.background = 'rgba(255,107,0,.15)';
+    badge.style.color = 'var(--orange)';
+  }
+  if($('userSubmitBtn')) $('userSubmitBtn').textContent = 'Create admin user';
+  if($('userCancelBtn')) $('userCancelBtn').style.display = 'inline-flex';
+  if(details){
+    details.open = true;
+    details.scrollIntoView({behavior:'smooth'});
+  }
+}
+on('openNewAdminBtn', 'click', openNewAdminModal);
+
+function openNewEmployeeModal(){
+  const details = $('userDetails');
+  if(details && details.open && userFormMode === 'employee'){
+    resetUserForm();
+    return;
+  }
+  resetUserForm();
+  userFormMode = 'employee';
+  populateUserRoles('employee');
+  if($('userFormTitle')) $('userFormTitle').textContent = 'Add Employee';
+  const badge = $('userFormTypeBadge');
+  if(badge){
+    badge.textContent = 'Employees';
+    badge.style.display = 'inline-flex';
+    badge.style.background = 'rgba(122,180,255,.15)';
+    badge.style.color = '#7ab4ff';
+  }
+  if($('userSubmitBtn')) $('userSubmitBtn').textContent = 'Create employee';
+  if($('userCancelBtn')) $('userCancelBtn').style.display = 'inline-flex';
+  if(details){
+    details.open = true;
+    details.scrollIntoView({behavior:'smooth'});
+  }
+}
+on('openNewEmployeeBtn', 'click', openNewEmployeeModal);
+
 async function loadUsers(){
   const tbody=$('usersBody'); if(!tbody) return;
   const users=await api('/admin/users');
   tbody.innerHTML='';
-  if(!users.length){tbody.innerHTML='<tr><td colspan="6" style="color:var(--steel)">No users.</td></tr>';return;}
+  if(!users.length){tbody.innerHTML='<tr><td colspan="8" style="color:var(--steel)">No users.</td></tr>';return;}
   users.forEach(u=>{
     const tr=document.createElement('tr');
-    tr.innerHTML='<td></td><td></td><td></td><td></td><td></td><td style="white-space:nowrap;"></td>';
+    tr.innerHTML='<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td style="white-space:nowrap;"></td>';
     tr.cells[0].textContent=u.name||'—';
     tr.cells[1].textContent=u.email||'—';
-    const passwordStatus=document.createElement('span'); passwordStatus.className='badge'; passwordStatus.textContent=u.passwordSet?'Protected':'Not set';
-    tr.cells[2].appendChild(passwordStatus);
     const rb=document.createElement('span'); rb.className='badge role-'+(u.role||'viewer'); rb.textContent=(u.role||'viewer').replace(/_/g,' ');
-    tr.cells[3].appendChild(rb);
-    tr.cells[4].textContent=u.createdAt?new Date(u.createdAt).toLocaleDateString():'—';
+    tr.cells[2].appendChild(rb);
+    const deptInfo = u.department ? (u.department + (u.designation ? ' · ' + u.designation : '')) : (u.designation || '—');
+    tr.cells[3].textContent = deptInfo;
+    tr.cells[4].textContent = u.phone || '—';
+    const stBadge = document.createElement('span');
+    stBadge.className = 'badge ' + (u.status === 'inactive' ? 'badge-inactive' : 'badge-active');
+    stBadge.textContent = u.status || 'active';
+    tr.cells[5].appendChild(stBadge);
+    const passwordStatus=document.createElement('span'); passwordStatus.className='badge'; passwordStatus.textContent=u.passwordSet?'Protected':'Not set';
+    tr.cells[6].appendChild(passwordStatus);
     const editBtn=document.createElement('button'); editBtn.className='small-btn'; editBtn.textContent='Edit';
     editBtn.addEventListener('click',()=>editUser(u));
     const delBtn=document.createElement('button'); delBtn.className='small-btn danger'; delBtn.textContent='Delete'; delBtn.style.marginLeft='4px';
     delBtn.addEventListener('click',()=>deleteUser(u.id,u.email));
-    tr.cells[5].append(editBtn,delBtn);
+    tr.cells[7].append(editBtn,delBtn);
     tbody.appendChild(tr);
   });
 }
 function editUser(u){
+  userFormMode = 'edit';
+  populateUserRoles('edit', u.role);
   $('userEditId').value=u.id;
   $('uName').value=u.name||'';
   $('uEmail').value=u.email||'';
   $('uPassword').value='';
   $('uRole').value=u.role||'viewer';
-  $('uShift').value=u.shift||'morning';
+  if($('uPhone')) $('uPhone').value=u.phone||'';
+  if($('uDept')) $('uDept').value=u.department||'';
+  if($('uDesig')) $('uDesig').value=u.designation||'';
+  if($('uJoinDate')) $('uJoinDate').value=u.joiningDate||'';
+  if($('uShift')) $('uShift').value=u.shift||'morning';
+  if($('uStatus')) $('uStatus').value=u.status||'active';
+  if($('userFormTitle')) $('userFormTitle').textContent='Edit User: '+(u.name||u.email);
+  const badge=$('userFormTypeBadge');
+  if(badge){
+    badge.textContent='Editing User';
+    badge.style.display='inline-flex';
+    badge.style.background='rgba(255,255,255,.1)';
+    badge.style.color='var(--cream)';
+  }
   $('userSubmitBtn').textContent='Update user';
   $('userCancelBtn').style.display='inline-flex';
-  $('userDetails').open=true;
-  $('userDetails').scrollIntoView({behavior:'smooth'});
+  const details=$('userDetails');
+  if(details){
+    details.open=true;
+    details.scrollIntoView({behavior:'smooth'});
+  }
 }
-function resetUserForm(){ const f=$('userForm'); if(!f) return; f.reset(); $('userEditId').value=''; $('userSubmitBtn').textContent='Create user'; $('userCancelBtn').style.display='none'; }
+function resetUserForm(){
+  const f=$('userForm'); if(!f) return;
+  f.reset();
+  $('userEditId').value='';
+  if($('uPhone')) $('uPhone').value='';
+  if($('uDept')) $('uDept').value='';
+  if($('uDesig')) $('uDesig').value='';
+  if($('uJoinDate')) $('uJoinDate').value='';
+  if($('uShift')) $('uShift').value='morning';
+  if($('uStatus')) $('uStatus').value='active';
+  $('userSubmitBtn').textContent='Create user';
+  $('userCancelBtn').style.display='none';
+  const badge=$('userFormTypeBadge');
+  if(badge) badge.style.display='none';
+  if($('userFormTitle')) $('userFormTitle').textContent='Create User';
+  const details=$('userDetails');
+  if(details) details.open=false;
+  userFormMode=null;
+  const msg=$('userMsg');
+  if(msg) msg.textContent='';
+}
 on('userCancelBtn','click',resetUserForm);
-async function deleteUser(id,email){ if(!confirm('Delete admin: '+email+'?')) return; try{await api('/admin/users/'+id,{method:'DELETE'});loadUsers();}catch(e){alert(e.message);}}
+async function deleteUser(id,email){ if(!confirm('Delete user: '+email+'?')) return; try{await api('/admin/users/'+id,{method:'DELETE'});loadUsers();}catch(e){alert(e.message);}}
 on('userForm','submit',async e=>{
   e.preventDefault();
   const msg=$('userMsg');
   const editId=$('userEditId').value;
-  const payload={name:$('uName').value,email:$('uEmail').value,role:$('uRole').value,shift:$('uShift').value};
+  const payload={
+    name:$('uName').value,
+    email:$('uEmail').value,
+    role:$('uRole').value,
+    phone:$('uPhone')?$('uPhone').value:'',
+    department:$('uDept')?$('uDept').value:'',
+    designation:$('uDesig')?$('uDesig').value:'',
+    joiningDate:$('uJoinDate')?$('uJoinDate').value:'',
+    shift:$('uShift')?$('uShift').value:'morning',
+    status:$('uStatus')?$('uStatus').value:'active'
+  };
   const pw=$('uPassword').value;
   if(pw) payload.password=pw;
   if(!editId && !pw){setFormMsg(msg,'Password is required for new users.',false);return;}

@@ -913,20 +913,24 @@ input::placeholder, textarea::placeholder{ color:#94A3B8 !important; opacity:1; 
 .network-diagram .core-ring{ animation: kykSpin 26s linear infinite; transform-origin:center; transform-box:fill-box; }
 @keyframes kykSpin{ to{ transform:rotate(360deg); } }
 
-/* ---------- Custom cursor (desktop, fine pointer only) ---------- */
-@media (hover:hover) and (pointer:fine){
-  body{ cursor:none; }
-  .kyk-cursor-dot, .kyk-cursor-ring{
-    position:fixed; inset-block-start:0; inset-inline-start:0; border-radius:50%; pointer-events:none; z-index:9999;
-    transform:translate(-50%,-50%); transition:opacity .2s ease;
-  }
-  .kyk-cursor-dot{ inline-size:6px; block-size:6px; background:var(--orange); }
-  .kyk-cursor-ring{ inline-size:34px; block-size:34px; border:1.5px solid rgba(var(--glow),.6); transition:width .18s ease,height .18s ease,border-color .18s ease, transform .05s linear; }
-  .kyk-cursor-ring.is-active{ inline-size:52px; block-size:52px; border-color:var(--orange); background:rgba(var(--glow),.08); }
+/* ---------- Cursor (standard visible cursor everywhere) ---------- */
+html, body {
+  cursor: default !important;
 }
-@media (hover:none), (pointer:coarse){
-  .kyk-cursor-dot, .kyk-cursor-ring{ display:none; }
-  body{ cursor:auto; }
+*, *::before, *::after {
+  cursor: inherit;
+}
+a, button, [role="button"], select, summary, .btn, input[type="submit"], input[type="button"], label[for] {
+  cursor: pointer !important;
+}
+input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="search"], input[type="tel"], input[type="url"], textarea {
+  cursor: text !important;
+}
+.kyk-cursor-dot, .kyk-cursor-ring {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* ---------- Loading screen ---------- */

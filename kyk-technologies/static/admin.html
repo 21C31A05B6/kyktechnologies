@@ -7,8 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
-<link rel="stylesheet" href="/css/style.css?v=20261016-portal-v27"/>
-<link rel="stylesheet" href="/css/dashboard.css"/>
+<link rel="stylesheet" href="/css/style.css?v=20261026-cursor-v8"/>
+<link rel="stylesheet" href="/css/dashboard.css?v=20261026-cursor-v8"/>
 </head>
 <body class="admin-page">
 <!-- Dashboard shell (hidden until logged in) -->
@@ -188,38 +188,103 @@
 
     <!-- Admin Users (super_admin only) -->
     <div class="panel" id="panel-admin_users">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-block-end:20px;flex-wrap:wrap;">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button type="button" class="btn btn-primary" id="openNewAdminBtn" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <span style="font-size:1.15rem;line-height:1;font-weight:700;">+</span> New admin user
+          </button>
+          <button type="button" class="btn btn-outline" id="openNewEmployeeBtn" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;border-color:rgba(122,180,255,.45);color:#7ab4ff;background:rgba(122,180,255,.07);">
+            <span style="font-size:1.15rem;line-height:1;font-weight:700;">+</span> Employees
+          </button>
+        </div>
+        <div style="color:var(--steel);font-size:.82rem;">
+          Manage admin access credentials and staff/employee system accounts.
+        </div>
+      </div>
+
       <details style="margin-block-end:20px;" id="userDetails">
-        <summary class="btn btn-primary" style="display:inline-flex;cursor:pointer;">+ New admin user</summary>
-        <form id="userForm" class="form-card" style="margin-block-start:16px;max-inline-size:500px;">
+        <summary style="display:none;" id="userFormSummary">User form toggle</summary>
+        <form id="userForm" class="form-card glass-glow" style="margin-block-start:0;max-inline-size:620px;box-shadow:0 12px 32px rgba(0,0,0,.35);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-block-end:14px;border-block-end:1px solid rgba(255,255,255,0.08);padding-block-end:10px;">
+            <h4 id="userFormTitle" style="margin:0;font-size:1.05rem;font-weight:600;color:var(--cream);font-family:var(--font-display);">Create User</h4>
+            <span id="userFormTypeBadge" class="badge" style="display:none;"></span>
+          </div>
           <input type="hidden" id="userEditId"/>
-          <div class="field"><label>Full name *</label><input id="uName" required/></div>
-          <div class="field"><label>Email *</label><input id="uEmail" type="email" required/></div>
-          <div class="field"><label>Password <span style="color:var(--steel);font-size:.75rem;">(min 8 chars; leave blank when editing to keep current)</span></label>
-            <input id="uPassword" type="password" autocomplete="new-password"/>
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="field"><label>Full name *</label><input id="uName" required placeholder="e.g. Ananya Rao"/></div>
+            <div class="field"><label>Email *</label><input id="uEmail" type="email" required placeholder="e.g. employee@kyktechnologies.com"/></div>
           </div>
-          <div class="field"><label>Role *</label>
-            <select id="uRole">
-              <option value="super_admin">Super Admin — full access</option>
-              <option value="hr_manager">HR Manager — apps + pipeline + talent + contacts + attendance</option>
-              <option value="recruiter" selected>Recruiter — apps + pipeline + talent + my attendance</option>
-              <option value="team_lead">Team Lead — jobs + applications + my attendance</option>
-              <option value="content_manager">Content Manager — insights + my attendance</option>
-              <option value="employee">Employee — overview + my attendance</option>
-              <option value="client">Client — overview only, no attendance</option>
-              <option value="viewer">Viewer — overview only, no attendance</option>
-            </select>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="field"><label>Password <span style="color:var(--steel);font-size:.72rem;">(min 8 chars; blank to keep)</span></label>
+              <input id="uPassword" type="password" autocomplete="new-password" placeholder="Min 8 characters"/>
+            </div>
+            <div class="field"><label>Phone</label><input id="uPhone" placeholder="e.g. +91 98765 43213"/></div>
           </div>
-          <div class="field"><label>Attendance shift</label>
-            <select id="uShift"><option value="morning">Morning — 9:30 AM to 6:15 PM</option><option value="evening">Evening — 6:30 PM to 3:30 AM</option></select>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="field"><label>Role *</label>
+              <select id="uRole">
+                <option value="super_admin">Super Admin</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div class="field"><label>Attendance shift</label>
+              <select id="uShift">
+                <option value="morning">Morning — 9:30 AM to 6:15 PM</option>
+                <option value="evening">Evening — 6:30 PM to 3:30 AM</option>
+              </select>
+            </div>
           </div>
-          <div style="display:flex;gap:10px;margin-block-start:4px;">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="field"><label>Department</label>
+              <input id="uDept" list="deptOptions" placeholder="e.g. Engineering & Product"/>
+              <datalist id="deptOptions">
+                <option value="Executive"/>
+                <option value="Human Resources"/>
+                <option value="Recruitment & Talent"/>
+                <option value="Engineering & Product"/>
+                <option value="Operations & Client Success"/>
+                <option value="Marketing & Content"/>
+              </datalist>
+            </div>
+            <div class="field"><label>Designation</label>
+              <input id="uDesig" list="desigOptions" placeholder="e.g. Software Engineer"/>
+              <datalist id="desigOptions">
+                <option value="Software Engineer"/>
+                <option value="Senior Software Engineer"/>
+                <option value="HR Specialist"/>
+                <option value="HR Manager"/>
+                <option value="Team Lead"/>
+                <option value="Recruiter"/>
+                <option value="Content Manager"/>
+                <option value="Product Manager"/>
+              </datalist>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="field"><label>Joining date</label><input id="uJoinDate" type="date"/></div>
+            <div class="field"><label>Status</label>
+              <select id="uStatus">
+                <option value="active" selected>active</option>
+                <option value="inactive">inactive</option>
+                <option value="on_leave">on_leave</option>
+                <option value="probation">probation</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-block-start:8px;">
             <button class="btn btn-primary" type="submit" id="userSubmitBtn">Create user</button>
             <button class="btn btn-outline" type="button" id="userCancelBtn" style="display:none;">Cancel</button>
           </div>
           <div class="form-msg" id="userMsg"></div>
         </form>
       </details>
-      <table><thead><tr><th>Name</th><th>Email</th><th>Password</th><th>Role</th><th>Created</th><th></th></tr></thead>
+      <table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Phone</th><th>Status</th><th>Password</th><th></th></tr></thead>
       <tbody id="usersBody"></tbody></table>
     </div>
   
@@ -316,7 +381,7 @@
   </main>
 </div>
 
-<script src="/js/main.js?v=20261016-portal-v27" defer></script>
-<script src="/js/dash-common.js?v=20261016-portal-v27"></script>
+<script src="/js/main.js?v=20261026-cursor-v8" defer></script>
+<script src="/js/dash-common.js?v=20261026-cursor-v8"></script>
 </body>
 </html>

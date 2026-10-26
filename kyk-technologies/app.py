@@ -337,10 +337,9 @@ _build_user_idx(force=True)
 # Raise any value here to allow more simultaneous devices for that role.
 
 SESSION_LIMIT_ADMIN = 3
-SESSION_LIMIT_USER  = 1   # raised from 1  so staff can not log in from multiple devices
+SESSION_LIMIT_USER  = 1
 
 # Per-role override map — looked up in the login route.
-# Falls back to SESSION_LIMIT_USER for any role not listed here.
 SESSION_LIMIT_BY_ROLE: dict = {
     "super_admin":     3,
     "admin":           3,
@@ -640,7 +639,8 @@ def current_admin():
     jti = payload.get("jti", "")
     if not _session_valid(jti):
         return None  # session was evicted (another browser logged in) or never created
-    admin = db.find("admins", payload.get("adminId"))
+    user_id = payload.get("adminId") or payload.get("userId") or payload.get("id")
+    admin = db.find("admins", user_id) or db.find("users", user_id)
     if admin and admin.get("status", "active") in {"suspended", "terminated", "inactive"}:
         return None  # account disabled mid-session
     if admin:
@@ -1464,13 +1464,17 @@ def me():
     admin = request.admin
     role  = admin.get("role", "viewer")
     tabs  = ROLES.get(role, {}).get("tabs", [])
-    return jsonify({"admin": {
+    user_payload = {
         "id":    admin["id"],
         "name":  admin.get("name"),
         "email": admin.get("email"),
         "role":  role,
         "tabs":  tabs,
-    }})
+    }
+    return jsonify({
+        "admin": user_payload,
+        "user": user_payload,
+    })
 
 
 @app.get("/api/auth/user/me")
@@ -2742,10 +2746,20 @@ def admin_leave_decision(leave_id):
 @role_required()   # empty → only super_admin (role_required always allows super_admin)
 def admin_list_users():
     users = db.read("admins")
-    safe  = [{"id": u["id"], "name": u.get("name",""), "email": u.get("email",""),
-                             "passwordSet": bool(u.get("passwordHash")),
-                              "role": u.get("role","viewer"), "shift": u.get("shift","morning"), "createdAt": u.get("createdAt","")}
-             for u in users]
+    safe  = [{
+        "id": u["id"],
+        "name": u.get("name",""),
+        "email": u.get("email",""),
+        "passwordSet": bool(u.get("passwordHash")),
+        "role": u.get("role","viewer"),
+        "phone": u.get("phone",""),
+        "department": u.get("department",""),
+        "designation": u.get("designation",""),
+        "joiningDate": u.get("joiningDate",""),
+        "status": u.get("status","active"),
+        "shift": u.get("shift","morning"),
+        "createdAt": u.get("createdAt","")
+    } for u in users]
     return jsonify(safe)
 
 
@@ -2778,6 +2792,30 @@ def admin_create_user():
         "status":        clean(data.get("status", "active"), 30) or "active",
         "shift":         shift if shift in SHIFT_SCHEDULES else "morning",
     })
+    # If the user role is an employee/staff role, also sync to employees table if not already present
+    if role in ("employee", "team_lead", "manager", "hr_manager", "hr", "recruiter", "content_manager"):
+        matching_emp = next((e for e in (db.read("employees") or []) if e.get("email","").lower() == email), None)
+        if matching_emp:
+            emp_patch = {}
+            for k in ("name", "department", "designation", "phone", "joiningDate", "status", "shift"):
+                if user.get(k): emp_patch[k] = user[k]
+            if emp_patch: db.update("employees", matching_emp["id"], emp_patch)
+        else:
+            all_emps = db.read("employees") or []
+            code = f"KYK-{len(all_emps) + 1:03d}"
+            db.insert("employees", {
+                "employeeCode": code,
+                "name": name,
+                "email": email,
+                "phone": clean(data.get("phone", ""), 50),
+                "department": clean(data.get("department", ""), 120) or "General",
+                "designation": clean(data.get("designation", ""), 120) or role.replace("_", " ").title(),
+                "joiningDate": clean(data.get("joiningDate", ""), 10) or _today_iso(),
+                "status": clean(data.get("status", "active"), 30) or "active",
+                "employmentType": "Full-time",
+                "basicSalary": 50000,
+                "shift": shift if shift in SHIFT_SCHEDULES else "morning",
+            })
     invalidate_admin_idx(email)
     invalidate_user_idx(email)
     audit(request.admin, "user_created", f"{email} ({role})")
@@ -2818,6 +2856,15 @@ def admin_update_user(user_id):
     if not patch:
         return error("Nothing to update.")
     updated = db.update("admins", user_id, patch)
+    # Sync updated profile fields to matching employee record if any
+    matching_emp = next((e for e in (db.read("employees") or []) if e.get("email","").lower() == updated.get("email","").lower()), None)
+    if matching_emp:
+        emp_sync = {}
+        for fld in ("name", "department", "designation", "phone", "joiningDate", "status", "shift"):
+            if fld in patch:
+                emp_sync[fld] = patch[fld]
+        if emp_sync:
+            db.update("employees", matching_emp["id"], emp_sync)
     invalidate_admin_idx(user.get("email"))
     invalidate_admin_idx(updated.get("email"))
     invalidate_user_idx(user.get("email"))
@@ -2862,7 +2909,7 @@ def list_roles():
 
 # ─────────────────────────────────────────── separate role tables endpoints
 
-@app.get("/api/admin/employees")
+@app.get("/api/admin/role-employees")
 @role_required("hr_manager", "team_lead")
 def list_employees():
     return jsonify(db.get_employees())

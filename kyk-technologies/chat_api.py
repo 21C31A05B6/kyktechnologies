@@ -113,11 +113,19 @@ def _get_session():
     return _Session()
 
 
+DISALLOWED_CHAT_ROLES = {"user", "viewer"}
+
+
 def _norm_role(role):
     if role == "admin": return "super_admin"
     if role == "hr": return "hr_manager"
     if role == "manager": return "team_lead"
     return role or "viewer"
+
+
+def is_chat_allowed_role(role):
+    r = _norm_role(role).lower().strip()
+    return r not in DISALLOWED_CHAT_ROLES
 
 
 def _user_from_token(token):
@@ -165,11 +173,17 @@ def register_chat_routes(app, socketio, deps):
     def chat_auth_required(view):
         @wraps(view)
         def wrapper(*args, **kwargs):
-            admin = current_admin()
+            header = request.headers.get("Authorization", "")
+            token = header[7:] if header.startswith("Bearer ") else request.args.get("token", "")
+            admin = current_admin() or _user_from_token(token)
             if not admin:
                 return jsonify({"error": "Unauthorized or session expired.", "kicked": True}), 401
             if admin.get("status") in {"suspended", "inactive", "terminated", "chat_disabled"}:
                 return error("Your communication access has been suspended. Please contact HR or IT.", 403)
+            # Enforce role permission: viewers and general users are forbidden from chat and meetings
+            role = _norm_role(admin.get("role"))
+            if role in DISALLOWED_CHAT_ROLES:
+                return error("Access denied: General users and viewers do not have permissions for chat and meetings.", 403)
             request.admin = admin
             return view(*args, **kwargs)
         return wrapper
@@ -180,9 +194,17 @@ def register_chat_routes(app, socketio, deps):
     def init_default_channels():
         try:
             with _get_session() as session:
-                users = session.scalars(select(User).where(User.status == "active")).all()
+                users = session.scalars(
+                    select(User).where(and_(User.status == "active", ~User.role.in_(DISALLOWED_CHAT_ROLES)))
+                ).all()
                 if not users:
                     return
+
+                # Purge any legacy memberships for viewers or general users
+                disallowed_user_ids = set(session.scalars(select(User.id).where(User.role.in_(DISALLOWED_CHAT_ROLES))).all())
+                if disallowed_user_ids:
+                    session.query(ChatConversationMember).filter(ChatConversationMember.user_id.in_(disallowed_user_ids)).delete(synchronize_session=False)
+                    session.commit()
 
                 super_admin = next((u for u in users if u.role in ("super_admin", "admin")), users[0])
 
@@ -451,6 +473,8 @@ def register_chat_routes(app, socketio, deps):
                 target_user = session.get(User, target_user_id)
                 if not target_user or target_user.status in {"suspended", "inactive", "terminated"}:
                     return error("User not found or unavailable.", 404)
+                if _norm_role(target_user.role) in DISALLOWED_CHAT_ROLES:
+                    return error("Cannot start conversation with viewers or general users.", 403)
 
                 # Check if direct conversation already exists between these 2 users
                 user_convs = session.scalars(
@@ -552,7 +576,7 @@ def register_chat_routes(app, socketio, deps):
                 valid_members = set(member_ids)
                 if valid_members:
                     existing_users = session.scalars(
-                        select(User).where(and_(User.id.in_(valid_members), User.status == "active"))
+                        select(User).where(and_(User.id.in_(valid_members), User.status == "active", ~User.role.in_(DISALLOWED_CHAT_ROLES)))
                     ).all()
                     for u in existing_users:
                         if u.id != user_id:
@@ -756,6 +780,8 @@ def register_chat_routes(app, socketio, deps):
             target_user = session.get(User, target_id)
             if not target_user:
                 return error("User not found.", 404)
+            if _norm_role(target_user.role) in DISALLOWED_CHAT_ROLES:
+                return error("Cannot add viewers or general users to conversations.", 403)
 
             existing = session.scalars(
                 select(ChatConversationMember).where(
@@ -1232,35 +1258,65 @@ def register_chat_routes(app, socketio, deps):
         user = request.admin
         user_id = int(user["id"])
         user_role = user.get("role", "employee")
+        if _norm_role(user_role) in DISALLOWED_CHAT_ROLES:
+            return jsonify([])
 
-        with _get_session() as session:
-            # Clients can only message Super Admin, HR, or assigned managers
-            if user_role == "client":
-                allowed_roles = {"super_admin", "admin", "hr_manager", "team_lead"}
-                users = session.scalars(
-                    select(User).where(and_(User.role.in_(allowed_roles), User.status == "active"))
-                ).all()
-            else:
-                # Internal staff can see active team members
-                users = session.scalars(
-                    select(User).where(and_(User.status == "active", User.role != "client"))
-                ).order_by(User.name).all()
+        directory = []
+        try:
+            with _get_session() as session:
+                # Clients can only message Super Admin, HR, or assigned managers
+                if user_role == "client":
+                    allowed_roles = {"super_admin", "admin", "hr_manager", "team_lead"}
+                    users = session.scalars(
+                        select(User).where(and_(User.role.in_(allowed_roles), User.status == "active")).order_by(User.name)
+                    ).all()
+                else:
+                    # Internal staff: strictly exclude clients, viewers, and general users
+                    disallowed = {"client", "viewer", "user"}
+                    users = session.scalars(
+                        select(User).where(and_(User.status == "active", ~User.role.in_(disallowed))).order_by(User.name)
+                    ).all()
 
-            directory = []
-            for u in users:
-                if u.id == user_id:
+                for u in users:
+                    if u.id == user_id or _norm_role(u.role) in DISALLOWED_CHAT_ROLES:
+                        continue
+                    is_online = u.id in _online_users and len(_online_users[u.id]["sids"]) > 0
+                    directory.append({
+                        "id": u.id,
+                        "name": u.name,
+                        "email": u.email,
+                        "role": u.role,
+                        "isOnline": is_online,
+                        "status": _online_users.get(u.id, {}).get("status", "offline" if not is_online else "online"),
+                    })
+        except Exception:
+            raw_users = db.read("admins") or []
+            allowed = {"super_admin", "admin", "hr_manager", "team_lead"} if user_role == "client" else None
+            for u in sorted(raw_users, key=lambda x: str(x.get("name", "")).lower()):
+                if u.get("id") == user_id:
                     continue
-                is_online = u.id in _online_users and len(_online_users[u.id]["sids"]) > 0
+                r = str(u.get("role", "employee")).lower().strip()
+                st = u.get("status", "active")
+                if st != "active":
+                    continue
+                if r in DISALLOWED_CHAT_ROLES or r in ("user", "viewer"):
+                    continue
+                if user_role == "client" and r not in allowed:
+                    continue
+                if user_role != "client" and (r == "client" or r in DISALLOWED_CHAT_ROLES):
+                    continue
+                uid = u.get("id")
+                is_online = uid in _online_users and len(_online_users[uid]["sids"]) > 0
                 directory.append({
-                    "id": u.id,
-                    "name": u.name,
-                    "email": u.email,
-                    "role": u.role,
+                    "id": uid,
+                    "name": u.get("name", "User"),
+                    "email": u.get("email", ""),
+                    "role": r,
                     "isOnline": is_online,
-                    "status": _online_users.get(u.id, {}).get("status", "offline" if not is_online else "online"),
+                    "status": _online_users.get(uid, {}).get("status", "offline" if not is_online else "online"),
                 })
 
-            return jsonify(directory)
+        return jsonify(directory)
 
     @app.post("/api/chat/upload")
     @chat_auth_required
@@ -1415,9 +1471,11 @@ def register_chat_routes(app, socketio, deps):
             # Invite other users
             invited_set = set(invited_user_ids)
             if invited_set:
-                users = session.scalars(select(User).where(User.id.in_(invited_set))).all()
+                users = session.scalars(
+                    select(User).where(and_(User.id.in_(invited_set), ~User.role.in_(DISALLOWED_CHAT_ROLES), User.status == "active"))
+                ).all()
                 for u in users:
-                    if u.id != user_id:
+                    if u.id != user_id and _norm_role(u.role) not in DISALLOWED_CHAT_ROLES:
                         session.add(MeetingParticipant(
                             meeting_id=meet.id,
                             user_id=u.id,
@@ -1644,6 +1702,10 @@ def register_chat_routes(app, socketio, deps):
         user = _user_from_token(token)
         if not user:
             return False  # Reject unauthenticated or revoked socket connection
+
+        role_norm = _norm_role(user.get("role"))
+        if role_norm in DISALLOWED_CHAT_ROLES:
+            return False  # Viewers and general users cannot connect to real-time chat or meetings
 
         user_id = int(user["id"])
         sid = request.sid
@@ -1926,6 +1988,9 @@ def register_chat_routes(app, socketio, deps):
                 return
 
             norm_role = _norm_role(user.role)
+            if norm_role in DISALLOWED_CHAT_ROLES:
+                emit("meeting_error", {"message": "Viewers and general users do not have permissions to join meetings."})
+                return
             is_host = (meet.host_id == user_id)
             is_admin = (norm_role in ("super_admin", "admin", "hr_manager"))
 

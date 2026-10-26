@@ -7,8 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
-<link rel="stylesheet" href="/css/style.css?v=20261016-portal-v27"/>
-<link rel="stylesheet" href="/css/dashboard.css"/>
+<link rel="stylesheet" href="/css/style.css?v=20261026-cursor-v8"/>
+<link rel="stylesheet" href="/css/dashboard.css?v=20261026-cursor-v8"/>
 </head>
 <body class="admin-page">
 <!-- HRMS Shell (hidden until session verified) -->
@@ -75,31 +75,11 @@
       </table>
     </div>
 
-    <!-- Org Attendance Register (HR/Admin) -->
-    <div class="panel" id="panel-attendance">
-      <div class="panel-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <h3>Company Attendance Register</h3>
-        <div style="display:flex;gap:8px;">
-          <a href="/api/reports/export/attendance" class="btn btn-outline btn-sm" download>📥 Export CSV</a>
-        </div>
-      </div>
-      <div class="filter-bar">
-        <input type="date" id="attDate"/>
-        <select id="attDept"><option value="">All departments</option></select>
-        <button class="btn btn-primary" id="attRefresh">Filter</button>
-      </div>
-      <div class="stat-cards" id="attStats"></div>
-      <table>
-        <thead><tr><th>Employee</th><th>Department</th><th>Shift</th><th>Check in</th><th>Check out</th><th>Hours</th><th>Status</th></tr></thead>
-        <tbody id="attBody"></tbody>
-      </table>
-    </div>
-
-    <!-- All other role panels (my_leaves, leave_mgmt, my_payslips, payroll, my_timesheets, timesheets, my_goals, team_goals, team_reviews, my_documents, documents, employees, departments, branches, onboarding, lifecycle, reports, audit_log, team, team_attendance, team_leaves, team_calendar) will be injected dynamically by ensureRolePanels() based on user role -->
+    <!-- All role-specific panels (my_leaves, leave_mgmt, my_payslips, payroll, my_timesheets, timesheets, my_goals, team_goals, team_reviews, my_documents, documents, employees, departments, branches, onboarding, lifecycle, reports, audit_log, team, team_attendance, team_leaves, team_calendar) will be injected dynamically by ensureRolePanels() based on user role -->
   </main>
 </div>
 
-<script src="/js/main.js?v=20261016-portal-v27" defer></script>
-<script src="/js/dash-common.js?v=20261016-portal-v27"></script>
+<script src="/js/main.js?v=20261026-cursor-v8" defer></script>
+<script src="/js/dash-common.js?v=20261026-cursor-v8"></script>
 </body>
 </html>

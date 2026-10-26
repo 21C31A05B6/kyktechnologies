@@ -7,10 +7,33 @@
   'use strict';
 
   const TOKEN_KEY = 'kyk_admin_token';
-  const gToken = localStorage.getItem(TOKEN_KEY) || '';
+  const urlToken = new URLSearchParams(location.search).get('token') || '';
+  let parentToken = '';
+  try {
+    if (window.parent && window.parent !== window && window.parent.gToken) {
+      parentToken = window.parent.gToken;
+    }
+  } catch (e) {}
+  let openerToken = '';
+  try {
+    if (window.opener && window.opener.gToken) {
+      openerToken = window.opener.gToken;
+    }
+  } catch (e) {}
+
+  const gToken = urlToken || localStorage.getItem(TOKEN_KEY) || localStorage.getItem('kyk_user_token') || parentToken || openerToken || '';
+
+  if (gToken) {
+    try {
+      localStorage.setItem(TOKEN_KEY, gToken);
+      localStorage.setItem('kyk_user_token', gToken);
+    } catch (e) {}
+  }
 
   if (!gToken) {
-    location.replace('/login.html');
+    if (window.self === window.top) {
+      location.replace('/login.html');
+    }
     return;
   }
 
@@ -59,8 +82,10 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       if (res.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        location.replace('/login.html');
+        if (window.self === window.top) {
+          localStorage.removeItem(TOKEN_KEY);
+          location.replace('/login.html');
+        }
       }
       throw new Error(data.error || 'Request failed');
     }
@@ -72,6 +97,31 @@
     try {
       const meData = await api('/auth/me');
       currentUser = meData.admin || meData.user;
+      const role = String(currentUser?.role || '').toLowerCase().trim();
+      if (role === 'viewer' || role === 'user') {
+        alert('Access Denied: Viewers and general users do not have permissions for chat and meetings.');
+        location.replace(role === 'viewer' ? '/viewer-dashboard.html' : '/user-dashboard.html');
+        return;
+      }
+      const roleHomeMap = {
+        super_admin: 'admin.html',
+        admin: 'admin.html',
+        hr_manager: 'hr-dashboard.html',
+        hr: 'hr-dashboard.html',
+        team_lead: 'team-lead-dashboard.html',
+        manager: 'team-lead-dashboard.html',
+        employee: 'employee-dashboard.html',
+        recruiter: 'recruiter-dashboard.html',
+        content_manager: 'content-dashboard.html',
+        viewer: 'viewer-dashboard.html',
+        client: 'client-portal.html',
+        user: 'user-dashboard.html'
+      };
+      const backLink = $('backToDashLink');
+      if (backLink) {
+        const dest = roleHomeMap[role] || 'admin.html';
+        backLink.href = '/' + dest + (gToken ? '?token=' + encodeURIComponent(gToken) : '');
+      }
       renderCurrentUser();
       initSocket();
       loadConversations();
@@ -1158,20 +1208,24 @@
     dirList.innerHTML = '<div style="padding:20px;text-align:center;">Loading colleagues…</div>';
 
     try {
-      const users = await api('/chat/directory');
+      let users = await api('/chat/directory');
+      users = (users || []).filter(u => u && !['viewer', 'user'].includes(String(u.role || '').toLowerCase().trim()));
       dirList.innerHTML = '';
       users.forEach(u => {
         const isOnline = onlineUserIds.has(u.id);
+        const name = (u.name || u.email || 'User').trim();
+        const initial = name.charAt(0).toUpperCase() || 'U';
+        const role = (u.role || 'employee').replace(/_/g, ' ');
         const item = document.createElement('div');
         item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px;border-bottom:1px solid var(--comm-border);cursor:pointer;border-radius:8px;';
         item.innerHTML = `
           <div style="display:flex;align-items:center;gap:10px;">
             <div class="comm-conv-avatar direct" style="width:34px;height:34px;font-size:0.85rem;">
-              ${esc(u.name.charAt(0).toUpperCase())}
+              ${esc(initial)}
             </div>
             <div>
-              <div style="font-weight:600;font-size:0.88rem;">${esc(u.name)}</div>
-              <div style="font-size:0.72rem;color:var(--comm-steel);">${esc(u.role)} &bull; ${esc(u.email)}</div>
+              <div style="font-weight:600;font-size:0.88rem;">${esc(name)}</div>
+              <div style="font-size:0.72rem;color:var(--comm-steel);">${esc(role)} &bull; ${esc(u.email || '')}</div>
             </div>
           </div>
           <span class="comm-presence-dot ${isOnline ? 'online' : ''}" style="position:static;"></span>
@@ -1202,7 +1256,8 @@
     if (memberChecklist) {
       memberChecklist.innerHTML = 'Loading colleagues…';
       try {
-        const users = await api('/chat/directory');
+        let users = await api('/chat/directory');
+        users = (users || []).filter(u => u && !['viewer', 'user'].includes(String(u.role || '').toLowerCase().trim()));
         memberChecklist.innerHTML = '';
         users.forEach(u => {
           const lbl = document.createElement('label');
@@ -1261,7 +1316,8 @@
     if (checklist) {
       checklist.innerHTML = 'Loading colleagues…';
       try {
-        const users = await api('/chat/directory');
+        let users = await api('/chat/directory');
+        users = (users || []).filter(u => u && !['viewer', 'user'].includes(String(u.role || '').toLowerCase().trim()));
         checklist.innerHTML = '';
         users.forEach(u => {
           const lbl = document.createElement('label');

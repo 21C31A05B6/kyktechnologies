@@ -145,7 +145,8 @@ function addDashboardLink(navCta, dashboardPath) {
     dashboardLink.textContent = "Dashboard";
     navCta.insertBefore(dashboardLink, navCta.firstElementChild);
   }
-  dashboardLink.href = "/" + dashboardPath;
+  const token = getAdminToken() || getUserToken() || "";
+  dashboardLink.href = "/" + dashboardPath + (token ? "?token=" + encodeURIComponent(token) : "");
 }
 
 function addLogoutButton(navCta, loginLink, clearTokens) {
@@ -239,7 +240,8 @@ async function updateAuthNavigation() {
       hrmsLink.style.cssText = "padding:9px 18px;font-size:.85rem;border-color:var(--orange);color:var(--orange);font-weight:600;display:inline-flex;align-items:center;gap:6px;";
       hrmsLink.textContent = "🏢 HRMS Portal";
     }
-    hrmsLink.href = "/hrms-portal.html";
+    const currentToken = adminToken || userToken || "";
+    hrmsLink.href = "/hrms-portal.html" + (currentToken ? "?token=" + encodeURIComponent(currentToken) : "");
     if (dashboardLink && dashboardLink.nextSibling !== hrmsLink) {
       if (dashboardLink.nextSibling) {
         navCta.insertBefore(hrmsLink, dashboardLink.nextSibling);
@@ -445,36 +447,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  /* ---------- Custom cursor (RAF stops when tab hidden) ---------- */
-  if (fine && !reduceMotion) {
-    const dot = document.createElement("div");
-    const ring = document.createElement("div");
-    dot.className = "kyk-cursor-dot";
-    ring.className = "kyk-cursor-ring";
-    document.body.append(dot, ring);
-    let rx = 0, ry = 0, tx = 0, ty = 0, rafId = 0;
-    window.addEventListener("mousemove", (e) => {
-      dot.style.transform = `translate(${e.clientX}px,${e.clientY}px) translate(-50%,-50%)`;
-      tx = e.clientX; ty = e.clientY;
-    }, { passive: true });
-    function cursorLoop() {
-      if (document.hidden) { rafId = 0; return; }
-      rx += (tx - rx) * 0.18; ry += (ty - ry) * 0.18;
-      ring.style.transform = `translate(${rx}px,${ry}px) translate(-50%,-50%)`;
-      rafId = requestAnimationFrame(cursorLoop);
-    }
-    cursorLoop();
-    // Resume loop when tab becomes visible again
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden && !rafId) cursorLoop();
-    });
-    document.addEventListener("mouseover", (e) => {
-      ring.classList.toggle("is-active", !!e.target.closest("a,button,.tilt,.cap-card,.ai-card,.job-card"));
-    }, { passive: true });
-  } else {
-    document.documentElement.style.setProperty("--mx", "50%");
-    document.documentElement.style.setProperty("--my", "30%");
-  }
+  /* ---------- Standard OS cursor (custom cursor disabled) ---------- */
+  document.documentElement.style.setProperty("--mx", "50%");
+  document.documentElement.style.setProperty("--my", "30%");
 
   /* ---------- Mouse-follow glow + 3D tilt (deferred to idle time) ---------- */
   const tiltSelectors = ".cap-card, .ai-card, .why-card, .job-card, .insight-card, .tile, .stat-card";

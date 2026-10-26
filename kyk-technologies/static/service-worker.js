@@ -1,4 +1,4 @@
-const CACHE_NAME = "kyk-shell-v28-instant-video";
+const CACHE_NAME = "kyk-shell-v29-cursor-fix";
 const APP_SHELL = [
   "/",
   "/index.html",

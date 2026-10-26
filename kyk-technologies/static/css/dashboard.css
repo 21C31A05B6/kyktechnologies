@@ -1,4 +1,7 @@
 /* ── layout ── */
+html, body { cursor: default !important; }
+a, button, [role="button"], select, summary, .btn { cursor: pointer !important; }
+input, textarea { cursor: text; }
 .admin-shell{display:flex;min-height:100vh;}
 .admin-page{color:var(--ink);}
 .admin-page h1,.admin-page h2,.admin-page h3,.admin-page h4,.admin-page h5,.admin-page h6{color:var(--ink);}
@@ -96,9 +99,12 @@ tr:hover td{background:rgba(255,255,255,.025);}
   min-height:60px;}
 /* ── role badge colours ── */
 .role-super_admin{background:rgba(var(--glow),.18);color:var(--orange);}
+.role-admin{background:rgba(var(--glow),.15);color:var(--orange);}
 .role-hr_manager{background:rgba(56,210,115,.12);color:#38D273;}
+.role-hr{background:rgba(56,210,115,.12);color:#38D273;}
 .role-recruiter{background:rgba(99,140,255,.12);color:#638CFF;}
 .role-team_lead{background:rgba(255,210,56,.12);color:#d4a800;}
+.role-manager{background:rgba(255,210,56,.12);color:#d4a800;}
 .role-content_manager{background:rgba(180,99,255,.12);color:#b463ff;}
 .role-viewer{background:rgba(122,130,140,.12);color:var(--steel);}
 .role-employee{background:rgba(122,180,255,.12);color:#7ab4ff;}
