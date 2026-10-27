@@ -37,6 +37,8 @@ def register_hrms_routes(app, deps):
     SHIFT_SCHEDULES = deps["SHIFT_SCHEDULES"]
     COMPANY_TZ = deps["COMPANY_TZ"]
     _revoke_session = deps["_revoke_session"]
+    UPLOAD_DIR = deps.get("UPLOAD_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"))
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
     HRMS_ALLOWED_ROLES = deps.get("HRMS_ALLOWED_ROLES", {
         "super_admin", "admin", "hr_manager", "hr",
@@ -1503,12 +1505,45 @@ def register_hrms_routes(app, deps):
     # Module 8: Document Management (Categorized, Expiration Tracker, Policies)
     # ─────────────────────────────────────────────────────────────────────────
 
+    REQUIRED_DOCUMENT_TYPES = [
+        {"type": "Employee Resume / CV", "category": "career", "icon": "📄", "description": "Latest updated curriculum vitae or resume"},
+        {"type": "Offer Letter", "category": "joining", "icon": "✉️", "description": "Signed employment offer letter from KYK Technologies"},
+        {"type": "Appointment Letter", "category": "joining", "icon": "📋", "description": "Official company appointment letter"},
+        {"type": "Employment Agreement", "category": "contract", "icon": "📝", "description": "Signed employment contract and NDA terms"},
+        {"type": "Joining Letter", "category": "joining", "icon": "🤝", "description": "Joining report and formal acknowledgment of duties"},
+        {"type": "Employee ID Proof", "category": "identity", "icon": "🪪", "description": "Official government photo identification"},
+        {"type": "Aadhaar Card", "category": "identity", "icon": "🆔", "description": "Front & back scan of Aadhaar card"},
+        {"type": "PAN Card", "category": "tax", "icon": "💳", "description": "Permanent Account Number card for tax & payroll"},
+        {"type": "Passport", "category": "identity", "icon": "🛂", "description": "Passport front and address pages (if applicable)"},
+        {"type": "Address Proof", "category": "identity", "icon": "🏠", "description": "Current / permanent address proof (Utility bill or Rental)"},
+        {"type": "Educational Certificates", "category": "educational", "icon": "🎓", "description": "Degree, diploma, or graduation marks memo"},
+        {"type": "Experience Certificates", "category": "experience", "icon": "💼", "description": "Service certificates from previous organizations"},
+        {"type": "Relieving Letter", "category": "experience", "icon": "📑", "description": "Formal release letter from prior employer"},
+        {"type": "Resignation Letter", "category": "lifecycle", "icon": "📤", "description": "Acceptance or copy of previous resignation"},
+        {"type": "Salary Slips", "category": "financial", "icon": "💰", "description": "Last 3 months payslips from prior company"},
+        {"type": "Bank Account Details Form", "category": "financial", "icon": "🏦", "description": "Bank passbook copy or cancelled cheque for salary disbursement"},
+    ]
+    ALLOWED_DOC_EXT = {".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".webp"}
+
+    @app.get("/api/documents/types")
+    @admin_required
+    def get_document_types():
+        return jsonify(REQUIRED_DOCUMENT_TYPES)
+
     @app.get("/api/documents")
     @app.get("/api/documents/all")
     @admin_required
     def list_documents():
-        category = request.args.get("category", "")
+        role = request.admin.get("role", "employee")
+        norm = _norm_role(role)
+        is_reviewer = norm in {"super_admin", "hr_manager", "team_lead"} or role in {"super_admin", "admin", "hr_manager", "hr", "team_lead", "manager"}
+
+        category = request.args.get("category", "").strip().lower()
+        status_filter = request.args.get("status", "").strip().lower()
+        doc_type = request.args.get("docType", "").strip().lower()
         emp_id = request.args.get("employeeId")
+        q = request.args.get("q", "").strip().lower()
+
         docs = db.read("documents") or []
         today = date.today()
         for d in docs:
@@ -1525,26 +1560,260 @@ def register_hrms_routes(app, deps):
             else:
                 d["daysToExpiry"] = 999
                 d["expiringSoon"] = False
+
+        if not is_reviewer:
+            # Employee sees only their own documents plus company policies
+            my_id = request.admin["id"]
+            my_email = (request.admin.get("email") or "").lower()
+            docs = [
+                d for d in docs
+                if d.get("employeeId") == my_id
+                or str(d.get("employeeId")) == str(my_id)
+                or (d.get("employeeEmail") and d.get("employeeEmail", "").lower() == my_email)
+                or d.get("isCompanyPolicy", False)
+            ]
+            return jsonify(docs)
+
+        # Reviewer mode (Manager & Admin):
         if category:
-            docs = [d for d in docs if d.get("category") == category]
+            docs = [d for d in docs if (d.get("category") or "").lower() == category]
+        if status_filter and status_filter != "all":
+            docs = [d for d in docs if (d.get("status") or "pending").lower() == status_filter]
+        if doc_type:
+            docs = [d for d in docs if (d.get("docType") or "").lower() == doc_type]
         if emp_id:
             docs = [d for d in docs if str(d.get("employeeId")) == str(emp_id)]
-        elif request.admin.get("role") == "employee":
-            # Employee sees their own documents plus company policies
-            docs = [d for d in docs if d.get("employeeId") == request.admin["id"] or d.get("isCompanyPolicy", False)]
+        if q:
+            docs = [
+                d for d in docs
+                if q in (d.get("employeeName") or "").lower()
+                or q in (d.get("title") or "").lower()
+                or q in (d.get("docType") or "").lower()
+                or q in (d.get("fileName") or "").lower()
+            ]
+
+        # Prioritize pending review items at the top
+        status_rank = {"pending": 0, "rejected": 1, "approved": 2}
+        docs.sort(key=lambda d: (status_rank.get(d.get("status", "pending"), 3), d.get("uploadedAt") or d.get("createdAt") or ""), reverse=False)
         return jsonify(docs)
 
     @app.get("/api/documents/my")
     @admin_required
     def list_my_documents():
         my_id = request.admin["id"]
-        docs = [d for d in (db.read("documents") or []) if d.get("employeeId") == my_id]
-        return jsonify(docs)
+        my_email = (request.admin.get("email") or "").lower()
+        all_docs = db.read("documents") or []
+        my_docs = [
+            d for d in all_docs
+            if (d.get("employeeId") == my_id or str(d.get("employeeId")) == str(my_id)
+                or (d.get("employeeEmail") and d.get("employeeEmail", "").lower() == my_email))
+            and not d.get("isCompanyPolicy", False)
+        ]
+
+        # Group by document type, selecting latest version for each type
+        docs_by_type = {}
+        for d in my_docs:
+            dt = d.get("docType") or d.get("title")
+            if dt:
+                existing = docs_by_type.get(dt)
+                if not existing or (d.get("version", 1) >= existing.get("version", 1)):
+                    docs_by_type[dt] = d
+
+        checklist = []
+        for req in REQUIRED_DOCUMENT_TYPES:
+            req_type = req["type"]
+            matched_doc = docs_by_type.get(req_type)
+            if not matched_doc:
+                for k, v in docs_by_type.items():
+                    if k.lower() in req_type.lower() or req_type.lower() in k.lower():
+                        matched_doc = v
+                        break
+
+            status = matched_doc.get("status", "pending") if matched_doc else "not_uploaded"
+            checklist.append({
+                "type": req_type,
+                "category": req["category"],
+                "icon": req["icon"],
+                "description": req["description"],
+                "status": status,
+                "document": matched_doc,
+                "isRejected": status == "rejected",
+                "isApproved": status == "approved",
+                "isPending": status == "pending",
+                "isUploaded": matched_doc is not None,
+                "rejectionReason": matched_doc.get("rejectionReason") if matched_doc else None,
+            })
+
+        approved_count = len([c for c in checklist if c["status"] == "approved"])
+        pending_count = len([c for c in checklist if c["status"] == "pending"])
+        rejected_count = len([c for c in checklist if c["status"] == "rejected"])
+        missing_count = len([c for c in checklist if c["status"] == "not_uploaded"])
+
+        policies = [d for d in all_docs if d.get("isCompanyPolicy", False) or d.get("category") == "policy"]
+        for p in policies:
+            is_ack = my_id in (p.get("acknowledgedBy") or [])
+            p["acknowledged"] = is_ack
+            p["isAcknowledged"] = is_ack
+
+        return jsonify({
+            "documents": my_docs,
+            "checklist": checklist,
+            "policies": policies,
+            "stats": {
+                "totalRequired": len(REQUIRED_DOCUMENT_TYPES),
+                "totalUploaded": len(my_docs),
+                "approvedCount": approved_count,
+                "pendingCount": pending_count,
+                "rejectedCount": rejected_count,
+                "missingCount": missing_count,
+            }
+        })
+
+    @app.post("/api/documents/upload")
+    @admin_required
+    def upload_document_file():
+        admin = request.admin
+        form = request.form or {}
+        doc_id = form.get("docId") or request.args.get("docId")
+        doc_type = clean(form.get("docType") or "Employee Document", 150)
+        title = clean(form.get("title") or doc_type, 200)
+        category = clean(form.get("category") or "identity", 50)
+        expiry_date = clean(form.get("expiryDate") or "", 20) or None
+        notes = clean(form.get("notes") or "", 300)
+
+        file = request.files.get("file")
+        file_url = None
+        file_size_str = "1.0 MB"
+        original_name = None
+
+        if file and file.filename:
+            ext = os.path.splitext(file.filename)[1].lower()
+            if ext not in ALLOWED_DOC_EXT:
+                return error(f"Invalid file type '{ext}'. Allowed formats: PDF, DOC, DOCX, JPG, PNG, WEBP.", 400)
+            original_name = os.path.basename(file.filename)
+            stored_name = f"doc_{admin['id']}_{secrets.token_hex(6)}{ext}"
+            dest_path = os.path.join(UPLOAD_DIR, stored_name)
+            file.save(dest_path)
+            file_bytes = os.path.getsize(dest_path)
+            if file_bytes > 10 * 1024 * 1024:
+                try: os.remove(dest_path)
+                except Exception: pass
+                return error("File size exceeds 10MB limit.", 400)
+            file_url = f"/api/admin/files/{stored_name}"
+            file_size_str = f"{file_bytes / (1024*1024):.1f} MB" if file_bytes >= 1024*1024 else f"{max(1, int(file_bytes / 1024))} KB"
+        else:
+            file_url = clean(form.get("fileUrl") or "", 255)
+            if not file_url:
+                return error("Please select a document file to upload.", 400)
+
+        # Check if re-uploading an existing document
+        target_doc = None
+        if doc_id:
+            target_doc = db.find("documents", int(doc_id))
+            if not target_doc:
+                return error("Document not found for re-upload.", 404)
+        else:
+            # Check if user has an existing document of this type that was rejected
+            existing_user_docs = [
+                d for d in (db.read("documents") or [])
+                if (d.get("employeeId") == admin["id"] or (d.get("employeeEmail") and d.get("employeeEmail", "").lower() == admin.get("email", "").lower()))
+                and (d.get("docType") == doc_type or d.get("title") == doc_type)
+                and not d.get("isCompanyPolicy", False)
+            ]
+            if existing_user_docs:
+                target_doc = sorted(existing_user_docs, key=lambda x: x.get("createdAt", ""), reverse=True)[0]
+
+        is_reupload = target_doc is not None
+        if target_doc:
+            history = target_doc.get("history") or []
+            history.append({
+                "action": "reuploaded_after_rejection" if target_doc.get("status") == "rejected" else "updated",
+                "by": admin.get("name"),
+                "role": admin.get("role"),
+                "at": _now_iso(),
+                "previousStatus": target_doc.get("status"),
+                "previousReason": target_doc.get("rejectionReason"),
+                "fileName": original_name or target_doc.get("fileName"),
+            })
+            update_payload = {
+                "fileUrl": file_url,
+                "fileName": original_name or target_doc.get("fileName") or "document.pdf",
+                "fileSize": file_size_str,
+                "status": "pending",             # Resets status to pending review!
+                "verified": False,
+                "rejectionReason": None,         # Clears previous rejection reason
+                "reviewedBy": None,
+                "reviewedById": None,
+                "reviewedRole": None,
+                "reviewedAt": None,
+                "notes": notes or target_doc.get("notes"),
+                "expiryDate": expiry_date or target_doc.get("expiryDate"),
+                "version": (target_doc.get("version") or 1) + 1,
+                "updatedAt": _now_iso(),
+                "uploadedAt": _now_iso(),
+                "history": history,
+            }
+            if title: update_payload["title"] = title
+            if category: update_payload["category"] = category
+            db.update("documents", target_doc["id"], update_payload)
+            res_doc = db.find("documents", target_doc["id"])
+        else:
+            new_doc = {
+                "employeeId": admin["id"],
+                "employeeName": clean(admin.get("name", "Staff"), 150),
+                "employeeEmail": clean(admin.get("email", ""), 255).lower(),
+                "employeeRole": clean(admin.get("role", "employee"), 50),
+                "docType": doc_type,
+                "title": title or doc_type,
+                "category": category,
+                "fileUrl": file_url,
+                "fileName": original_name or (doc_type + ".pdf"),
+                "fileSize": file_size_str,
+                "expiryDate": expiry_date,
+                "status": "pending",             # Initial status: pending manager review
+                "verified": False,
+                "rejectionReason": None,
+                "reviewedBy": None,
+                "reviewedById": None,
+                "reviewedRole": None,
+                "reviewedAt": None,
+                "version": 1,
+                "notes": notes,
+                "history": [{
+                    "action": "uploaded",
+                    "by": admin.get("name"),
+                    "at": _now_iso(),
+                }],
+                "isCompanyPolicy": False,
+                "isConfidential": False,
+                "acknowledgedBy": [],
+                "createdAt": _now_iso(),
+                "uploadedAt": _now_iso(),
+                "updatedAt": _now_iso(),
+            }
+            res_doc = db.insert("documents", new_doc)
+
+        # Notify HR & Managers for verification
+        db.insert("notifications", {
+            "role": "hr_manager",
+            "title": f"Document {'Re-uploaded' if is_reupload else 'Submitted'} for Verification",
+            "message": f"{admin.get('name')} ({admin.get('role', 'employee')}) submitted '{doc_type}' for review.",
+            "category": "document",
+            "read": False,
+            "createdAt": _now_iso(),
+        })
+
+        audit(admin, "document_uploaded", f"{doc_type} (version {res_doc.get('version', 1)})")
+        return jsonify(res_doc), 201
 
     @app.post("/api/documents")
     @app.post("/api/documents/all")
     @admin_required
     def upload_document_record():
+        # Fallback supporting JSON payload as well
+        if request.files.get("file"):
+            return upload_document_file()
+
         data = request.get_json(silent=True) or {}
         title = clean(data.get("title", ""), 200)
         file_url = clean(data.get("fileUrl", ""), 255) or "/api/admin/files/document_placeholder.pdf"
@@ -1553,21 +1822,116 @@ def register_hrms_routes(app, deps):
 
         admin = request.admin
         is_policy = bool(data.get("isCompanyPolicy", False))
+        doc_type = clean(data.get("docType") or title, 150)
         doc = db.insert("documents", {
             "employeeId": data.get("employeeId") if not is_policy else None,
-            "employeeName": clean(data.get("employeeName", ""), 150) if not is_policy else None,
+            "employeeName": clean(data.get("employeeName", admin.get("name", "")), 150) if not is_policy else None,
+            "employeeEmail": clean(data.get("employeeEmail", admin.get("email", "")), 255).lower() if not is_policy else None,
+            "docType": doc_type,
             "title": title,
             "category": clean(data.get("category", "policy" if is_policy else "other"), 50),
             "fileUrl": file_url,
+            "fileName": clean(data.get("fileName", title + ".pdf"), 150),
             "fileSize": clean(data.get("fileSize", "1.1 MB"), 50),
             "expiryDate": clean(data.get("expiryDate", ""), 20) or None,
+            "status": "approved" if is_policy else "pending",
+            "verified": is_policy,
+            "rejectionReason": None,
+            "version": 1,
             "isConfidential": bool(data.get("isConfidential", False)),
             "isCompanyPolicy": is_policy,
             "acknowledgedBy": [],
             "createdAt": _now_iso(),
+            "uploadedAt": _now_iso(),
+            "updatedAt": _now_iso(),
         })
         audit(admin, "document_uploaded", title)
         return jsonify(doc), 201
+
+    @app.post("/api/documents/<int:doc_id>/approve")
+    @role_required("team_lead", "manager", "hr_manager")
+    def approve_document(doc_id):
+        d = db.find("documents", doc_id)
+        if not d:
+            return error("Document not found.", 404)
+        data = request.get_json(silent=True) or {}
+        notes = clean(data.get("notes", ""), 255)
+        admin = request.admin
+        history = d.get("history") or []
+        history.append({
+            "action": "approved",
+            "by": admin.get("name"),
+            "role": admin.get("role"),
+            "at": _now_iso(),
+            "notes": notes,
+        })
+        db.update("documents", doc_id, {
+            "status": "approved",
+            "verified": True,
+            "reviewedBy": admin.get("name"),
+            "reviewedById": admin.get("id"),
+            "reviewedRole": admin.get("role"),
+            "reviewedAt": _now_iso(),
+            "rejectionReason": None,
+            "approvalNotes": notes,
+            "history": history,
+            "updatedAt": _now_iso(),
+        })
+        # Send instant notification to the employee
+        if d.get("employeeId"):
+            db.insert("notifications", {
+                "userId": d.get("employeeId"),
+                "userEmail": d.get("employeeEmail"),
+                "title": "Document Approved ✓",
+                "message": f"Your document '{d.get('title')}' was verified and approved by {admin.get('name')}.",
+                "category": "document",
+                "read": False,
+                "createdAt": _now_iso(),
+            })
+        audit(admin, "document_approved", d.get("title", ""))
+        return jsonify({"message": "Document approved successfully.", "status": "approved", "docId": doc_id})
+
+    @app.post("/api/documents/<int:doc_id>/reject")
+    @role_required("team_lead", "manager", "hr_manager")
+    def reject_document(doc_id):
+        d = db.find("documents", doc_id)
+        if not d:
+            return error("Document not found.", 404)
+        data = request.get_json(silent=True) or {}
+        reason = clean(data.get("reason", ""), 350) or "Document did not meet verification criteria. Please re-upload a clear and valid copy."
+        admin = request.admin
+        history = d.get("history") or []
+        history.append({
+            "action": "rejected",
+            "by": admin.get("name"),
+            "role": admin.get("role"),
+            "at": _now_iso(),
+            "reason": reason,
+        })
+        db.update("documents", doc_id, {
+            "status": "rejected",
+            "verified": False,
+            "reviewedBy": admin.get("name"),
+            "reviewedById": admin.get("id"),
+            "reviewedRole": admin.get("role"),
+            "reviewedAt": _now_iso(),
+            "rejectionReason": reason,
+            "history": history,
+            "updatedAt": _now_iso(),
+        })
+        # Notify the employee with the exact reason so they can re-upload
+        if d.get("employeeId"):
+            db.insert("notifications", {
+                "userId": d.get("employeeId"),
+                "userEmail": d.get("employeeEmail"),
+                "title": "Document Verification Rejected ⚠️",
+                "message": f"Your document '{d.get('title')}' was rejected by {admin.get('name')}: \"{reason}\". Please re-upload it in My Documents.",
+                "category": "document",
+                "read": False,
+                "createdAt": _now_iso(),
+            })
+        audit(admin, "document_rejected", f"{d.get('title')} ({reason})")
+        return jsonify({"message": "Document rejected.", "status": "rejected", "rejectionReason": reason, "docId": doc_id})
 
     @app.delete("/api/documents/<int:doc_id>")
     @role_required("hr_manager")

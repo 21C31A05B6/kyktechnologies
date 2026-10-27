@@ -506,6 +506,10 @@ _FILE_SIGNATURES = {
     ".pdf":  [b"%PDF-"],
     ".doc":  [b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"],
     ".docx": [b"PK\x03\x04"],
+    ".jpg":  [b"\xff\xd8\xff"],
+    ".jpeg": [b"\xff\xd8\xff"],
+    ".png":  [b"\x89PNG\r\n\x1a\n"],
+    ".webp": [b"RIFF"],
 }
 
 
@@ -2970,6 +2974,7 @@ hrms_api.register_hrms_routes(app, {
     "SHIFT_SCHEDULES": SHIFT_SCHEDULES,
     "COMPANY_TZ": COMPANY_TZ,
     "_revoke_session": _revoke_session,
+    "UPLOAD_DIR": UPLOAD_DIR,
 })
 
 

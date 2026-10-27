@@ -299,6 +299,12 @@ function showDashboard(d){
   if(d.role === 'viewer' || d.role === 'user'){
     activeTabs = activeTabs.filter(t => t !== 'communication');
   }
+  if(isHrms && isHrmsRole(d.role)){
+    if(!activeTabs.includes('my_documents')) activeTabs.push('my_documents');
+    if(['super_admin', 'admin', 'hr_manager', 'hr', 'team_lead', 'manager'].includes(d.role)){
+      if(!activeTabs.includes('documents')) activeTabs.push('documents');
+    }
+  }
   if(!activeTabs.includes('overview') && userTabs.includes('overview')){
     activeTabs.unshift('overview');
   }
@@ -531,24 +537,103 @@ function ensureRolePanels(tabs){
       </div>
       <div id="onboardingList"></div>`,
     documents:`
-      <div class="panel-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <h3>Corporate Document Vault</h3>
-        <button class="btn btn-primary btn-sm" id="addDocBtn">+ Upload Document Record</button>
+      <div class="panel-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h3 style="margin:0;">Document Vault &amp; Employee Verification</h3>
+          <p style="margin:4px 0 0;font-size:0.84rem;color:var(--steel-light);">Manager &amp; Admin verification desk: Review, approve, or reject employee credentials and compliance files.</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" id="addDocBtn">+ Upload Corporate Record</button>
+          <button class="btn btn-outline btn-sm" id="refreshDocsBtn">Refresh</button>
+        </div>
       </div>
-      <div class="filter-bar">
-        <select id="docCategoryFilter"><option value="">All Categories</option><option value="identity">Identity (Aadhaar / PAN)</option><option value="educational">Educational</option><option value="contract">Employment Contract</option><option value="tax">Tax &amp; Bank</option><option value="policy">Company Policy</option></select>
-        <button class="btn btn-outline btn-sm" id="refreshDocsBtn">Refresh</button>
+      <div class="stat-cards" id="docsReviewStats" style="margin-bottom:20px;"></div>
+      <div class="filter-bar" style="margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <select id="docStatusFilter">
+          <option value="">All Verification Statuses</option>
+          <option value="pending" selected>⏳ Pending Review Only</option>
+          <option value="approved">✓ Approved / Verified</option>
+          <option value="rejected">✗ Rejected</option>
+        </select>
+        <select id="docCategoryFilter">
+          <option value="">All Categories</option>
+          <option value="career">Career / Resume</option>
+          <option value="identity">Identity (Aadhaar / PAN / Passport)</option>
+          <option value="joining">Joining &amp; Offer Letters</option>
+          <option value="contract">Employment Agreement</option>
+          <option value="educational">Educational Certificates</option>
+          <option value="experience">Experience &amp; Relieving</option>
+          <option value="financial">Salary &amp; Bank Details</option>
+          <option value="policy">Company Policy</option>
+        </select>
+        <input id="docSearchQuery" placeholder="Search employee name, code, title…" style="max-width:240px;"/>
+        <button class="btn btn-outline btn-sm" id="applyDocsFilterBtn">Filter</button>
       </div>
       <div id="docExpiryAlert" style="display:none;background:rgba(229,169,59,.15);border:1px solid #e5a93b;border-radius:8px;padding:12px;margin-bottom:16px;color:#e5a93b;"></div>
-      <table><thead><tr><th>Title</th><th>Category</th><th>Employee</th><th>Expiry Date</th><th>Status</th><th>Actions</th></tr></thead><tbody id="docsBody"></tbody></table>`,
+      <table>
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Document Type / Title</th>
+            <th>Category</th>
+            <th>Version</th>
+            <th>Uploaded Date</th>
+            <th>Status</th>
+            <th>File</th>
+            <th>Manager Review &amp; Actions</th>
+          </tr>
+        </thead>
+        <tbody id="docsBody"></tbody>
+      </table>`,
     my_documents:`
-      <div class="panel-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <h3>My Documents &amp; Policy Acknowledgment</h3>
+      <div class="panel-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h3 style="margin:0;">My Documents &amp; Policy Acknowledgment</h3>
+          <p style="margin:4px 0 0;font-size:0.84rem;color:var(--steel-light);">Upload your mandatory credentials (Resume, ID Proof, Aadhaar, PAN, Certificates, Slips, etc.) for manager/admin verification.</p>
+        </div>
+        <button class="btn btn-primary btn-sm" id="myDocUploadBtn" style="display:flex;align-items:center;gap:6px;">
+          <span>📤</span> <span>Upload Document</span>
+        </button>
       </div>
-      <h4>Company Policies &amp; Agreements</h4>
-      <div id="policiesList" style="margin-bottom:28px;"></div>
-      <h4>My Uploaded Credentials</h4>
-      <table><thead><tr><th>Document</th><th>Category</th><th>Expiry Date</th><th>Status</th></tr></thead><tbody id="myDocsBody"></tbody></table>`,
+      <div class="stat-cards" id="myDocsStats" style="margin-bottom:20px;"></div>
+      <div id="myDocRejectionBanner" style="display:none;background:rgba(226,92,92,0.12);border:1px solid #e25c5c;border-radius:12px;padding:16px;margin-bottom:22px;">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <span style="font-size:1.6rem;line-height:1;">⚠️</span>
+          <div>
+            <h4 style="margin:0 0 6px;color:#e25c5c;font-size:1rem;">Document(s) Rejected — Action Required</h4>
+            <div id="myDocRejectionList" style="font-size:0.86rem;color:var(--steel-light);"></div>
+          </div>
+        </div>
+      </div>
+      <div class="hrms-section" style="margin-bottom:28px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <h4 style="margin:0;font-size:1.05rem;">Employment Verification Credentials (16 Official Slots)</h4>
+          <span id="checklistCompletionBadge" class="badge badge-pending">Loading…</span>
+        </div>
+        <p style="font-size:0.8rem;color:var(--steel-light);margin-top:0;margin-bottom:14px;">Review all 16 required documents. If any document is marked "Rejected" by your manager or admin, click "Re-upload" to submit an updated copy.</p>
+        <div id="mandatoryDocsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;"></div>
+      </div>
+      <div class="hrms-section" style="margin-bottom:28px;">
+        <h4 style="margin-bottom:12px;font-size:1.05rem;">All Uploaded Documents &amp; Version History</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Category</th>
+              <th>Version</th>
+              <th>Uploaded On</th>
+              <th>Status</th>
+              <th>Reviewer Notes / Feedback</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="myDocsBody"></tbody>
+        </table>
+      </div>
+      <div class="hrms-section">
+        <h4 style="margin-bottom:12px;font-size:1.05rem;">Company Policies &amp; Agreements</h4>
+        <div id="policiesList"></div>
+      </div>`,
     lifecycle:`
       <div class="panel-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <h3>Employee Offboarding &amp; Exit Management</h3>
@@ -3160,16 +3245,45 @@ async function completeOnboardingTask(id){
   }catch(e){ alert(e.message); }
 }
 
-/* ── Module 8: Document Vault ── */
+/* ── Module 8: Document Vault & Review Desk ── */
 async function loadDocuments(){
   try{
-    const docs = await api('/documents/all');
-    const filter = $('docCategoryFilter')?.value || '';
-    const filtered = filter ? docs.filter(d=>d.category===filter) : docs;
+    const statusVal = $('docStatusFilter')?.value || '';
+    const catVal = $('docCategoryFilter')?.value || '';
+    const qVal = $('docSearchQuery')?.value || '';
+    const query = new URLSearchParams();
+    if(statusVal) query.set('status', statusVal);
+    if(catVal) query.set('category', catVal);
+    if(qVal) query.set('q', qVal);
+
+    const docs = await api('/documents/all?' + query.toString());
+    const allDocs = await api('/documents/all');
+
+    // Update stats cards
+    const statsBox = $('docsReviewStats');
+    if(statsBox){
+      statsBox.innerHTML = '';
+      const total = allDocs.length;
+      const pending = allDocs.filter(d=>d.status==='pending' || (!d.verified && !d.status)).length;
+      const approved = allDocs.filter(d=>d.status==='approved' || d.verified).length;
+      const rejected = allDocs.filter(d=>d.status==='rejected').length;
+
+      [
+        [total, 'Total Documents', 'var(--steel-light)'],
+        [pending, '⏳ Pending Review', '#e5a93b'],
+        [approved, '✓ Approved / Verified', '#38d273'],
+        [rejected, '✗ Rejected Submissions', '#e25c5c']
+      ].forEach(([val, label, color])=>{
+        const card = document.createElement('div');
+        card.className = 'stat-card glass-glow';
+        card.innerHTML = `<b style="color:${color};">${val}</b><span>${label}</span>`;
+        statsBox.appendChild(card);
+      });
+    }
 
     const alertBox = $('docExpiryAlert');
     if(alertBox){
-      const expiring = docs.filter(d=>d.expiringSoon || d.daysToExpiry <= 30);
+      const expiring = allDocs.filter(d=>d.expiringSoon || (d.daysToExpiry !== undefined && d.daysToExpiry <= 30));
       if(expiring.length){
         alertBox.style.display = 'block';
         alertBox.innerHTML = `⚠️ <b>${expiring.length} document(s) expiring within 30 days!</b> (${expiring.map(x=>x.title).join(', ')})`;
@@ -3181,72 +3295,322 @@ async function loadDocuments(){
     const tbody = $('docsBody');
     if(tbody){
       tbody.innerHTML = '';
-      if(!filtered.length){ tbody.innerHTML = '<tr><td colspan="6">No documents found.</td></tr>'; }
-      filtered.forEach(d=>{
+      if(!docs.length){
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--steel-light);">No documents matching filter criteria.</td></tr>';
+      }
+      docs.forEach(d=>{
         const tr = document.createElement('tr');
-        const badge = d.verified ? '<span class="badge badge-published">Verified</span>' : '<span class="badge badge-pending">Pending Review</span>';
+        const st = (d.status || (d.verified ? 'approved' : 'pending')).toLowerCase();
+        let badge = '<span class="badge badge-pending">⏳ Pending Review</span>';
+        if(st === 'approved') badge = '<span class="badge badge-published">✓ Approved</span>';
+        if(st === 'rejected') badge = '<span class="badge badge-rejected">✗ Rejected</span>';
+
+        const fileLink = d.fileUrl ?
+          `<a href="${esc(d.fileUrl)}${d.fileUrl.includes('?')?'&':'?'}token=${encodeURIComponent(gToken)}" target="_blank" rel="noopener" style="color:var(--orange);font-weight:600;display:inline-flex;align-items:center;gap:4px;">👁️ View File</a>` :
+          '—';
+
+        let reviewerDetails = '—';
+        if(st === 'approved' && d.reviewedBy){
+          reviewerDetails = `<small style="color:var(--steel-light);">Approved by <b>${esc(d.reviewedBy)}</b></small>`;
+        } else if(st === 'rejected'){
+          reviewerDetails = `<div style="max-width:220px;color:#e25c5c;font-size:0.78rem;"><b>Reason:</b> ${esc(d.rejectionReason||'Did not meet criteria')}</div>`;
+        }
+
+        let actionBtns = `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-sm btn-primary" onclick="approveDocument(${d.id})" title="Approve this document" style="background:#38d273;border-color:#38d273;padding:4px 10px;font-size:0.75rem;">✓ Approve</button>
+            <button class="btn btn-sm btn-outline" onclick="openRejectDocModal(${d.id}, '${esc(d.title)}')" title="Reject this document with feedback" style="color:#e25c5c;border-color:rgba(226,92,92,0.4);padding:4px 10px;font-size:0.75rem;">✗ Reject</button>
+          </div>
+        `;
+        if(st === 'approved'){
+          actionBtns = `
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="color:#38d273;font-size:0.8rem;font-weight:600;">✓ Verified</span>
+              <button class="btn btn-sm btn-outline" onclick="openRejectDocModal(${d.id}, '${esc(d.title)}')" style="color:#e25c5c;padding:2px 8px;font-size:0.72rem;">Revoke</button>
+            </div>
+          `;
+        } else if(st === 'rejected'){
+          actionBtns = `
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button class="btn btn-sm btn-outline" onclick="approveDocument(${d.id})" style="color:#38d273;padding:3px 8px;font-size:0.75rem;">Change to Approve</button>
+            </div>
+          `;
+        }
+
         tr.innerHTML = `
-          <td><b>${esc(d.title)}</b></td>
-          <td><span class="badge badge-draft">${esc(d.category)}</span></td>
-          <td>${esc(d.employeeName||'All Company')}</td>
-          <td>${esc(d.expiryDate||'No Expiry')}${d.expiringSoon ? ' <span style="color:#e5a93b;font-weight:700;">(Expiring Soon)</span>' : ''}</td>
-          <td>${badge}</td>
-          <td>${d.fileUrl ? `<a href="${esc(d.fileUrl)}" target="_blank" style="color:var(--orange);">View Doc</a>` : '—'}</td>
+          <td>
+            <b>${esc(d.employeeName||'Staff')}</b><br/>
+            <small style="color:var(--steel-light);">${esc(d.employeeRole||'Employee')}</small>
+          </td>
+          <td>
+            <b>${esc(d.docType||d.title)}</b><br/>
+            <small style="color:var(--steel-light);">${esc(d.fileName||d.title)} (${esc(d.fileSize||'—')})</small>
+          </td>
+          <td><span class="badge badge-draft">${esc(d.category||'other')}</span></td>
+          <td><span class="badge badge-draft">v${d.version||1}</span></td>
+          <td>${esc((d.uploadedAt||d.createdAt||'').slice(0,10) || '—')}</td>
+          <td>${badge}<br/>${reviewerDetails}</td>
+          <td>${fileLink}</td>
+          <td>${actionBtns}</td>
         `;
         tbody.appendChild(tr);
       });
     }
 
     on('addDocBtn', 'click', () => {
-      openHrmsModal('Add Corporate Document Record', `
-        <form id="addDocForm" style="display:flex;flex-direction:column;gap:12px;">
-          <div class="field"><label>Document Title *</label><input id="docTitle" required/></div>
-          <div class="field"><label>Category *</label>
-            <select id="docCat">
-              <option value="identity">Identity (Aadhaar / PAN)</option>
-              <option value="educational">Educational</option>
-              <option value="contract">Employment Contract</option>
-              <option value="tax">Tax &amp; Bank Details</option>
-              <option value="policy">Company Policy</option>
-            </select>
-          </div>
-          <div class="field"><label>Employee Name / Scope</label><input id="docEmp" value="All Company"/></div>
-          <div class="field"><label>Expiry Date</label><input type="date" id="docExp"/></div>
-          <button type="submit" class="btn btn-primary">Save Document Record</button>
-          <div class="form-msg" id="docMsg"></div>
-        </form>
-      `);
-      $('addDocForm').addEventListener('submit', async(e)=>{
-        e.preventDefault();
-        try{
-          await api('/documents/all', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({
-              title:$('docTitle').value,
-              category:$('docCat').value,
-              employeeName:$('docEmp').value,
-              expiryDate:$('docExp').value
-            })
-          });
-          closeHrmsModal(); loadDocuments();
-        }catch(err){ setFormMsg($('docMsg'), err.message, false); }
-      });
+      openDocUploadModal('', null, '', true);
     });
 
     on('docCategoryFilter', 'change', loadDocuments);
+    on('docStatusFilter', 'change', loadDocuments);
+    on('applyDocsFilterBtn', 'click', loadDocuments);
     on('refreshDocsBtn', 'click', loadDocuments);
   }catch(e){console.error(e);}
 }
 
-/* ── Module 8: My Documents ── */
+async function approveDocument(docId){
+  try{
+    await api('/documents/' + docId + '/approve', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({notes: 'Verified and approved by manager/admin'})
+    });
+    loadDocuments();
+    if($('panel-my_documents')?.classList.contains('active')) loadMyDocuments();
+  }catch(e){ alert(e.message); }
+}
+
+function openRejectDocModal(docId, docTitle){
+  openHrmsModal(`Reject Document — ${esc(docTitle)}`, `
+    <form id="rejectDocForm" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="background:rgba(226,92,92,0.1);border-left:4px solid #e25c5c;padding:10px 14px;border-radius:6px;">
+        <p style="margin:0;font-size:0.84rem;color:#e25c5c;">
+          When you reject this document, the employee will receive an instant notification with your feedback and will be asked to re-upload a corrected file.
+        </p>
+      </div>
+      <div class="field">
+        <label>Select Common Rejection Reason</label>
+        <select id="commonRejectReason" onchange="if(this.value)$('rejectReasonInput').value=this.value;">
+          <option value="">-- Choose reason or write below --</option>
+          <option value="Document scan / photo is blurry and illegible. Please re-upload a clear copy.">Blurry or unreadable scan</option>
+          <option value="Document has expired. Please re-upload a currently valid document.">Expired document</option>
+          <option value="Official signature / company seal is missing. Please re-upload signed copy.">Missing signature or seal</option>
+          <option value="Incorrect document uploaded under this category. Please re-upload the correct file.">Incorrect document uploaded</option>
+          <option value="Incomplete document. Please upload all pages (front and back / all semesters).">Incomplete / missing pages</option>
+          <option value="Name / details on document do not match employee records.">Name / detail mismatch</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Feedback &amp; Instructions for Re-upload *</label>
+        <textarea id="rejectReasonInput" rows="3" required placeholder="Specify why the document is rejected and what the employee should fix when re-uploading…"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary" style="background:#e25c5c;border-color:#e25c5c;">Confirm Rejection &amp; Notify Employee</button>
+      <div class="form-msg" id="rejectDocMsg"></div>
+    </form>
+  `);
+
+  $('rejectDocForm').addEventListener('submit', async(e)=>{
+    e.preventDefault();
+    const reason = $('rejectReasonInput').value.trim();
+    if(!reason){ setFormMsg($('rejectDocMsg'), 'Please enter a rejection reason.', false); return; }
+    try{
+      await api('/documents/' + docId + '/reject', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({reason})
+      });
+      closeHrmsModal();
+      loadDocuments();
+      if($('panel-my_documents')?.classList.contains('active')) loadMyDocuments();
+    }catch(err){
+      setFormMsg($('rejectDocMsg'), err.message, false);
+    }
+  });
+}
+
+/* ── Module 8: My Documents & Policies ── */
 async function loadMyDocuments(){
   try{
-    const [myDocs, policies] = await Promise.all([
-      api('/documents/my'),
-      api('/documents/policies')
-    ]);
+    const res = await api('/documents/my');
+    const myDocs = res.documents || [];
+    const checklist = res.checklist || [];
+    const policies = res.policies || [];
+    const stats = res.stats || {};
 
+    // 1. Render Stats
+    const statsBox = $('myDocsStats');
+    if(statsBox){
+      statsBox.innerHTML = '';
+      [
+        [stats.totalUploaded || myDocs.length, 'Total Uploaded', 'var(--steel-light)'],
+        [stats.approvedCount || 0, '✓ Approved / Verified', '#38d273'],
+        [stats.pendingCount || 0, '⏳ Pending Manager Review', '#e5a93b'],
+        [stats.rejectedCount || 0, '⚠️ Action Required (Rejected)', stats.rejectedCount > 0 ? '#e25c5c' : 'var(--steel-light)']
+      ].forEach(([val, label, color])=>{
+        const card = document.createElement('div');
+        card.className = 'stat-card glass-glow';
+        if(label.includes('Rejected') && val > 0){
+          card.style.border = '1px solid #e25c5c';
+          card.style.background = 'rgba(226,92,92,0.08)';
+        }
+        card.innerHTML = `<b style="color:${color};">${val}</b><span>${label}</span>`;
+        statsBox.appendChild(card);
+      });
+    }
+
+    // 2. Rejection Banner (If any document is rejected)
+    const rejBanner = $('myDocRejectionBanner');
+    const rejList = $('myDocRejectionList');
+    const rejectedItems = checklist.filter(c=>c.status==='rejected');
+    if(rejBanner && rejList){
+      if(rejectedItems.length){
+        rejBanner.style.display = 'block';
+        rejList.innerHTML = rejectedItems.map(item => `
+          <div style="margin-top:8px;padding:8px 12px;background:rgba(255,255,255,0.04);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div>
+              <b style="color:var(--ink);">${esc(item.type)}:</b>
+              <span style="color:#e25c5c;"> "${esc(item.rejectionReason||'Needs review')}"</span>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="openDocUploadModal('${esc(item.type)}', ${item.document ? item.document.id : 'null'}, '${esc(item.rejectionReason||'')}')" style="background:#e25c5c;border-color:#e25c5c;padding:3px 10px;font-size:0.75rem;">
+              🔄 Re-upload Document
+            </button>
+          </div>
+        `).join('');
+      } else {
+        rejBanner.style.display = 'none';
+      }
+    }
+
+    // 3. Checklist Badge
+    const compBadge = $('checklistCompletionBadge');
+    if(compBadge){
+      const uploadedCount = checklist.filter(c=>c.isUploaded).length;
+      compBadge.textContent = `${uploadedCount} of ${checklist.length} Uploaded`;
+      compBadge.className = 'badge ' + (uploadedCount === checklist.length ? 'badge-published' : 'badge-pending');
+    }
+
+    // 4. Render 16 Mandatory Document Slots Grid
+    const grid = $('mandatoryDocsGrid');
+    if(grid){
+      grid.innerHTML = '';
+      checklist.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'form-card glass-glow';
+        card.style.display = 'flex';
+        card.style.flexDirection = 'column';
+        card.style.justifyContent = 'space-between';
+        card.style.padding = '16px';
+        card.style.margin = '0';
+        card.style.borderRadius = '12px';
+
+        let statusBadge = '<span class="badge badge-draft">Not Uploaded</span>';
+        if(item.status === 'approved') statusBadge = '<span class="badge badge-published">✓ Approved / OK</span>';
+        else if(item.status === 'pending') statusBadge = '<span class="badge badge-pending">⏳ Pending Review</span>';
+        else if(item.status === 'rejected') {
+          statusBadge = '<span class="badge badge-rejected" style="box-shadow:0 0 8px rgba(226,92,92,0.3);">✗ Rejected</span>';
+          card.style.border = '1px solid rgba(226,92,92,0.4)';
+        }
+
+        let buttonArea = '';
+        if(item.status === 'rejected'){
+          buttonArea = `
+            <div style="margin-top:10px;padding:8px;background:rgba(226,92,92,0.1);border-radius:6px;border-left:3px solid #e25c5c;">
+              <small style="color:#e25c5c;display:block;margin-bottom:6px;"><b>Reviewer Feedback:</b> ${esc(item.rejectionReason||'Did not meet criteria')}</small>
+              <button class="btn btn-sm btn-primary" onclick="openDocUploadModal('${esc(item.type)}', ${item.document ? item.document.id : 'null'}, '${esc(item.rejectionReason||'')}')" style="width:100%;background:#e25c5c;border-color:#e25c5c;font-weight:600;">
+                🔄 Re-upload ${esc(item.type)}
+              </button>
+            </div>
+          `;
+        } else if(item.status === 'not_uploaded'){
+          buttonArea = `
+            <div style="margin-top:12px;">
+              <button class="btn btn-sm btn-outline" onclick="openDocUploadModal('${esc(item.type)}')" style="width:100%;">
+                📤 Upload Document
+              </button>
+            </div>
+          `;
+        } else if(item.status === 'pending'){
+          buttonArea = `
+            <div style="margin-top:12px;display:flex;gap:8px;">
+              <a href="${esc(item.document.fileUrl)}${item.document.fileUrl.includes('?')?'&':'?'}token=${encodeURIComponent(gToken)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline" style="flex:1;text-align:center;">👁️ View File</a>
+              <button class="btn btn-sm btn-outline" onclick="openDocUploadModal('${esc(item.type)}', ${item.document.id})" title="Update or replace file">🔄 Replace</button>
+            </div>
+          `;
+        } else if(item.status === 'approved'){
+          buttonArea = `
+            <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+              <a href="${esc(item.document.fileUrl)}${item.document.fileUrl.includes('?')?'&':'?'}token=${encodeURIComponent(gToken)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline" style="flex:1;text-align:center;color:#38d273;border-color:rgba(56,210,115,0.4);">✓ View Verified File</a>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+              <span style="font-size:1.6rem;">${item.icon || '📄'}</span>
+              ${statusBadge}
+            </div>
+            <h4 style="margin:0 0 4px;font-size:0.96rem;">${esc(item.type)}</h4>
+            <p style="margin:0;font-size:0.78rem;color:var(--steel-light);line-height:1.35;">${esc(item.description)}</p>
+            ${item.document ? `<small style="display:block;margin-top:6px;font-size:0.74rem;color:var(--steel-light);">Version: v${item.document.version||1} &bull; ${esc(item.document.fileSize||'')}</small>` : ''}
+          </div>
+          ${buttonArea}
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    // 5. Render Upload History Table
+    const tbody = $('myDocsBody');
+    if(tbody){
+      tbody.innerHTML = '';
+      if(!myDocs.length){
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--steel-light);">No documents uploaded yet. Click "Upload Document" to begin.</td></tr>';
+      }
+      myDocs.forEach(d=>{
+        const tr = document.createElement('tr');
+        const st = (d.status || (d.verified ? 'approved' : 'pending')).toLowerCase();
+        let badge = '<span class="badge badge-pending">⏳ Pending Review</span>';
+        if(st === 'approved') badge = '<span class="badge badge-published">✓ Approved</span>';
+        if(st === 'rejected') badge = '<span class="badge badge-rejected">✗ Rejected</span>';
+
+        const fileLink = d.fileUrl ?
+          `<a href="${esc(d.fileUrl)}${d.fileUrl.includes('?')?'&':'?'}token=${encodeURIComponent(gToken)}" target="_blank" rel="noopener" style="color:var(--orange);font-weight:600;">👁️ View</a>` :
+          '—';
+
+        let notes = '—';
+        if(st === 'rejected'){
+          notes = `<span style="color:#e25c5c;font-size:0.8rem;"><b>Rejected:</b> ${esc(d.rejectionReason||'Needs re-upload')}</span>`;
+        } else if(st === 'approved' && d.reviewedBy){
+          notes = `<span style="color:#38d273;font-size:0.8rem;">Approved by ${esc(d.reviewedBy)}</span>`;
+        }
+
+        let actionBtn = fileLink;
+        if(st === 'rejected'){
+          actionBtn = `
+            <div style="display:flex;gap:6px;align-items:center;">
+              ${fileLink}
+              <button class="btn btn-sm btn-primary" onclick="openDocUploadModal('${esc(d.docType||d.title)}', ${d.id}, '${esc(d.rejectionReason||'')}')" style="background:#e25c5c;border-color:#e25c5c;padding:3px 8px;font-size:0.75rem;">
+                🔄 Re-upload
+              </button>
+            </div>
+          `;
+        }
+
+        tr.innerHTML = `
+          <td><b>${esc(d.title)}</b><br/><small style="color:var(--steel-light);">${esc(d.fileName||'')}</small></td>
+          <td><span class="badge badge-draft">${esc(d.category||'other')}</span></td>
+          <td><span class="badge badge-draft">v${d.version||1}</span></td>
+          <td>${esc((d.uploadedAt||d.createdAt||'').slice(0,10) || '—')}</td>
+          <td>${badge}</td>
+          <td>${notes}</td>
+          <td>${actionBtn}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // 6. Render Company Policies
     const polBox = $('policiesList');
     if(polBox){
       polBox.innerHTML = '';
@@ -3256,10 +3620,10 @@ async function loadMyDocuments(){
         item.className = 'form-card';
         item.style.marginBottom = '12px';
         item.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
             <div>
               <h4 style="margin:0 0 4px;">${esc(p.title)}</h4>
-              <p style="margin:0;font-size:0.8rem;color:var(--steel-light);">${esc(p.description||'Corporate governance guideline')}</p>
+              <p style="margin:0;font-size:0.8rem;color:var(--steel-light);">${esc(p.description||'Corporate governance & code of conduct')}</p>
             </div>
             ${p.acknowledged ?
               '<span class="badge badge-published">✓ Acknowledged</span>' :
@@ -3271,22 +3635,162 @@ async function loadMyDocuments(){
       });
     }
 
-    const tbody = $('myDocsBody');
-    if(tbody){
-      tbody.innerHTML = '';
-      if(!myDocs.length){ tbody.innerHTML = '<tr><td colspan="4">No personal credentials uploaded yet.</td></tr>'; }
-      myDocs.forEach(d=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><b>${esc(d.title)}</b></td>
-          <td><span class="badge badge-draft">${esc(d.category)}</span></td>
-          <td>${esc(d.expiryDate||'No Expiry')}</td>
-          <td><span class="badge badge-published">Verified</span></td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
+    on('myDocUploadBtn', 'click', () => {
+      openDocUploadModal();
+    });
+
   }catch(e){console.error(e);}
+}
+
+function openDocUploadModal(prefillType='', docId=null, previousReason='', isCorporate=false){
+  const standardTypes = [
+    "Employee Resume / CV",
+    "Offer Letter",
+    "Appointment Letter",
+    "Employment Agreement",
+    "Joining Letter",
+    "Employee ID Proof",
+    "Aadhaar Card",
+    "PAN Card",
+    "Passport",
+    "Address Proof",
+    "Educational Certificates",
+    "Experience Certificates",
+    "Relieving Letter",
+    "Resignation Letter",
+    "Salary Slips",
+    "Bank Account Details Form"
+  ];
+
+  const typeOptions = standardTypes.map(t =>
+    `<option value="${esc(t)}" ${t.toLowerCase() === (prefillType||'').toLowerCase() ? 'selected' : ''}>${esc(t)}</option>`
+  ).join('');
+
+  const modalTitle = docId ? `Re-upload Document — ${esc(prefillType||'Update')}` : (prefillType ? `Upload ${esc(prefillType)}` : 'Upload Verification Document');
+
+  const rejectionNotice = previousReason ? `
+    <div style="background:rgba(226,92,92,0.12);border-left:4px solid #e25c5c;padding:12px;border-radius:6px;margin-bottom:14px;">
+      <b style="color:#e25c5c;display:block;margin-bottom:4px;">⚠️ Previous Rejection Reason:</b>
+      <span style="font-size:0.86rem;color:var(--ink);">"${esc(previousReason)}"</span>
+      <small style="display:block;margin-top:6px;color:var(--steel-light);">Uploading a replacement file will reset the status to <b>Pending Review</b> so your manager or admin can re-verify it.</small>
+    </div>
+  ` : '';
+
+  openHrmsModal(modalTitle, `
+    <form id="docUploadForm" style="display:flex;flex-direction:column;gap:12px;">
+      ${rejectionNotice}
+      <div class="field">
+        <label>Document Type *</label>
+        <select id="uploadDocType" required>
+          <option value="">-- Select Document Type --</option>
+          ${typeOptions}
+          <option value="Other / Additional Document" ${prefillType === 'Other / Additional Document' ? 'selected' : ''}>Other / Additional Document</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Document Title</label>
+        <input id="uploadDocTitle" placeholder="e.g. Aadhaar Card - Front & Back" value="${esc(prefillType || '')}"/>
+      </div>
+
+      <div class="field">
+        <label>Category</label>
+        <select id="uploadDocCategory">
+          <option value="identity">Identity &amp; Address Proof</option>
+          <option value="career">Career / Resume</option>
+          <option value="joining">Joining &amp; Offer Letters</option>
+          <option value="contract">Employment Agreement</option>
+          <option value="educational">Educational Certificates</option>
+          <option value="experience">Experience &amp; Relieving</option>
+          <option value="financial">Salary &amp; Bank Details</option>
+          <option value="lifecycle">Exit / Resignation</option>
+          <option value="policy">Corporate Policy</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Attach File (PDF, DOC, DOCX, JPG, PNG, WEBP — Max 10MB) *</label>
+        <input type="file" id="uploadDocFile" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" required style="padding:8px;background:rgba(255,255,255,0.03);border:1px dashed var(--glass-border);border-radius:8px;width:100%;"/>
+      </div>
+
+      <div class="field">
+        <label>Document Expiry Date (If applicable, e.g. Passport/Visa)</label>
+        <input type="date" id="uploadDocExpiry"/>
+      </div>
+
+      <div class="field">
+        <label>Employee Notes / Remarks (Optional)</label>
+        <textarea id="uploadDocNotes" rows="2" placeholder="Any special notes or explanations for the reviewer…"></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="submitDocUploadBtn">
+        ${docId ? '🔄 Submit Re-uploaded Document' : '📤 Upload Document for Review'}
+      </button>
+      <div class="form-msg" id="docUploadFormMsg"></div>
+    </form>
+  `);
+
+  // Auto-sync title when type selected
+  $('uploadDocType')?.addEventListener('change', (e)=>{
+    if(!$('uploadDocTitle').value || standardTypes.includes($('uploadDocTitle').value)){
+      $('uploadDocTitle').value = e.target.value;
+    }
+    const val = e.target.value.toLowerCase();
+    const cat = $('uploadDocCategory');
+    if(cat){
+      if(val.includes('aadhaar') || val.includes('pan') || val.includes('passport') || val.includes('id proof') || val.includes('address')) cat.value = 'identity';
+      else if(val.includes('resume') || val.includes('cv')) cat.value = 'career';
+      else if(val.includes('offer') || val.includes('appointment') || val.includes('joining')) cat.value = 'joining';
+      else if(val.includes('agreement') || val.includes('contract')) cat.value = 'contract';
+      else if(val.includes('educational')) cat.value = 'educational';
+      else if(val.includes('experience') || val.includes('relieving')) cat.value = 'experience';
+      else if(val.includes('salary') || val.includes('bank')) cat.value = 'financial';
+      else if(val.includes('resignation')) cat.value = 'lifecycle';
+    }
+  });
+
+  $('docUploadForm').addEventListener('submit', async(e)=>{
+    e.preventDefault();
+    const btn = $('submitDocUploadBtn');
+    const msg = $('docUploadFormMsg');
+    const fileInput = $('uploadDocFile');
+    if(!fileInput || !fileInput.files || !fileInput.files[0]){
+      setFormMsg(msg, 'Please select a document file to upload.', false);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('docType', $('uploadDocType').value);
+    formData.append('title', $('uploadDocTitle').value || $('uploadDocType').value);
+    formData.append('category', $('uploadDocCategory').value);
+    formData.append('expiryDate', $('uploadDocExpiry').value || '');
+    formData.append('notes', $('uploadDocNotes').value || '');
+    if(docId) formData.append('docId', docId);
+
+    btn.disabled = true;
+    btn.textContent = 'Uploading file…';
+    try{
+      const res = await fetch('/api/documents/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + gToken
+        },
+        body: formData
+      });
+      const data = await res.json();
+      if(!res.ok){
+        throw new Error(data.error || 'Failed to upload document');
+      }
+      closeHrmsModal();
+      loadMyDocuments();
+      if($('panel-documents')?.classList.contains('active')) loadDocuments();
+    }catch(err){
+      setFormMsg(msg, err.message, false);
+      btn.disabled = false;
+      btn.textContent = docId ? '🔄 Submit Re-uploaded Document' : '📤 Upload Document for Review';
+    }
+  });
 }
 
 async function acknowledgePolicy(id){
