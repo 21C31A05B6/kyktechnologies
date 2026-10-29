@@ -305,8 +305,7 @@ def _fetch_from_db(collection, session):
     elif collection == "audit_log":
         try:
             logs = session.scalars(select(AuditLog).order_by(AuditLog.id.desc())).all()
-            if logs:
-                return [l.to_dict() for l in logs]
+            return [l.to_dict() for l in logs]
         except Exception:
             pass
     elif collection == "sessions":
@@ -354,6 +353,11 @@ def write(collection, rows):
                 session.query(AttendanceRecord).delete()
             except Exception:
                 pass
+        elif collection == "audit_log":
+            try:
+                session.query(AuditLog).delete()
+            except Exception:
+                pass
         for row in rows:
             body = {k: v for k, v in row.items() if k not in ("id", "createdAt", "updatedAt")}
             session.add(
@@ -382,7 +386,26 @@ def write(collection, rows):
                     session.add(att)
                 except Exception:
                     pass
+            elif collection == "audit_log":
+                try:
+                    created_val = row.get("createdAt")
+                    created_dt = datetime.fromisoformat(created_val) if created_val else datetime.now(timezone.utc)
+                    log = AuditLog(
+                        id=row.get("id"),
+                        admin_id=row.get("adminId"),
+                        admin_email=row.get("adminEmail"),
+                        admin_role=row.get("adminRole"),
+                        action=row.get("action", ""),
+                        detail=row.get("detail", ""),
+                        ip=row.get("ip", ""),
+                        created_at=created_dt,
+                    )
+                    session.add(log)
+                except Exception:
+                    pass
         session.commit()
+
+    invalidate_cache(collection)
 
 
 def _sync_user_insert_or_update(body):
@@ -672,6 +695,13 @@ def find(collection, row_id):
                     return job.to_dict()
             except Exception:
                 pass
+        elif collection == "audit_log":
+            try:
+                log = session.get(AuditLog, row_id)
+                if log:
+                    return log.to_dict()
+            except Exception:
+                pass
         row = session.get(Record, {"collection": collection, "id": row_id})
         return _row_to_dict(row) if row else None
 
@@ -749,15 +779,63 @@ def update(collection, row_id, patch):
 
 
 def remove(collection, row_id):
+    deleted = False
     deleted_email = None
+
     with _Session() as session:
+        if collection == "jobs":
+            try:
+                job = session.get(Job, row_id)
+                if job:
+                    session.delete(job)
+                    deleted = True
+            except Exception as e:
+                print(f"Warning: error removing job from dedicated table: {e}")
+        elif collection == "applications":
+            try:
+                app = session.get(Application, row_id)
+                if app:
+                    session.delete(app)
+                    deleted = True
+            except Exception as e:
+                print(f"Warning: error removing application from dedicated table: {e}")
+        elif collection == "attendance":
+            try:
+                att = session.get(AttendanceRecord, row_id)
+                if att:
+                    session.delete(att)
+                    deleted = True
+            except Exception as e:
+                print(f"Warning: error removing attendance from dedicated table: {e}")
+        elif collection == "audit_log":
+            try:
+                log = session.get(AuditLog, row_id)
+                if log:
+                    session.delete(log)
+                    deleted = True
+            except Exception as e:
+                print(f"Warning: error removing audit_log from dedicated table: {e}")
+        elif collection == "sessions":
+            try:
+                sess = session.get(SessionRecord, row_id)
+                if sess:
+                    session.delete(sess)
+                    deleted = True
+            except Exception as e:
+                print(f"Warning: error removing session from dedicated table: {e}")
+
         row = session.get(Record, {"collection": collection, "id": row_id})
-        if not row:
-            return False
-        if collection in ("admins", "users") and row.data:
-            deleted_email = row.data.get("email")
-        session.delete(row)
-        session.commit()
+        if row:
+            if collection in ("admins", "users") and row.data:
+                deleted_email = row.data.get("email")
+            session.delete(row)
+            deleted = True
+
+        if deleted:
+            session.commit()
+
+    if not deleted:
+        return False
 
     with _cache_lock:
         entry = _collection_cache.get(collection)
@@ -775,35 +853,11 @@ def remove(collection, row_id):
             _collection_cache.pop("_typed_clients", None)
             _collection_cache.pop("_typed_content_managers", None)
 
-    try:
-        if collection == "jobs":
-            with _Session() as session:
-                job = session.get(Job, row_id)
-                if job:
-                    session.delete(job)
-                    session.commit()
-        elif collection == "applications":
-            with _Session() as session:
-                app = session.get(Application, row_id)
-                if app:
-                    session.delete(app)
-                    session.commit()
-        elif collection == "attendance":
-            with _Session() as session:
-                att = session.get(AttendanceRecord, row_id)
-                if att:
-                    session.delete(att)
-                    session.commit()
-        elif collection == "sessions":
-            with _Session() as session:
-                sess = session.get(SessionRecord, row_id)
-                if sess:
-                    session.delete(sess)
-                    session.commit()
-        elif collection in ("admins", "users") and deleted_email:
+    if collection in ("admins", "users") and deleted_email:
+        try:
             _sync_user_remove(deleted_email)
-    except Exception as e:
-        print(f"Warning: error removing {collection} from dedicated table: {e}")
+        except Exception as e:
+            print(f"Warning: error removing user {deleted_email}: {e}")
 
     return True
 

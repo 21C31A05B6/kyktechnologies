@@ -1552,7 +1552,7 @@ async function loadActivity(){
   const tbody=$('activityBody'); if(!tbody) return;
   const rows=await api('/admin/audit-log');
   tbody.innerHTML='';
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="7" style="color:var(--steel)">No login activity yet.</td></tr>';return;}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="7" style="color:var(--steel)">No activity logs yet.</td></tr>';return;}
   rows.forEach(r=>{
     const tr=document.createElement('tr');
     tr.innerHTML='<td></td><td></td><td></td><td></td><td></td><td></td><td></td>';
@@ -1571,12 +1571,12 @@ async function loadActivity(){
   });
 }
 async function deleteActivityLog(id){
-  if(!confirm('Delete this login log?')) return;
+  if(!confirm('Delete this activity log?')) return;
   try{ await api('/admin/audit-log/'+id,{method:'DELETE'}); loadActivity(); }
   catch(err){ alert(err.message); }
 }
 on('clearActivityBtn','click',async()=>{
-  if(!confirm('Clear every login log? This cannot be undone.')) return;
+  if(!confirm('Clear all activity logs? This cannot be undone.')) return;
   try{ await api('/admin/audit-log',{method:'DELETE'}); loadActivity(); }
   catch(err){ alert(err.message); }
 });

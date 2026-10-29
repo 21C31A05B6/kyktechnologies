@@ -89,6 +89,8 @@ else:
         "https://kyktechnologies.com",
         "https://www.kyktechnologies.com",
     ]
+    if os.environ.get("RENDER_EXTERNAL_URL"):
+        ALLOWED_ORIGINS.append(os.environ["RENDER_EXTERNAL_URL"].rstrip("/"))
 
 
 def _is_origin_allowed(origin):
@@ -96,13 +98,19 @@ def _is_origin_allowed(origin):
         return False
     if ALLOWED_ORIGINS == "*":
         return True
-    return origin in ALLOWED_ORIGINS
+    if origin in ALLOWED_ORIGINS:
+        return True
+    if re.match(r"^https?://([a-zA-Z0-9-]+\.)*onrender\.com$", origin):
+        return True
+    if re.match(r"^https?://([a-zA-Z0-9-]+\.)*kyktechnologies\.com$", origin):
+        return True
+    return False
 
 
 # Initialize Flask-SocketIO with explicit trusted origins
 socketio = SocketIO(
     app,
-    cors_allowed_origins=ALLOWED_ORIGINS,
+    cors_allowed_origins="*",
     async_mode="threading",
     manage_session=False,
     ping_timeout=25,
@@ -1756,21 +1764,23 @@ def admin_audit_log():
 
 
 @app.delete("/api/admin/audit-log/<int:row_id>")
+@app.delete("/api/admin/audit-logs/<int:row_id>")
+@app.delete("/api/audit-logs/<int:row_id>")
 @role_required("hr_manager")
 def delete_audit_log(row_id):
     if not db.remove("audit_log", row_id):
-        return error("Login log not found.", 404)
-    return jsonify({"message": "Login log deleted."})
+        return error("Activity log not found.", 404)
+    return jsonify({"message": "Activity log deleted."})
 
 
 @app.delete("/api/admin/audit-log")
+@app.delete("/api/admin/audit-logs")
+@app.delete("/api/audit-logs")
 @role_required("hr_manager")
 def clear_audit_log():
-    deleted = 0
-    for row in db.read("audit_log"):
-        if db.remove("audit_log", row.get("id")):
-            deleted += 1
-    return jsonify({"message": "All login logs cleared.", "deleted": deleted})
+    count = len(db.read("audit_log"))
+    db.write("audit_log", [])
+    return jsonify({"message": "All activity logs cleared.", "deleted": count})
 
 
 # ─────────────────────────────────────────── admin: files

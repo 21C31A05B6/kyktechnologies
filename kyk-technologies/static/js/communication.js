@@ -145,9 +145,12 @@
 
     socket = io({
       auth: { token: gToken },
+      query: { token: gToken },
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000
+      reconnectionAttempts: 20,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      transports: ['polling', 'websocket']
     });
 
     socket.on('connect', () => {
