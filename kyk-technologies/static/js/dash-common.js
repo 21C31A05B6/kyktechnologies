@@ -223,7 +223,7 @@ const HRMS_MODULE_TABS = new Set([
   'communication'
 ]);
 
-const HRMS_ALLOWED_ROLES = new Set([
+window.HRMS_ALLOWED_ROLES = window.HRMS_ALLOWED_ROLES || new Set([
   'super_admin',
   'admin',
   'hr_manager',
@@ -234,6 +234,7 @@ const HRMS_ALLOWED_ROLES = new Set([
   'recruiter',
   'content_manager'
 ]);
+var HRMS_ALLOWED_ROLES = window.HRMS_ALLOWED_ROLES;
 
 function isHrmsRole(role){
   return Boolean(role && HRMS_ALLOWED_ROLES.has(role));

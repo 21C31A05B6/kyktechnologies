@@ -1186,6 +1186,31 @@ class ChatMessage(Base):
     read_receipts = relationship("ChatMessageReadReceipt", back_populates="message", cascade="all, delete-orphan")
 
     def to_dict(self):
+        reply_dict = None
+        try:
+            if self.reply_to:
+                reply_dict = {
+                    "id": self.reply_to.id,
+                    "senderName": getattr(self.reply_to, "sender_name", "User"),
+                    "content": self.reply_to.content if not getattr(self.reply_to, "is_deleted", False) else "This message was deleted.",
+                }
+        except Exception:
+            reply_dict = None
+
+        att_list = []
+        try:
+            if self.attachments:
+                att_list = [a.to_dict() for a in self.attachments]
+        except Exception:
+            att_list = []
+
+        rxn_list = []
+        try:
+            if self.reactions:
+                rxn_list = [r.to_dict() for r in self.reactions]
+        except Exception:
+            rxn_list = []
+
         return {
             "id": self.id,
             "conversationId": self.conversation_id,
@@ -1195,11 +1220,7 @@ class ChatMessage(Base):
             "content": self.content if not self.is_deleted else "This message was deleted.",
             "messageType": self.message_type,
             "replyToId": self.reply_to_id,
-            "replyTo": {
-                "id": self.reply_to.id,
-                "senderName": self.reply_to.sender_name,
-                "content": self.reply_to.content if not self.reply_to.is_deleted else "This message was deleted.",
-            } if self.reply_to else None,
+            "replyTo": reply_dict,
             "isEdited": self.is_edited,
             "editedAt": self.edited_at.isoformat() if self.edited_at else None,
             "isDeleted": self.is_deleted,
@@ -1209,8 +1230,8 @@ class ChatMessage(Base):
             "pinnedAt": self.pinned_at.isoformat() if self.pinned_at else None,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
-            "attachments": [a.to_dict() for a in self.attachments] if self.attachments else [],
-            "reactions": [r.to_dict() for r in self.reactions] if self.reactions else [],
+            "attachments": att_list,
+            "reactions": rxn_list,
         }
 
 

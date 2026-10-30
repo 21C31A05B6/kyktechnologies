@@ -12,8 +12,8 @@ def test_enterprise_security_headers_present(client):
     res = client.get("/")
     assert res.status_code == 200
 
-    # 1. Anti-Clickjacking
-    assert res.headers.get("X-Frame-Options") == "DENY"
+    # 1. Anti-Clickjacking (Allow same-origin framing for internal communication iframe)
+    assert res.headers.get("X-Frame-Options") in ("DENY", "SAMEORIGIN")
 
     # 2. Anti-MIME type sniffing
     assert res.headers.get("X-Content-Type-Options") == "nosniff"
@@ -21,7 +21,7 @@ def test_enterprise_security_headers_present(client):
     # 3. Content Security Policy
     csp = res.headers.get("Content-Security-Policy", "")
     assert "default-src 'self'" in csp
-    assert "frame-ancestors 'none'" in csp
+    assert "frame-ancestors 'self'" in csp
     assert "object-src 'none'" in csp
 
     # 4. Strict Transport Security (HSTS)

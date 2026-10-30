@@ -183,7 +183,7 @@ def register_chat_routes(app, socketio, deps):
             # Enforce role permission: viewers and general users are forbidden from chat and meetings
             role = _norm_role(admin.get("role"))
             if role in DISALLOWED_CHAT_ROLES:
-                return error("Access denied: General users and viewers do not have permissions for chat and meetings.", 403)
+                return error("Access denied: You are not authorized for chat and meetings.", 403)
             request.admin = admin
             return view(*args, **kwargs)
         return wrapper
@@ -194,6 +194,21 @@ def register_chat_routes(app, socketio, deps):
     def init_default_channels():
         try:
             with _get_session() as session:
+                # Synchronize roles from admin records so employees, team leads, hr, etc.
+                # are accurately represented in the users table and not miscategorized as generic 'user'
+                try:
+                    admin_rows = db.read("admins") or []
+                    for a in admin_rows:
+                        a_email = (a.get("email") or "").strip().lower()
+                        a_role = a.get("role")
+                        if a_email and a_role and a_role not in DISALLOWED_CHAT_ROLES:
+                            u = session.scalars(select(User).where(User.email == a_email)).first()
+                            if u and u.role != a_role:
+                                u.role = a_role
+                    session.commit()
+                except Exception as sync_e:
+                    current_app.logger.warning("Error syncing admin roles to users table: %s", sync_e)
+
                 users = session.scalars(
                     select(User).where(and_(User.status == "active", ~User.role.in_(DISALLOWED_CHAT_ROLES)))
                 ).all()
@@ -608,65 +623,79 @@ def register_chat_routes(app, socketio, deps):
         user = request.admin
         user_id = int(user["id"])
 
-        with _get_session() as session:
-            conv = session.get(ChatConversation, conv_id)
-            if not conv or conv.is_archived:
-                return error("Conversation not found.", 404)
+        try:
+            with _get_session() as session:
+                conv = session.get(ChatConversation, conv_id)
+                if not conv or conv.is_archived:
+                    return error("Conversation not found.", 404)
 
-            member = session.scalars(
-                select(ChatConversationMember).where(
-                    and_(
-                        ChatConversationMember.conversation_id == conv_id,
-                        ChatConversationMember.user_id == user_id,
-                        ChatConversationMember.left_at.is_(None),
+                member = session.scalars(
+                    select(ChatConversationMember).where(
+                        and_(
+                            ChatConversationMember.conversation_id == conv_id,
+                            ChatConversationMember.user_id == user_id,
+                            ChatConversationMember.left_at.is_(None),
+                        )
                     )
-                )
-            ).first()
+                ).first()
 
-            if not member and not conv.is_announcement and _norm_role(user.get("role")) != "super_admin":
-                return error("You are not a member of this conversation.", 403)
+                if not member and not conv.is_announcement and _norm_role(user.get("role")) != "super_admin":
+                    return error("You are not a member of this conversation.", 403)
 
-            # Members list
-            members = session.scalars(
-                select(ChatConversationMember).where(
-                    and_(
-                        ChatConversationMember.conversation_id == conv_id,
-                        ChatConversationMember.left_at.is_(None),
+                # Members list
+                members = session.scalars(
+                    select(ChatConversationMember).where(
+                        and_(
+                            ChatConversationMember.conversation_id == conv_id,
+                            ChatConversationMember.left_at.is_(None),
+                        )
                     )
-                )
-            ).all()
+                ).all()
 
-            member_list = []
-            for m in members:
-                u = session.get(User, m.user_id)
-                if u:
-                    is_online = u.id in _online_users and len(_online_users[u.id]["sids"]) > 0
-                    member_list.append({
-                        "id": u.id,
-                        "name": u.name,
-                        "email": u.email,
-                        "role": u.role,
-                        "groupRole": m.role,
-                        "joinedAt": m.joined_at.isoformat() if m.joined_at else None,
-                        "isOnline": is_online,
-                    })
+                member_list = []
+                for m in members:
+                    try:
+                        u = session.get(User, m.user_id)
+                        if u:
+                            is_online = u.id in _online_users and len(_online_users[u.id]["sids"]) > 0
+                            member_list.append({
+                                "id": u.id,
+                                "name": u.name,
+                                "email": u.email,
+                                "role": u.role,
+                                "groupRole": m.role,
+                                "joinedAt": m.joined_at.isoformat() if m.joined_at else None,
+                                "isOnline": is_online,
+                            })
+                    except Exception:
+                        pass
 
-            # Pinned messages
-            pinned = session.scalars(
-                select(ChatMessage).where(
-                    and_(
-                        ChatMessage.conversation_id == conv_id,
-                        ChatMessage.is_pinned.is_(True),
-                        ChatMessage.is_deleted.is_(False),
-                    )
-                ).order_by(desc(ChatMessage.pinned_at))
-            ).all()
+                # Pinned messages
+                pinned = session.scalars(
+                    select(ChatMessage).where(
+                        and_(
+                            ChatMessage.conversation_id == conv_id,
+                            ChatMessage.is_pinned.is_(True),
+                            ChatMessage.is_deleted.is_(False),
+                        )
+                    ).order_by(desc(ChatMessage.pinned_at))
+                ).all()
 
-            resp = conv.to_dict()
-            resp["members"] = member_list
-            resp["pinnedMessages"] = [p.to_dict() for p in pinned]
-            resp["myRole"] = member.role if member else "member"
-            return jsonify(resp)
+                pinned_list = []
+                for p in pinned:
+                    try:
+                        pinned_list.append(p.to_dict())
+                    except Exception:
+                        pass
+
+                resp = conv.to_dict()
+                resp["members"] = member_list
+                resp["pinnedMessages"] = pinned_list
+                resp["myRole"] = member.role if member else "member"
+                return jsonify(resp)
+        except Exception as e:
+            current_app.logger.exception("Error in get_conversation_details for conv %s: %s", conv_id, e)
+            return jsonify({"error": "Failed to retrieve conversation details."}), 500
 
     @app.put("/api/chat/conversations/<int:conv_id>")
     @chat_auth_required
@@ -780,7 +809,11 @@ def register_chat_routes(app, socketio, deps):
             target_user = session.get(User, target_id)
             if not target_user:
                 return error("User not found.", 404)
-            if _norm_role(target_user.role) in DISALLOWED_CHAT_ROLES:
+            admin_entry = db.find("admins", target_id)
+            effective_role = (admin_entry.get("role") if admin_entry else None) or target_user.role
+            if target_user.role != effective_role and effective_role not in DISALLOWED_CHAT_ROLES:
+                target_user.role = effective_role
+            if _norm_role(effective_role) in DISALLOWED_CHAT_ROLES:
                 return error("Cannot add viewers or general users to conversations.", 403)
 
             existing = session.scalars(
@@ -880,40 +913,49 @@ def register_chat_routes(app, socketio, deps):
         user_id = int(user["id"])
         norm_role = _norm_role(user.get("role"))
 
-        with _get_session() as session:
-            conv = session.get(ChatConversation, conv_id)
-            if not conv:
-                return error("Conversation not found.", 404)
+        try:
+            with _get_session() as session:
+                conv = session.get(ChatConversation, conv_id)
+                if not conv:
+                    return error("Conversation not found.", 404)
 
-            member = session.scalars(
-                select(ChatConversationMember).where(
-                    and_(
-                        ChatConversationMember.conversation_id == conv_id,
-                        ChatConversationMember.user_id == user_id,
-                        ChatConversationMember.left_at.is_(None),
+                member = session.scalars(
+                    select(ChatConversationMember).where(
+                        and_(
+                            ChatConversationMember.conversation_id == conv_id,
+                            ChatConversationMember.user_id == user_id,
+                            ChatConversationMember.left_at.is_(None),
+                        )
                     )
+                ).first()
+
+                if not member and not conv.is_announcement and norm_role != "super_admin":
+                    return error("Access denied to conversation history.", 403)
+
+                limit = min(int(request.args.get("limit", 50)), 100)
+                before_id = request.args.get("before_id")
+
+                query = select(ChatMessage).where(
+                    ChatMessage.conversation_id == conv_id
                 )
-            ).first()
+                if before_id:
+                    query = query.where(ChatMessage.id < int(before_id))
 
-            if not member and not conv.is_announcement and norm_role != "super_admin":
-                return error("Access denied to conversation history.", 403)
+                messages = session.scalars(
+                    query.order_by(desc(ChatMessage.id)).limit(limit)
+                ).all()
 
-            limit = min(int(request.args.get("limit", 50)), 100)
-            before_id = request.args.get("before_id")
-
-            query = select(ChatMessage).where(
-                ChatMessage.conversation_id == conv_id
-            )
-            if before_id:
-                query = query.where(ChatMessage.id < int(before_id))
-
-            messages = session.scalars(
-                query.order_by(desc(ChatMessage.id)).limit(limit)
-            ).all()
-
-            # Return in chronological order
-            res = [m.to_dict() for m in reversed(messages)]
-            return jsonify(res)
+                # Return in chronological order with per-message serialization resilience
+                res = []
+                for m in reversed(messages):
+                    try:
+                        res.append(m.to_dict())
+                    except Exception as me:
+                        current_app.logger.warning("Error serializing chat message %s: %s", getattr(m, 'id', None), me)
+                return jsonify(res)
+        except Exception as e:
+            current_app.logger.exception("Error in get_messages for conv %s: %s", conv_id, e)
+            return jsonify({"error": "Failed to retrieve messages."}), 500
 
     @app.post("/api/chat/conversations/<int:conv_id>/messages")
     @chat_auth_required

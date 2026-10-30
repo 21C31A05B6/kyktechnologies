@@ -433,6 +433,10 @@ def _sync_user_insert_or_update(body):
                 session.add(user)
                 session.flush()
             else:
+                # Prevent downgrade of existing staff/admin/employee accounts when syncing generic user records
+                admin_entry = find("admins", user.id)
+                if admin_entry and admin_entry.get("role") and role in ("user", "viewer"):
+                    role = admin_entry.get("role")
                 role_changed = user.role != role
                 user.name = name
                 user.role = role

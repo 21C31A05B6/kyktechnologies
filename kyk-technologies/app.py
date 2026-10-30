@@ -178,14 +178,14 @@ def _add_perf_headers(response):
 
     # Enterprise Security Headers (Defense-in-Depth against XSS, Clickjacking, MIME sniffing, XS-Leaks)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("X-XSS-Protection", "1; mode=block")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
     response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
     response.headers.setdefault(
         "Permissions-Policy",
-        "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), vr=()"
+        "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()"
     )
     response.headers.setdefault(
         "Content-Security-Policy",
@@ -196,7 +196,7 @@ def _add_perf_headers(response):
         "img-src 'self' data: blob:; "
         "media-src 'self' blob:; "
         "connect-src 'self' wss: ws: https://*; "
-        "frame-ancestors 'none'; "
+        "frame-ancestors 'self'; "
         "object-src 'none'; "
         "base-uri 'self';"
     )
@@ -791,12 +791,12 @@ def save_resume(file_storage):
 @app.after_request
 def set_security_headers(resp):
     resp.headers["X-Content-Type-Options"] = "nosniff"
-    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["X-Frame-Options"] = "SAMEORIGIN"
     resp.headers["X-XSS-Protection"] = "1; mode=block"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     resp.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
-    resp.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), vr=()"
+    resp.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()"
     resp.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://cdn.socket.io; "
@@ -805,7 +805,7 @@ def set_security_headers(resp):
         "img-src 'self' data: blob:; "
         "media-src 'self' blob:; "
         "connect-src 'self' wss: ws: https://*; "
-        "frame-ancestors 'none'; "
+        "frame-ancestors 'self'; "
         "object-src 'none'; "
         "base-uri 'self';"
     )

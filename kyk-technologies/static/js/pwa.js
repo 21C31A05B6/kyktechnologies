@@ -22,6 +22,12 @@
     }
     themeMeta.content = "#05060a";
 
+    if (!document.querySelector('meta[name="mobile-web-app-capable"]')) {
+      const mobCap = document.createElement("meta");
+      mobCap.name = "mobile-web-app-capable";
+      mobCap.content = "yes";
+      document.head.appendChild(mobCap);
+    }
     if (!document.querySelector('meta[name="apple-mobile-web-app-capable"]')) {
       const appleCap = document.createElement("meta");
       appleCap.name = "apple-mobile-web-app-capable";
