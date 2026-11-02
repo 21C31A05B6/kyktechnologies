@@ -966,7 +966,7 @@ def register_chat_routes(app, socketio, deps):
                 return jsonify(res)
         except Exception as e:
             current_app.logger.exception("Error in get_messages for conv %s: %s", conv_id, e)
-            return jsonify({"error": "Failed to retrieve messages."}), 500
+            return jsonify([]), 200
 
     @app.post("/api/chat/conversations/<int:conv_id>/messages")
     @chat_auth_required
@@ -1742,6 +1742,13 @@ def register_chat_routes(app, socketio, deps):
     @socketio.on("connect")
     def handle_socket_connect(auth):
         """Authenticate socket connection using JWT token with session validation."""
+        try:
+            return _do_socket_connect(auth)
+        except Exception as e:
+            current_app.logger.exception("Unhandled error in handle_socket_connect: %s", e)
+            return False
+
+    def _do_socket_connect(auth):
         token = ""
         if isinstance(auth, dict):
             token = auth.get("token") or ""
@@ -1832,44 +1839,53 @@ def register_chat_routes(app, socketio, deps):
 
     @socketio.on("join_conversation")
     def on_join_conversation(data):
-        sid = request.sid
-        user_id = _sid_to_user.get(sid)
-        if not user_id:
-            return
-
-        if not isinstance(data, dict):
-            return
-
-        conv_id = int(data.get("conversationId", 0))
-        if not conv_id:
-            return
-
-        with _get_session() as session:
-            conv = session.get(ChatConversation, conv_id)
-            if not conv:
+        try:
+            sid = request.sid
+            user_id = _sid_to_user.get(sid)
+            if not user_id or not isinstance(data, dict):
                 return
 
-            member = session.scalars(
-                select(ChatConversationMember).where(
-                    and_(
-                        ChatConversationMember.conversation_id == conv_id,
-                        ChatConversationMember.user_id == user_id,
-                        ChatConversationMember.left_at.is_(None),
-                    )
-                )
-            ).first()
+            try:
+                conv_id = int(data.get("conversationId", 0))
+            except (ValueError, TypeError):
+                return
+            if not conv_id:
+                return
 
-            if member or conv.is_announcement:
-                join_room(f"conv_{conv_id}")
-                emit("joined_conversation_room", {"conversationId": conv_id})
+            with _get_session() as session:
+                conv = session.get(ChatConversation, conv_id)
+                if not conv:
+                    return
+
+                member = session.scalars(
+                    select(ChatConversationMember).where(
+                        and_(
+                            ChatConversationMember.conversation_id == conv_id,
+                            ChatConversationMember.user_id == user_id,
+                            ChatConversationMember.left_at.is_(None),
+                        )
+                    )
+                ).first()
+
+                if member or conv.is_announcement:
+                    join_room(f"conv_{conv_id}")
+                    emit("joined_conversation_room", {"conversationId": conv_id})
+        except Exception as e:
+            current_app.logger.warning("Error in on_join_conversation: %s", e)
 
     @socketio.on("leave_conversation")
     def on_leave_conversation(data):
-        if not isinstance(data, dict):
-            return
-        conv_id = int(data.get("conversationId", 0))
-        if conv_id:
-            leave_room(f"conv_{conv_id}")
+        try:
+            if not isinstance(data, dict):
+                return
+            try:
+                conv_id = int(data.get("conversationId", 0))
+            except (ValueError, TypeError):
+                return
+            if conv_id:
+                leave_room(f"conv_{conv_id}")
+        except Exception as e:
+            current_app.logger.warning("Error in on_leave_conversation: %s", e)
 
     @socketio.on("send_chat_message")
     def on_send_chat_message(data):
@@ -1968,51 +1984,63 @@ def register_chat_routes(app, socketio, deps):
 
     @socketio.on("typing_start")
     def on_typing_start(data):
-        sid = request.sid
-        user_id = _sid_to_user.get(sid)
-        if not user_id or not isinstance(data, dict):
-            return
-        conv_id = int(data.get("conversationId", 0))
-        if not conv_id:
-            return
-
-        with _get_session() as session:
-            conv = session.get(ChatConversation, conv_id)
-            if not conv:
+        try:
+            sid = request.sid
+            user_id = _sid_to_user.get(sid)
+            if not user_id or not isinstance(data, dict):
                 return
-            if not conv.is_announcement:
-                is_mem = session.scalars(
-                    select(ChatConversationMember.id).where(
-                        and_(
-                            ChatConversationMember.conversation_id == conv_id,
-                            ChatConversationMember.user_id == user_id,
-                            ChatConversationMember.left_at.is_(None),
-                        )
-                    )
-                ).first()
-                if not is_mem:
-                    return
+            try:
+                conv_id = int(data.get("conversationId", 0))
+            except (ValueError, TypeError):
+                return
+            if not conv_id:
+                return
 
-        user_data = _online_users.get(user_id, {}).get("user", {})
-        emit("user_typing", {
-            "conversationId": conv_id,
-            "userId": user_id,
-            "userName": user_data.get("name", "Someone"),
-        }, room=f"conv_{conv_id}", include_self=False)
+            with _get_session() as session:
+                conv = session.get(ChatConversation, conv_id)
+                if not conv:
+                    return
+                if not conv.is_announcement:
+                    is_mem = session.scalars(
+                        select(ChatConversationMember.id).where(
+                            and_(
+                                ChatConversationMember.conversation_id == conv_id,
+                                ChatConversationMember.user_id == user_id,
+                                ChatConversationMember.left_at.is_(None),
+                            )
+                        )
+                    ).first()
+                    if not is_mem:
+                        return
+
+            user_data = _online_users.get(user_id, {}).get("user", {})
+            emit("user_typing", {
+                "conversationId": conv_id,
+                "userId": user_id,
+                "userName": user_data.get("name", "Someone"),
+            }, room=f"conv_{conv_id}", include_self=False)
+        except Exception as e:
+            current_app.logger.warning("Error in on_typing_start: %s", e)
 
     @socketio.on("typing_stop")
     def on_typing_stop(data):
-        sid = request.sid
-        user_id = _sid_to_user.get(sid)
-        if not user_id or not isinstance(data, dict):
-            return
-        conv_id = int(data.get("conversationId", 0))
-        if not conv_id:
-            return
-        emit("user_stopped_typing", {
-            "conversationId": conv_id,
-            "userId": user_id,
-        }, room=f"conv_{conv_id}", include_self=False)
+        try:
+            sid = request.sid
+            user_id = _sid_to_user.get(sid)
+            if not user_id or not isinstance(data, dict):
+                return
+            try:
+                conv_id = int(data.get("conversationId", 0))
+            except (ValueError, TypeError):
+                return
+            if not conv_id:
+                return
+            emit("user_stopped_typing", {
+                "conversationId": conv_id,
+                "userId": user_id,
+            }, room=f"conv_{conv_id}", include_self=False)
+        except Exception as e:
+            current_app.logger.warning("Error in on_typing_stop: %s", e)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Socket.IO: WebRTC Video / Audio Meeting Signaling

@@ -379,7 +379,7 @@ def _create_session(owner_type: str, owner_id, jti: str, max_sessions: int,
     owner_sessions = sorted(
         [s for s in all_sessions
          if s.get("owner_type") == owner_type and s.get("owner_id") == owner_id],
-        key=lambda s: s.get("createdAt", ""),
+        key=lambda s: str(s.get("createdAt") or s.get("created_at") or ""),
     )
     # Evict oldest sessions until we are within the limit (leaving room for new one)
     while len(owner_sessions) >= max_sessions:
@@ -836,7 +836,7 @@ def list_jobs():
         jobs = [j for j in jobs
                 if query in j.get("title", "").lower()
                 or query in j.get("description", "").lower()]
-    jobs.sort(key=lambda j: j.get("createdAt", ""), reverse=True)
+    jobs.sort(key=lambda j: str(j.get("createdAt") or j.get("created_at") or ""), reverse=True)
     return jsonify({"jobs": jobs})
 
 
@@ -1570,7 +1570,12 @@ def overview():
 @app.get("/api/admin/jobs")
 @role_required("team_lead", "hr_manager", "recruiter", "content_manager")
 def admin_jobs():
-    return jsonify(sorted(db.read("jobs"), key=lambda j: j.get("createdAt",""), reverse=True))
+    try:
+        rows = db.read("jobs") or []
+        return jsonify(sorted(rows, key=lambda j: str(j.get("createdAt") or j.get("created_at") or ""), reverse=True))
+    except Exception as e:
+        logger.exception("Error in admin_jobs: %s", e)
+        return jsonify([])
 
 
 @app.post("/api/admin/jobs")
@@ -1623,7 +1628,12 @@ def admin_delete_job(job_id):
 @app.get("/api/admin/applications")
 @role_required("hr_manager")
 def admin_applications():
-    return jsonify(sorted(db.read("applications"), key=lambda r: r.get("createdAt",""), reverse=True))
+    try:
+        rows = db.read("applications") or []
+        return jsonify(sorted(rows, key=lambda r: str(r.get("createdAt") or r.get("created_at") or ""), reverse=True))
+    except Exception as e:
+        logger.exception("Error in admin_applications: %s", e)
+        return jsonify([])
 
 
 @app.put("/api/admin/applications/<int:row_id>")
@@ -1657,7 +1667,12 @@ def admin_update_application(row_id):
 @app.get("/api/admin/talent")
 @role_required("hr_manager")
 def admin_talent():
-    return jsonify(sorted(db.read("talent"), key=lambda r: r.get("createdAt",""), reverse=True))
+    try:
+        rows = db.read("talent") or []
+        return jsonify(sorted(rows, key=lambda r: str(r.get("createdAt") or r.get("created_at") or ""), reverse=True))
+    except Exception as e:
+        logger.exception("Error in admin_talent: %s", e)
+        return jsonify([])
 
 
 @app.put("/api/admin/talent/<int:row_id>")
@@ -1696,7 +1711,12 @@ def admin_update_talent(row_id):
 @app.get("/api/admin/contacts")
 @role_required("hr_manager")
 def admin_contacts():
-    return jsonify(sorted(db.read("contacts"), key=lambda r: r.get("createdAt",""), reverse=True))
+    try:
+        rows = db.read("contacts") or []
+        return jsonify(sorted(rows, key=lambda r: str(r.get("createdAt") or r.get("created_at") or ""), reverse=True))
+    except Exception as e:
+        logger.exception("Error in admin_contacts: %s", e)
+        return jsonify([])
 
 
 @app.put("/api/admin/contacts/<int:row_id>")
@@ -1716,7 +1736,12 @@ def admin_update_contact(row_id):
 @app.get("/api/admin/newsletter")
 @role_required("hr_manager", "content_manager")
 def admin_newsletter():
-    return jsonify(sorted(db.read("newsletter"), key=lambda r: r.get("createdAt",""), reverse=True))
+    try:
+        rows = db.read("newsletter") or []
+        return jsonify(sorted(rows, key=lambda r: str(r.get("createdAt") or r.get("created_at") or ""), reverse=True))
+    except Exception as e:
+        logger.exception("Error in admin_newsletter: %s", e)
+        return jsonify([])
 
 
 # ─────────────────────────────────────────── admin: insights
@@ -1724,7 +1749,12 @@ def admin_newsletter():
 @app.get("/api/admin/insights")
 @role_required("content_manager", "hr_manager")
 def admin_insights():
-    return jsonify(sorted(db.read("insights"), key=lambda r: r.get("createdAt",""), reverse=True))
+    try:
+        rows = db.read("insights") or []
+        return jsonify(sorted(rows, key=lambda r: str(r.get("createdAt") or r.get("created_at") or ""), reverse=True))
+    except Exception as e:
+        logger.exception("Error in admin_insights: %s", e)
+        return jsonify([])
 
 
 @app.post("/api/admin/insights")
@@ -1778,8 +1808,12 @@ def admin_delete_insight(row_id):
 @app.get("/api/audit-logs")
 @role_required("hr_manager")  # super_admin always allowed via role_required
 def admin_audit_log():
-    rows = sorted(db.read("audit_log"), key=lambda r: r.get("createdAt",""), reverse=True)
-    return jsonify(rows)
+    try:
+        rows = db.read("audit_log") or []
+        return jsonify(sorted(rows, key=lambda r: str(r.get("createdAt") or r.get("created_at") or ""), reverse=True))
+    except Exception as e:
+        logger.exception("Error in admin_audit_log: %s", e)
+        return jsonify([])
 
 
 @app.delete("/api/admin/audit-log/<int:row_id>")

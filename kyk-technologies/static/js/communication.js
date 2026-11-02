@@ -159,28 +159,50 @@
       updateConnectionBadge(true);
     });
 
+    let reconnectTimer = null;
+
     socket.on('disconnect', (reason) => {
       console.log('Disconnected from real-time server. Reason:', reason);
       updateConnectionBadge(false);
-      if (reason === 'io server disconnect') {
-        setTimeout(() => {
-          const freshToken = localStorage.getItem(TOKEN_KEY) || localStorage.getItem('kyk_user_token') || gToken;
-          if (freshToken && socket) {
-            socket.auth = { token: freshToken };
-            socket.connect();
-          }
-        }, 2500);
+      if (reason === 'io server disconnect' || reason === 'transport error') {
+        if (!reconnectTimer) {
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            const freshToken = localStorage.getItem(TOKEN_KEY) || localStorage.getItem('kyk_user_token') || gToken;
+            if (freshToken) gToken = freshToken;
+            if (socket) {
+              socket.auth = { token: gToken };
+              if (socket.io && socket.io.opts) {
+                socket.io.opts.auth = { token: gToken };
+                socket.io.opts.query = { token: gToken };
+              }
+              socket.connect();
+            }
+          }, 2000);
+        }
       }
     });
 
     socket.on('connect_error', (err) => {
       console.warn('Real-time connection warning:', err?.message || err);
       updateConnectionBadge(false);
-      if (err && (String(err).includes('400') || String(err?.message).includes('poll error'))) {
+      const errMsg = String(err?.message || err || '');
+      if (errMsg.includes('400') || errMsg.includes('poll error') || errMsg.includes('xhr post error') || errMsg.includes('transport error')) {
         const freshToken = localStorage.getItem(TOKEN_KEY) || localStorage.getItem('kyk_user_token') || gToken;
-        if (freshToken && socket && socket.io) {
-          socket.io.opts.auth = { token: freshToken };
-          socket.io.opts.query = { token: freshToken };
+        if (freshToken) gToken = freshToken;
+        if (!reconnectTimer) {
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            if (socket) {
+              socket.auth = { token: gToken };
+              if (socket.io && socket.io.opts) {
+                socket.io.opts.auth = { token: gToken };
+                socket.io.opts.query = { token: gToken };
+              }
+              // Cleanly disconnect and reconnect with a fresh handshake session
+              socket.disconnect().connect();
+            }
+          }, 1500);
         }
       }
     });

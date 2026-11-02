@@ -1,0 +1,1 @@
+web: gunicorn --chdir kyk-technologies --bind 0.0.0.0:$PORT --worker-class gthread --workers 1 --threads 50 --timeout 120 --max-requests 10000 --max-requests-jitter 1000 --access-logfile - --error-logfile - app:app

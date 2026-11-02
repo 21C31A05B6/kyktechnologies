@@ -1,8 +1,3 @@
-if (!document.querySelector('script[src^="/js/pwa.js"]')) {
-  const pwaScript = document.createElement("script");
-  pwaScript.src = "/js/pwa.js?v=20261102-v31";
-  document.head.appendChild(pwaScript);
-}
 
 /* dash-common.js — shared logic for every dashboard page (admin.html,
  * hr-dashboard.html, recruiter-dashboard.html, content-dashboard.html,
