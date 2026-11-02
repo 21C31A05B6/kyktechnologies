@@ -1,0 +1,567 @@
+/* ===================================================================
+   KYK Technologies — Responsive / Full-Screen Layout Fixes
+   Ensures 100% full-screen visibility on Mobile, Tablet, Laptop & PC.
+   Breakpoints:
+     Mobile  : ≤480px
+     Mobile+ : ≤640px
+     Tablet  : ≤768px
+     Laptop  : ≤1024px
+     Wide    : ≤1280px
+=================================================================== */
+
+/* ---------- Base: prevent horizontal scroll on ALL pages ---------- */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Ensure images never overflow their container */
+img, svg, video, canvas, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ---------- Container / wrap is already max-width-based; reinforce ---------- */
+.wrap {
+  width: 100%;
+  max-width: var(--container, 1180px);
+  box-sizing: border-box;
+}
+
+/* ---------- Dashboard panels: make tables scrollable on mobile ---------- */
+.panel {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* Apply scroll container to table wrappers in panels */
+.panel table,
+.timesheet-grid table {
+  min-width: 480px;
+}
+/* payslip stays compact */
+.payslip-sheet table {
+  min-width: auto !important;
+}
+
+/* ---------- Sections: reduce vertical padding on mobile ---------- */
+@media (max-width: 768px) {
+  .section { padding: 56px 0; }
+  .section--tight { padding: 36px 0; }
+  .cta-final { padding: 56px 0; }
+  .page-hero { padding: 48px 0 36px; }
+}
+@media (max-width: 480px) {
+  .section { padding: 40px 0; }
+  .section--tight { padding: 24px 0; }
+  .cta-final { padding: 40px 0; }
+  .page-hero { padding: 36px 0 28px; }
+}
+
+/* ---------- NAV: hamburger menu & mobile header ---------- */
+@media (max-width: 900px) {
+  .nav-links {
+    background: rgba(6, 7, 10, 0.97) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    position: fixed;
+    top: 72px;
+    left: 0;
+    right: 0;
+    z-index: 49;
+    padding: 20px 24px 28px;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+    max-height: calc(100vh - 72px);
+    overflow-y: auto;
+  }
+  .nav-links a {
+    font-size: 1rem;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+    display: block;
+    width: 100%;
+  }
+  .nav-cta {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+@media (max-width: 480px) {
+  .site-header .wrap {
+    padding: 0 16px;
+    height: 60px;
+    block-size: 60px;
+  }
+  .logo {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+    inline-size: 42px;
+    block-size: 42px;
+    min-inline-size: 42px;
+    min-block-size: 42px;
+  }
+  .nav-links {
+    top: 60px;
+  }
+}
+
+/* ---------- HERO section: full screen, no overflow ---------- */
+@media (max-width: 768px) {
+  .hero {
+    padding: 80px 0 50px;
+  }
+  .hero .wrap {
+    align-items: flex-start;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 8vw, 2.8rem) !important;
+  }
+  .hero p.lede {
+    font-size: 1rem;
+  }
+  .hero-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .hero-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .hero-note {
+    margin-top: 24px;
+    font-size: .88rem;
+  }
+}
+@media (max-width: 480px) {
+  .hero {
+    padding: 60px 0 40px;
+  }
+  .hero h1 {
+    font-size: clamp(1.75rem, 9vw, 2.2rem) !important;
+  }
+}
+
+/* ---------- Network diagram SVG: constrain on mobile ---------- */
+@media (max-width: 768px) {
+  svg {
+    max-width: 100% !important;
+  }
+  /* Hide heavy SVG visual on small screens to prevent overflow */
+  .glass-glow[style*="border-radius:20px"] {
+    display: none !important;
+  }
+}
+
+/* ---------- CAP cards: ensure single column on mobile ---------- */
+@media (max-width: 640px) {
+  .cap-grid {
+    grid-template-columns: 1fr;
+  }
+  .cap-card {
+    padding: 22px 18px;
+  }
+}
+
+/* ---------- Service board ---------- */
+@media (max-width: 480px) {
+  .service-board {
+    grid-template-columns: 1fr;
+    padding: 18px 14px;
+    gap: 12px;
+  }
+  .tile {
+    min-height: 90px;
+    padding: 20px 16px;
+  }
+}
+
+/* ---------- AI grid ---------- */
+@media (max-width: 480px) {
+  .ai-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .ai-card {
+    padding: 20px;
+  }
+}
+
+/* ---------- Why grid ---------- */
+@media (max-width: 480px) {
+  .why-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* ---------- Stats row ---------- */
+@media (max-width: 640px) {
+  .stats-row {
+    gap: 24px;
+    flex-direction: column;
+  }
+}
+
+/* ---------- Process row: allow wrapping on mobile ---------- */
+@media (max-width: 768px) {
+  .process-row {
+    flex-wrap: wrap !important;
+    overflow-x: hidden !important;
+    gap: 10px;
+  }
+  .process-pill {
+    font-size: .88rem;
+    padding: 9px 16px;
+  }
+  .process-arrow {
+    display: none;
+  }
+}
+
+/* ---------- CTA banner ---------- */
+@media (max-width: 768px) {
+  .cta-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 32px 24px;
+    gap: 20px;
+  }
+  .cta-banner h3 { font-size: 1.25rem; }
+  .cta-banner .actions { flex-direction: column; width: 100%; }
+  .cta-banner .actions .btn { width: 100%; justify-content: center; }
+}
+@media (max-width: 480px) {
+  .cta-banner {
+    padding: 24px 16px;
+    border-radius: 16px;
+  }
+}
+
+/* ---------- Insight grid ---------- */
+@media (max-width: 640px) {
+  .insight-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+/* ---------- Journey grid ---------- */
+@media (max-width: 480px) {
+  .journey-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .journey-principles {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ---------- Job list cards ---------- */
+@media (max-width: 640px) {
+  .job-card, .insight-card {
+    padding: 18px 16px;
+  }
+  .job-head {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .job-meta {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+/* ---------- Form card ---------- */
+@media (max-width: 768px) {
+  .form-card {
+    padding: 24px 20px;
+  }
+}
+@media (max-width: 480px) {
+  .form-card {
+    padding: 20px 16px;
+    border-radius: 14px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+/* ---------- Filter bar ---------- */
+@media (max-width: 640px) {
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .filter-bar select,
+  .filter-bar input {
+    width: 100%;
+  }
+}
+
+/* ---------- Footer ---------- */
+@media (max-width: 768px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 24px !important;
+  }
+  .site-footer .newsletter-inline {
+    flex-direction: column;
+    max-width: 100% !important;
+  }
+  .site-footer .newsletter-inline input,
+  .site-footer .newsletter-inline button {
+    width: 100%;
+  }
+}
+@media (max-width: 480px) {
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+  .site-footer {
+    padding-top: 40px;
+  }
+  .site-footer .footer-bottom {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+/* ---------- Page hero (inner pages) ---------- */
+@media (max-width: 768px) {
+  .page-hero h1 {
+    font-size: clamp(1.8rem, 6vw, 2.5rem) !important;
+  }
+}
+@media (max-width: 480px) {
+  .page-hero h1 {
+    font-size: clamp(1.6rem, 8vw, 2rem) !important;
+  }
+}
+
+/* ---------- Toast: full-width on mobile ---------- */
+@media (max-width: 480px) {
+  .toast {
+    inset-inline-end: 12px;
+    inset-inline-start: 12px;
+    inset-block-end: 16px;
+    font-size: .85rem;
+  }
+}
+
+/* ---------- AI assistant widget: move on very small screens ---------- */
+@media (max-width: 480px) {
+  .kyk-assistant-btn {
+    inset-inline-end: 14px;
+    inset-block-end: 14px;
+    width: 50px;
+    height: 50px;
+    inline-size: 50px;
+    block-size: 50px;
+    font-size: 1.1rem;
+  }
+  .kyk-assistant-panel {
+    inset-inline-end: 8px;
+    inset-block-end: 76px;
+    max-inline-size: calc(100vw - 16px);
+    inline-size: calc(100vw - 16px);
+  }
+}
+
+/* ---------- Kanban: horizontal scroll (admin pipeline) ---------- */
+.kanban {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 640px) {
+  .kanban {
+    grid-template-columns: repeat(6, 200px);
+    padding-bottom: 12px;
+  }
+}
+
+/* ---------- Section titles & ledes: ensure they don't clip ---------- */
+@media (max-width: 768px) {
+  .section-title {
+    max-inline-size: 100%;
+  }
+  .section-lede {
+    max-inline-size: 100%;
+  }
+}
+
+/* ---------- About / careers / various grids ---------- */
+@media (max-width: 640px) {
+  .vm-grid,
+  .value-grid,
+  .team-grid,
+  .region-grid,
+  .perk-grid,
+  .career-grid,
+  .recruit-grid,
+  .lang-grid,
+  .insights-grid,
+  .ai-hero-visual,
+  .ai-capability-grid,
+  .about-grid,
+  .mission-grid,
+  .culture-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px;
+  }
+}
+
+/* ---------- Buttons: improve minimum sizes ---------- */
+@media (max-width: 360px) {
+  .btn {
+    padding: 11px 18px;
+    font-size: .88rem;
+  }
+}
+
+/* ---------- Touch targets: minimum 44px on mobile ---------- */
+@media (max-width: 768px) {
+  .btn, .small-btn, button, [role="button"] {
+    min-height: 44px;
+  }
+  .small-btn {
+    padding: 8px 14px;
+    font-size: .82rem;
+  }
+}
+
+/* ---------- Communication / chat page ---------- */
+@media (max-width: 680px) {
+  .comm-main {
+    flex-direction: column;
+  }
+  .comm-sidebar {
+    width: 100% !important;
+    height: auto;
+    min-height: unset;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+  }
+  .comm-content {
+    width: 100%;
+    min-height: 60vh;
+  }
+}
+
+/* ---------- Dashboard main content ---------- */
+@media (max-width: 800px) {
+  .main-content {
+    padding: 16px;
+  }
+  .stat-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .job-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .payslip-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 480px) {
+  .main-content {
+    padding: 12px 10px;
+  }
+  .stat-cards {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-card {
+    padding: 14px 12px;
+  }
+  .stat-card b {
+    font-size: 1.3rem;
+  }
+  .sidebar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px;
+  }
+  .sidebar nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .sidebar nav button {
+    white-space: nowrap;
+    padding: 8px 12px;
+    font-size: .78rem;
+  }
+  .notif-drawer {
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-width: 360px;
+    top: 56px;
+  }
+  .top-nav {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .top-nav-right {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+/* ---------- Login card: tiny screen ---------- */
+@media (max-width: 360px) {
+  .login-page #loginScreen .login-card {
+    padding: 20px 14px 18px;
+    border-radius: 16px;
+  }
+  .auth-tab {
+    min-block-size: 44px;
+    font-size: .92rem;
+  }
+  .login-page #loginScreen .field input {
+    block-size: 52px;
+    font-size: .9rem;
+  }
+  .login-page #loginScreen .btn-block {
+    min-block-size: 54px;
+    font-size: 1rem;
+  }
+}
+
+/* ---------- Modals: fit small screens ---------- */
+@media (max-width: 640px) {
+  .modal-box {
+    padding: 20px 16px;
+    border-radius: 12px;
+    margin: 8px;
+    max-width: calc(100vw - 16px);
+  }
+  .modal-box.modal-lg {
+    max-width: calc(100vw - 16px);
+  }
+}
+
+/* ---------- Contact page ---------- */
+@media (max-width: 640px) {
+  .contact-split {
+    flex-direction: column;
+    gap: 32px;
+  }
+  .contact-info,
+  .contact-form-wrap {
+    width: 100%;
+  }
+}
+
+/* ---------- Print: always full-width ---------- */
+@media print {
+  html, body {
+    overflow: visible;
+    width: 100%;
+  }
+}
