@@ -1,6 +1,6 @@
 if (!document.querySelector('script[src^="/js/pwa.js"]')) {
   const pwaScript = document.createElement("script");
-  pwaScript.src = "/js/pwa.js?v=20261001-logo-2";
+  pwaScript.src = "/js/pwa.js?v=20261102-v31";
   document.head.appendChild(pwaScript);
 }
 

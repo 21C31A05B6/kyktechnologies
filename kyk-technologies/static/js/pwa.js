@@ -5,6 +5,11 @@
   const isInstalled = () => window.matchMedia("(display-mode: standalone)").matches ||
     window.navigator.standalone === true || document.referrer.startsWith("android-app://");
 
+  const isExcludedPage = () => {
+    const p = location.pathname.toLowerCase();
+    return p.includes("admin") || p.includes("dashboard") || p.includes("communication") || p.includes("portal");
+  };
+
   const addManifest = () => {
     if (document.querySelector('link[rel="manifest"]')) return;
     const link = document.createElement("link");
@@ -67,7 +72,7 @@
   };
 
   const showBanner = () => {
-    if (isInstalled() || localStorage.getItem(DISMISS_KEY) === "1" || document.getElementById("kyk-install-banner")) return;
+    if (isInstalled() || isExcludedPage() || localStorage.getItem(DISMISS_KEY) === "1" || document.getElementById("kyk-install-banner")) return;
     addInstallStyles();
     const banner = document.createElement("aside");
     banner.id = "kyk-install-banner";
@@ -94,12 +99,12 @@
   addManifest();
   addPwaMetaTags();
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/service-worker.js", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/service-worker.js?v=20261102-v31", { updateViaCache: "none" })
       .then((reg) => { if (reg) reg.update(); })
       .catch(() => {});
   }
   window.addEventListener("beforeinstallprompt", (event) => {
-    if (isInstalled() || localStorage.getItem(DISMISS_KEY) === "1") {
+    if (isInstalled() || isExcludedPage() || localStorage.getItem(DISMISS_KEY) === "1") {
       return;
     }
     event.preventDefault();
