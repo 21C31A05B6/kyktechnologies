@@ -1,567 +1,735 @@
 /* ===================================================================
-   KYK Technologies — Responsive / Full-Screen Layout Fixes
-   Ensures 100% full-screen visibility on Mobile, Tablet, Laptop & PC.
-   Breakpoints:
-     Mobile  : ≤480px
-     Mobile+ : ≤640px
-     Tablet  : ≤768px
-     Laptop  : ≤1024px
-     Wide    : ≤1280px
+   KYK Technologies — Responsive / Mobile-First Layout System
+   Optimized for 100% full-screen visibility across all viewports:
+     Mobile   : ≤480px (iPhone, Galaxy, Pixel)
+     Mobile+  : ≤640px
+     Tablet   : ≤768px - 900px
+     Laptop   : ≤1024px
+     PC / Wide: 1024px+
 =================================================================== */
 
-/* ---------- Base: prevent horizontal scroll on ALL pages ---------- */
+/* ---------- Base Viewport & Root Overflow Protection ---------- */
 html, body {
-  overflow-x: hidden;
-  width: 100%;
-  max-width: 100%;
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
 }
 
-/* Ensure images never overflow their container */
-img, svg, video, canvas, iframe {
-  max-width: 100%;
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Fluid Media - never exceed container width */
+img, video, canvas, iframe {
+  max-width: 100% !important;
   height: auto;
 }
 
-/* ---------- Container / wrap is already max-width-based; reinforce ---------- */
+/* Ensure containers stay within viewport */
 .wrap {
-  width: 100%;
+  width: 100% !important;
   max-width: var(--container, 1180px);
   box-sizing: border-box;
 }
 
-/* ---------- Dashboard panels: make tables scrollable on mobile ---------- */
-.panel {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-/* Apply scroll container to table wrappers in panels */
-.panel table,
-.timesheet-grid table {
-  min-width: 480px;
-}
-/* payslip stays compact */
-.payslip-sheet table {
-  min-width: auto !important;
-}
-
-/* ---------- Sections: reduce vertical padding on mobile ---------- */
-@media (max-width: 768px) {
-  .section { padding: 56px 0; }
-  .section--tight { padding: 36px 0; }
-  .cta-final { padding: 56px 0; }
-  .page-hero { padding: 48px 0 36px; }
-}
-@media (max-width: 480px) {
-  .section { padding: 40px 0; }
-  .section--tight { padding: 24px 0; }
-  .cta-final { padding: 40px 0; }
-  .page-hero { padding: 36px 0 28px; }
-}
-
-/* ---------- NAV: hamburger menu & mobile header ---------- */
+/* ===================================================================
+   NAVIGATION & HEADER (Mobile & Tablet <= 900px)
+=================================================================== */
 @media (max-width: 900px) {
-  .nav-links {
-    background: rgba(6, 7, 10, 0.97) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    position: fixed;
-    top: 72px;
-    left: 0;
-    right: 0;
-    z-index: 49;
-    padding: 20px 24px 28px;
-    border-bottom: 1px solid rgba(255,255,255,.1);
-    max-height: calc(100vh - 72px);
-    overflow-y: auto;
+  .site-header {
+    height: auto !important;
+    min-height: 64px !important;
   }
-  .nav-links a {
-    font-size: 1rem;
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(255,255,255,.07);
-    display: block;
-    width: 100%;
-  }
-  .nav-cta {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-}
-@media (max-width: 480px) {
   .site-header .wrap {
-    padding: 0 16px;
-    height: 60px;
-    block-size: 60px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    height: 64px !important;
+    block-size: 64px !important;
+    padding: 0 18px !important;
+    position: relative !important;
   }
   .logo {
-    width: 42px;
-    height: 42px;
-    min-width: 42px;
-    min-height: 42px;
-    inline-size: 42px;
-    block-size: 42px;
-    min-inline-size: 42px;
-    min-block-size: 42px;
+    order: 1 !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    inline-size: 44px !important;
+    block-size: 44px !important;
+    flex-shrink: 0 !important;
   }
+  .nav {
+    order: 3 !important;
+    margin-left: auto !important;
+    gap: 0 !important;
+  }
+  .nav-cta {
+    order: 2 !important;
+    margin-left: auto !important;
+    margin-right: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  .nav-cta .btn {
+    padding: 8px 14px !important;
+    font-size: 0.8rem !important;
+  }
+  .nav-cta .btn-outline-light {
+    display: none !important;
+  }
+
+  /* Hamburger Toggle Button */
+  .nav-toggle {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    border-radius: 10px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    color: #FFFFFF !important;
+    font-size: 1.35rem !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    transition: background 0.2s, border-color 0.2s !important;
+    line-height: 1 !important;
+  }
+  .nav-toggle:active {
+    background: rgba(232, 98, 44, 0.25) !important;
+    border-color: var(--orange) !important;
+  }
+
+  /* Slide-Down Mobile Drawer Menu */
   .nav-links {
-    top: 60px;
+    display: none !important;
+    position: fixed !important;
+    top: 64px !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: calc(100dvh - 64px) !important;
+    max-height: calc(100dvh - 64px) !important;
+    background: rgba(6, 8, 13, 0.98) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+    padding: 24px 24px 48px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    z-index: 99999 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.85) !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+    align-items: stretch !important;
+  }
+  .nav-links.open {
+    display: flex !important;
+  }
+  .nav-links li {
+    width: 100% !important;
+    display: block !important;
+    list-style: none !important;
+  }
+  .nav-links a {
+    display: block !important;
+    width: 100% !important;
+    padding: 15px 6px !important;
+    font-size: 1.15rem !important;
+    font-weight: 600 !important;
+    color: #F8FAFC !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    text-decoration: none !important;
+    transition: color 0.15s, padding-left 0.15s !important;
+  }
+  .nav-links a:hover,
+  .nav-links a.active {
+    color: var(--orange) !important;
+    padding-left: 12px !important;
   }
 }
 
-/* ---------- HERO section: full screen, no overflow ---------- */
+/* On small mobile (< 640px): hide bulky header buttons for a clean bar */
+@media (max-width: 640px) {
+  .site-header .wrap {
+    padding: 0 14px !important;
+  }
+  .nav-cta {
+    display: none !important;
+  }
+  .nav {
+    order: 2 !important;
+    margin-left: auto !important;
+  }
+}
+
+/* ===================================================================
+   HERO & TYPOGRAPHY SCALING (Mobile & Tablet)
+=================================================================== */
 @media (max-width: 768px) {
   .hero {
-    padding: 80px 0 50px;
+    min-height: auto !important;
+    padding: 72px 0 40px !important;
+    display: flex !important;
+    align-items: center !important;
   }
   .hero .wrap {
-    align-items: flex-start;
+    align-items: flex-start !important;
+    padding: 0 16px !important;
   }
-  .hero h1 {
-    font-size: clamp(2rem, 8vw, 2.8rem) !important;
+  .hero h1, .page-hero h1, .grad-text {
+    font-size: clamp(1.8rem, 7.5vw, 2.5rem) !important;
+    line-height: 1.18 !important;
+    word-break: break-word !important;
+    hyphens: auto !important;
+    letter-spacing: -0.01em !important;
+    margin-block-end: 14px !important;
   }
-  .hero p.lede {
-    font-size: 1rem;
+  .hero p.lede, .page-hero p {
+    font-size: 0.96rem !important;
+    line-height: 1.55 !important;
+    max-inline-size: 100% !important;
+    margin-block-end: 20px !important;
   }
   .hero-actions {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 10px !important;
+    margin-block-start: 6px !important;
   }
   .hero-actions .btn {
-    width: 100%;
-    justify-content: center;
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+    min-height: 48px !important;
+    font-size: 0.95rem !important;
   }
   .hero-note {
-    margin-top: 24px;
-    font-size: .88rem;
+    margin-block-start: 22px !important;
+    padding: 14px 16px !important;
+    font-size: 0.85rem !important;
+    line-height: 1.5 !important;
+    max-inline-size: 100% !important;
+    border-radius: 12px !important;
+  }
+
+  /* Sections vertical spacing */
+  .section {
+    padding: 52px 0 !important;
+  }
+  .section--tight {
+    padding: 34px 0 !important;
+  }
+  .page-hero {
+    padding: 44px 0 32px !important;
+  }
+  .cta-final {
+    padding: 52px 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    padding: 56px 0 32px !important;
+  }
+  .hero h1, .page-hero h1 {
+    font-size: clamp(1.65rem, 8vw, 2.1rem) !important;
+  }
+  .section {
+    padding: 40px 0 !important;
+  }
+  .section--tight {
+    padding: 24px 0 !important;
+  }
+  .cta-final {
+    padding: 40px 0 !important;
+  }
+  .wrap {
+    padding: 0 14px !important;
+  }
+}
+
+/* ===================================================================
+   HERO STATS ROW (Grid layout across all mobile devices)
+=================================================================== */
+@media (max-width: 768px) {
+  .stats-row {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    margin-block-start: 24px !important;
+    width: 100% !important;
+  }
+  .stat {
+    padding: 12px 6px !important;
+    text-align: center !important;
+    min-width: 0 !important;
+    border-radius: 12px !important;
+    background: rgba(14, 19, 30, 0.7) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+  .stat b {
+    font-size: clamp(1.2rem, 5vw, 1.55rem) !important;
+    line-height: 1.1 !important;
+  }
+  .stat span {
+    font-size: clamp(0.68rem, 2.5vw, 0.78rem) !important;
+    display: block !important;
+    margin-top: 4px !important;
+    line-height: 1.2 !important;
+  }
+}
+
+/* ===================================================================
+   NETWORK DIAGRAM (SVG Visual - Crisp & Scaled on Mobile)
+=================================================================== */
+.network-diagram {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  display: block !important;
+}
+@media (max-width: 768px) {
+  .glass-glow[style*="border-radius:20px"] {
+    padding: 24px 12px !important;
+    border-radius: 16px !important;
+    margin-block-start: 24px !important;
+    background: rgba(12, 16, 24, 0.85) !important;
+    overflow: hidden !important;
   }
 }
 @media (max-width: 480px) {
-  .hero {
-    padding: 60px 0 40px;
-  }
-  .hero h1 {
-    font-size: clamp(1.75rem, 9vw, 2.2rem) !important;
+  .glass-glow[style*="border-radius:20px"] {
+    padding: 16px 8px !important;
   }
 }
 
-/* ---------- Network diagram SVG: constrain on mobile ---------- */
+/* ===================================================================
+   PROCESS ROW (Our Process Pills)
+=================================================================== */
 @media (max-width: 768px) {
-  svg {
-    max-width: 100% !important;
+  .process-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    overflow-x: visible !important;
+    margin-block-start: 18px !important;
   }
-  /* Hide heavy SVG visual on small screens to prevent overflow */
-  .glass-glow[style*="border-radius:20px"] {
+  .process-pill {
+    font-size: 0.84rem !important;
+    padding: 8px 14px !important;
+  }
+  .process-arrow {
     display: none !important;
   }
 }
 
-/* ---------- CAP cards: ensure single column on mobile ---------- */
-@media (max-width: 640px) {
-  .cap-grid {
-    grid-template-columns: 1fr;
+/* ===================================================================
+   ALL GRIDS & CARD CONTAINERS (Responsive Column Collapse)
+=================================================================== */
+
+/* Override inline grid-template-columns across all pages */
+@media (max-width: 900px) {
+  .cap-grid,
+  div[style*="grid-template-columns:repeat(4,1fr)"],
+  div[style*="grid-template-columns: repeat(4, 1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 14px !important;
   }
-  .cap-card {
-    padding: 22px 18px;
+  .service-board {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+  .ai-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
   }
 }
 
-/* ---------- Service board ---------- */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
+  /* Collapse to single column on mobile */
+  .why-grid,
+  .insight-grid,
+  .journey-grid,
+  .journey-principles,
+  div[style*="grid-template-columns:repeat(3,1fr)"],
+  div[style*="grid-template-columns: repeat(3, 1fr)"],
+  div[style*="grid-template-columns:1fr 1fr"],
+  div[style*="grid-template-columns: 1fr 1fr"],
+  div[style*="grid-template-columns:1fr 1fr; gap:40px"],
+  div[style*="grid-template-columns:1fr 1fr; gap:32px"],
+  div[style*="grid-template-columns:1fr 1fr; gap:50px"] {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  .cap-card, .why-card, .ai-card, .insight-card, .job-card, .vm-card {
+    padding: 20px 18px !important;
+  }
+
+  /* Contact Page Layout */
+  .contact-layout,
+  .wrap[style*="grid-template-columns:1fr 1fr"],
+  .wrap[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+    gap: 28px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .cap-grid,
+  .service-board,
+  .ai-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
   .service-board {
-    grid-template-columns: 1fr;
-    padding: 18px 14px;
-    gap: 12px;
+    padding: 16px 12px !important;
+    border-radius: 16px !important;
   }
   .tile {
-    min-height: 90px;
-    padding: 20px 16px;
-  }
-}
-
-/* ---------- AI grid ---------- */
-@media (max-width: 480px) {
-  .ai-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    min-height: auto !important;
+    padding: 18px 16px !important;
+    font-size: 1rem !important;
   }
   .ai-card {
-    padding: 20px;
-  }
-}
-
-/* ---------- Why grid ---------- */
-@media (max-width: 480px) {
-  .why-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-}
-
-/* ---------- Stats row ---------- */
-@media (max-width: 640px) {
-  .stats-row {
-    gap: 24px;
-    flex-direction: column;
-  }
-}
-
-/* ---------- Process row: allow wrapping on mobile ---------- */
-@media (max-width: 768px) {
-  .process-row {
-    flex-wrap: wrap !important;
-    overflow-x: hidden !important;
-    gap: 10px;
-  }
-  .process-pill {
-    font-size: .88rem;
-    padding: 9px 16px;
-  }
-  .process-arrow {
-    display: none;
-  }
-}
-
-/* ---------- CTA banner ---------- */
-@media (max-width: 768px) {
-  .cta-banner {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 32px 24px;
-    gap: 20px;
-  }
-  .cta-banner h3 { font-size: 1.25rem; }
-  .cta-banner .actions { flex-direction: column; width: 100%; }
-  .cta-banner .actions .btn { width: 100%; justify-content: center; }
-}
-@media (max-width: 480px) {
-  .cta-banner {
-    padding: 24px 16px;
-    border-radius: 16px;
-  }
-}
-
-/* ---------- Insight grid ---------- */
-@media (max-width: 640px) {
-  .insight-grid {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-}
-
-/* ---------- Journey grid ---------- */
-@media (max-width: 480px) {
-  .journey-grid {
-    grid-template-columns: 1fr !important;
-  }
-  .journey-principles {
-    grid-template-columns: 1fr !important;
-  }
-}
-
-/* ---------- Job list cards ---------- */
-@media (max-width: 640px) {
-  .job-card, .insight-card {
-    padding: 18px 16px;
+    padding: 18px 16px !important;
   }
   .job-head {
-    flex-direction: column;
-    gap: 8px;
-  }
-  .job-meta {
-    flex-wrap: wrap;
-    gap: 6px;
+    flex-direction: column !important;
+    gap: 8px !important;
   }
 }
 
-/* ---------- Form card ---------- */
+/* ===================================================================
+   FORMS & INPUTS (Touch-friendly & non-overflowing)
+=================================================================== */
 @media (max-width: 768px) {
   .form-card {
-    padding: 24px 20px;
-  }
-}
-@media (max-width: 480px) {
-  .form-card {
-    padding: 20px 16px;
-    border-radius: 14px;
+    padding: 24px 18px !important;
+    max-inline-size: 100% !important;
+    border-radius: 16px !important;
   }
   .form-grid {
-    grid-template-columns: 1fr;
-    gap: 0;
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
   }
-}
-
-/* ---------- Filter bar ---------- */
-@media (max-width: 640px) {
+  .field input, .field select, .field textarea {
+    padding: 14px 14px !important;
+    font-size: 1rem !important;
+    min-height: 48px !important;
+    border-radius: 10px !important;
+  }
+  .field textarea {
+    min-height: 110px !important;
+  }
   .filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
   }
   .filter-bar select,
   .filter-bar input {
-    width: 100%;
+    width: 100% !important;
+    min-height: 46px !important;
   }
 }
 
-/* ---------- Footer ---------- */
+/* ===================================================================
+   CTA BANNERS (Careers, Partner, Final)
+=================================================================== */
 @media (max-width: 768px) {
+  .cta-banner {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 30px 20px !important;
+    gap: 20px !important;
+    border-radius: 18px !important;
+  }
+  .cta-banner h3 {
+    font-size: 1.3rem !important;
+  }
+  .cta-banner .actions {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 10px !important;
+  }
+  .cta-banner .actions .btn {
+    width: 100% !important;
+    justify-content: center !important;
+    min-height: 46px !important;
+  }
+}
+
+/* ===================================================================
+   FOOTER (Responsive 2-col to 1-col)
+=================================================================== */
+@media (max-width: 900px) {
   .footer-grid {
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 28px !important;
+  }
+}
+@media (max-width: 560px) {
+  .footer-grid {
+    grid-template-columns: 1fr !important;
     gap: 24px !important;
   }
+  .site-footer {
+    padding-top: 40px !important;
+  }
   .site-footer .newsletter-inline {
-    flex-direction: column;
-    max-width: 100% !important;
+    flex-direction: column !important;
+    max-inline-size: 100% !important;
+    width: 100% !important;
   }
   .site-footer .newsletter-inline input,
   .site-footer .newsletter-inline button {
-    width: 100%;
-  }
-}
-@media (max-width: 480px) {
-  .footer-grid {
-    grid-template-columns: 1fr !important;
-    gap: 20px !important;
-  }
-  .site-footer {
-    padding-top: 40px;
+    width: 100% !important;
+    min-height: 46px !important;
   }
   .site-footer .footer-bottom {
-    flex-direction: column;
-    text-align: center;
+    flex-direction: column !important;
+    text-align: center !important;
+    gap: 12px !important;
   }
 }
 
-/* ---------- Page hero (inner pages) ---------- */
-@media (max-width: 768px) {
-  .page-hero h1 {
-    font-size: clamp(1.8rem, 6vw, 2.5rem) !important;
+/* ===================================================================
+   DASHBOARDS & ADMIN PORTAL (Responsive Sidebar & Scrollable Tables)
+=================================================================== */
+@media (max-width: 800px) {
+  .admin-shell {
+    flex-direction: column !important;
   }
-}
-@media (max-width: 480px) {
-  .page-hero h1 {
-    font-size: clamp(1.6rem, 8vw, 2rem) !important;
+  .sidebar {
+    width: 100% !important;
+    height: auto !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1000 !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 8px 12px !important;
+    background: rgba(8, 10, 14, 0.96) !important;
+    backdrop-filter: blur(20px) !important;
+    border-bottom: 1px solid var(--glass-border) !important;
+    border-right: none !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
-}
-
-/* ---------- Toast: full-width on mobile ---------- */
-@media (max-width: 480px) {
-  .toast {
-    inset-inline-end: 12px;
-    inset-inline-start: 12px;
-    inset-block-end: 16px;
-    font-size: .85rem;
+  .sidebar-logo {
+    border-bottom: none !important;
+    margin-bottom: 0 !important;
+    padding: 0 10px 0 0 !important;
+    border-right: 1px solid var(--glass-border) !important;
+    flex-shrink: 0 !important;
   }
-}
-
-/* ---------- AI assistant widget: move on very small screens ---------- */
-@media (max-width: 480px) {
-  .kyk-assistant-btn {
-    inset-inline-end: 14px;
-    inset-block-end: 14px;
-    width: 50px;
-    height: 50px;
-    inline-size: 50px;
-    block-size: 50px;
-    font-size: 1.1rem;
+  .sidebar-logo .role-badge {
+    display: none !important;
   }
-  .kyk-assistant-panel {
-    inset-inline-end: 8px;
-    inset-block-end: 76px;
-    max-inline-size: calc(100vw - 16px);
-    inline-size: calc(100vw - 16px);
+  .sidebar nav {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 4px !important;
+    padding: 0 6px !important;
   }
-}
-
-/* ---------- Kanban: horizontal scroll (admin pipeline) ---------- */
-.kanban {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-@media (max-width: 640px) {
-  .kanban {
-    grid-template-columns: repeat(6, 200px);
-    padding-bottom: 12px;
+  .sidebar nav button {
+    white-space: nowrap !important;
+    padding: 8px 12px !important;
+    font-size: 0.8rem !important;
+    border-left: none !important;
+    border-radius: 8px !important;
+    flex-shrink: 0 !important;
+    min-height: 38px !important;
   }
-}
-
-/* ---------- Section titles & ledes: ensure they don't clip ---------- */
-@media (max-width: 768px) {
-  .section-title {
-    max-inline-size: 100%;
+  .sidebar nav button.active {
+    background: rgba(232, 98, 44, 0.18) !important;
+    color: var(--orange) !important;
+    border-bottom: none !important;
   }
-  .section-lede {
-    max-inline-size: 100%;
+  .sidebar-footer {
+    display: none !important;
   }
-}
-
-/* ---------- About / careers / various grids ---------- */
-@media (max-width: 640px) {
-  .vm-grid,
-  .value-grid,
-  .team-grid,
-  .region-grid,
-  .perk-grid,
-  .career-grid,
-  .recruit-grid,
-  .lang-grid,
-  .insights-grid,
-  .ai-hero-visual,
-  .ai-capability-grid,
-  .about-grid,
-  .mission-grid,
-  .culture-grid {
+  .main-content {
+    padding: 16px 12px !important;
+    overflow-x: hidden !important;
+  }
+  .stat-cards {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  .job-form-grid {
     grid-template-columns: 1fr !important;
-    gap: 14px;
+  }
+  .payslip-meta-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .panel {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+  }
+  .panel table,
+  .timesheet-grid table {
+    min-width: 520px !important;
+  }
+  .payslip-sheet table {
+    min-width: auto !important;
+  }
+  .top-nav {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+  .top-nav-right {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  .notif-drawer {
+    right: 8px !important;
+    width: calc(100vw - 16px) !important;
+    max-width: 360px !important;
+    top: 56px !important;
   }
 }
 
-/* ---------- Buttons: improve minimum sizes ---------- */
-@media (max-width: 360px) {
-  .btn {
-    padding: 11px 18px;
-    font-size: .88rem;
+@media (max-width: 480px) {
+  .stat-cards {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  .stat-card {
+    padding: 14px 10px !important;
+  }
+  .stat-card b {
+    font-size: 1.3rem !important;
+  }
+  .stat-card span {
+    font-size: 0.74rem !important;
   }
 }
 
-/* ---------- Touch targets: minimum 44px on mobile ---------- */
+/* ===================================================================
+   COMMUNICATION & CHAT (Mobile layout)
+=================================================================== */
 @media (max-width: 768px) {
-  .btn, .small-btn, button, [role="button"] {
-    min-height: 44px;
+  .comm-shell {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
   }
-  .small-btn {
-    padding: 8px 14px;
-    font-size: .82rem;
-  }
-}
-
-/* ---------- Communication / chat page ---------- */
-@media (max-width: 680px) {
-  .comm-main {
-    flex-direction: column;
+  .comm-rail {
+    display: none !important;
   }
   .comm-sidebar {
     width: 100% !important;
-    height: auto;
-    min-height: unset;
-    border-right: none;
-    border-bottom: 1px solid rgba(255,255,255,.1);
+    max-width: 100% !important;
+    border-right: none !important;
   }
-  .comm-content {
-    width: 100%;
-    min-height: 60vh;
+  .comm-main {
+    flex-direction: column !important;
   }
 }
 
-/* ---------- Dashboard main content ---------- */
-@media (max-width: 800px) {
-  .main-content {
-    padding: 16px;
+/* ===================================================================
+   FLOATING AI ASSISTANT WIDGET (Mobile placement)
+=================================================================== */
+@media (max-width: 600px) {
+  .kyk-assistant-btn {
+    inset-inline-end: 14px !important;
+    inset-block-end: 14px !important;
+    width: 48px !important;
+    height: 48px !important;
+    inline-size: 48px !important;
+    block-size: 48px !important;
+    font-size: 1.15rem !important;
   }
-  .stat-cards {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-  .job-form-grid {
-    grid-template-columns: 1fr;
-  }
-  .payslip-meta-grid {
-    grid-template-columns: 1fr;
+  .kyk-assistant-panel {
+    inset-inline-end: 8px !important;
+    inset-block-end: 72px !important;
+    inline-size: calc(100vw - 16px) !important;
+    max-inline-size: calc(100vw - 16px) !important;
+    max-block-size: min(480px, 72vh) !important;
   }
 }
+
+/* ===================================================================
+   LOGIN / SIGNUP CARD (Compact mobile screens)
+=================================================================== */
 @media (max-width: 480px) {
-  .main-content {
-    padding: 12px 10px;
+  #loginScreen {
+    padding: 16px 10px !important;
   }
-  .stat-cards {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .stat-card {
-    padding: 14px 12px;
-  }
-  .stat-card b {
-    font-size: 1.3rem;
-  }
-  .sidebar {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 10px;
-  }
-  .sidebar nav {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-  }
-  .sidebar nav button {
-    white-space: nowrap;
-    padding: 8px 12px;
-    font-size: .78rem;
-  }
-  .notif-drawer {
-    right: 8px;
-    width: calc(100vw - 16px);
-    max-width: 360px;
-    top: 56px;
-  }
-  .top-nav {
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .top-nav-right {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-}
-
-/* ---------- Login card: tiny screen ---------- */
-@media (max-width: 360px) {
   .login-page #loginScreen .login-card {
-    padding: 20px 14px 18px;
-    border-radius: 16px;
+    padding: 24px 16px 20px !important;
+    border-radius: 18px !important;
+    max-inline-size: 100% !important;
+  }
+  .login-page #loginScreen .login-brand .logo {
+    width: 68px !important;
+    height: 68px !important;
+    inline-size: 68px !important;
+    block-size: 68px !important;
   }
   .auth-tab {
-    min-block-size: 44px;
-    font-size: .92rem;
+    min-block-size: 46px !important;
+    font-size: 0.95rem !important;
   }
   .login-page #loginScreen .field input {
-    block-size: 52px;
-    font-size: .9rem;
+    block-size: 54px !important;
+    font-size: 0.95rem !important;
   }
   .login-page #loginScreen .btn-block {
-    min-block-size: 54px;
-    font-size: 1rem;
+    min-block-size: 54px !important;
   }
 }
 
-/* ---------- Modals: fit small screens ---------- */
+/* ===================================================================
+   MODALS & DIALOGS
+=================================================================== */
 @media (max-width: 640px) {
+  .modal-overlay {
+    padding: 10px !important;
+  }
   .modal-box {
-    padding: 20px 16px;
-    border-radius: 12px;
-    margin: 8px;
-    max-width: calc(100vw - 16px);
+    padding: 22px 16px !important;
+    border-radius: 14px !important;
+    max-width: 100% !important;
+    width: 100% !important;
   }
   .modal-box.modal-lg {
-    max-width: calc(100vw - 16px);
+    max-width: 100% !important;
   }
 }
 
-/* ---------- Contact page ---------- */
+/* ===================================================================
+   KANBAN PIPELINE
+=================================================================== */
+.kanban {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
 @media (max-width: 640px) {
-  .contact-split {
-    flex-direction: column;
-    gap: 32px;
-  }
-  .contact-info,
-  .contact-form-wrap {
-    width: 100%;
+  .kanban {
+    grid-template-columns: repeat(6, 190px) !important;
+    padding-bottom: 12px !important;
   }
 }
 
-/* ---------- Print: always full-width ---------- */
-@media print {
-  html, body {
-    overflow: visible;
-    width: 100%;
+/* ===================================================================
+   TOUCH TARGET ACCESSIBILITY
+=================================================================== */
+@media (max-width: 768px) {
+  .btn, .small-btn, [role="button"], summary {
+    min-height: 44px;
   }
 }

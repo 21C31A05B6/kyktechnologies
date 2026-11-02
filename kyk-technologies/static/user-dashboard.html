@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
 <link rel="stylesheet" href="/css/style.css?v=20261026-cursor-v8"/>
-<link rel="stylesheet" href="/css/responsive.css?v=20261102" />
 <link rel="stylesheet" href="/css/dashboard.css?v=20261026-cursor-v8"/>
 <style>
   .user-page { min-block-size:100vh; background:var(--ink); color:var(--paper); }
@@ -41,6 +40,7 @@
   .empty-state { color:var(--steel-light); padding:8px 0; }
   @media (max-inline-size:760px){ .user-header .wrap { min-block-size:68px; } .user-grid { grid-template-columns:1fr; } .application-summary { grid-template-columns:repeat(3,1fr); } .user-main { padding-block-start:34px; } }
 </style>
+<link rel="stylesheet" href="/css/responsive.css?v=20261102-v2" />
 </head>
 <body class="user-page">
 <header class="user-header">
@@ -73,7 +73,7 @@
   </div>
 </main>
 <div class="form-msg" id="dashboardMessage"></div>
-<script src="/js/main.js?v=20261026-cursor-v8" defer></script>
+<script src="/js/main.js?v=20261102-mobile-v2" defer></script>
 <script>
   (function () {
     const tokenKey = 'kyk_user_token';
