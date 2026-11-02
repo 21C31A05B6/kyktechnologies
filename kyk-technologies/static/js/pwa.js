@@ -99,6 +99,9 @@
       .catch(() => {});
   }
   window.addEventListener("beforeinstallprompt", (event) => {
+    if (isInstalled() || localStorage.getItem(DISMISS_KEY) === "1") {
+      return;
+    }
     event.preventDefault();
     installPrompt = event;
     showBanner();
@@ -107,5 +110,4 @@
     installPrompt = null;
     document.getElementById("kyk-install-banner")?.remove();
   });
-  window.addEventListener("load", () => setTimeout(showBanner, 1200), { once: true });
 })();

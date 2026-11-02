@@ -140,7 +140,12 @@ def _user_from_token(token):
     admin_id = payload.get("adminId") or payload.get("id") or payload.get("userId")
     if not admin_id:
         return None
-    user_row = db.find("admins", admin_id) or db.find("users", admin_id)
+    user_row = (db.find("admins", admin_id) or
+                db.find("admins", str(admin_id)) or
+                (db.find("admins", int(admin_id)) if str(admin_id).isdigit() else None) or
+                db.find("users", admin_id) or
+                db.find("users", str(admin_id)) or
+                (db.find("users", int(admin_id)) if str(admin_id).isdigit() else None))
     if not user_row:
         # Fallback query directly to User model
         try:
@@ -150,6 +155,12 @@ def _user_from_token(token):
                     user_row = u.to_dict()
         except Exception:
             pass
+    if payload.get("adminId") and user_row and user_row.get("role") in DISALLOWED_CHAT_ROLES:
+        admin_rec = (db.find("admins", payload["adminId"]) or
+                     db.find("admins", str(payload["adminId"])) or
+                     (db.find("admins", int(payload["adminId"])) if str(payload["adminId"]).isdigit() else None))
+        if admin_rec and admin_rec.get("role") and admin_rec["role"] not in DISALLOWED_CHAT_ROLES:
+            user_row["role"] = admin_rec["role"]
     if user_row and user_row.get("status") in {"suspended", "inactive", "terminated", "chat_disabled"}:
         return None
     if user_row:
