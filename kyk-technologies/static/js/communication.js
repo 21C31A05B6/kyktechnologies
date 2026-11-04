@@ -21,7 +21,7 @@
     }
   } catch (e) {}
 
-  const gToken = urlToken || localStorage.getItem(TOKEN_KEY) || localStorage.getItem('kyk_user_token') || parentToken || openerToken || '';
+  let gToken = urlToken || localStorage.getItem(TOKEN_KEY) || localStorage.getItem('kyk_user_token') || parentToken || openerToken || '';
 
   if (gToken) {
     try {
@@ -164,7 +164,7 @@
     socket.on('disconnect', (reason) => {
       console.log('Disconnected from real-time server. Reason:', reason);
       updateConnectionBadge(false);
-      if (reason === 'io server disconnect' || reason === 'transport error') {
+      if (reason === 'io server disconnect' || reason === 'transport error' || reason === 'ping timeout' || reason === 'transport close') {
         if (!reconnectTimer) {
           reconnectTimer = setTimeout(() => {
             reconnectTimer = null;
@@ -176,9 +176,10 @@
                 socket.io.opts.auth = { token: gToken };
                 socket.io.opts.query = { token: gToken };
               }
-              socket.connect();
+              try { socket.disconnect(); } catch (_) {}
+              setTimeout(() => { if (socket) socket.connect(); }, 200);
             }
-          }, 2000);
+          }, 1500);
         }
       }
     });
@@ -199,8 +200,9 @@
                 socket.io.opts.auth = { token: gToken };
                 socket.io.opts.query = { token: gToken };
               }
-              // Cleanly disconnect and reconnect with a fresh handshake session
-              socket.disconnect().connect();
+              // Cleanly disconnect old session packets and reconnect with a fresh handshake session
+              try { socket.disconnect(); } catch (_) {}
+              setTimeout(() => { if (socket) socket.connect(); }, 200);
             }
           }, 1500);
         }

@@ -98,7 +98,7 @@
   addManifest();
   addPwaMetaTags();
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/service-worker.js?v=20261102-v32", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/service-worker.js?v=20261102-v33", { updateViaCache: "none" })
       .then((reg) => { if (reg) reg.update(); })
       .catch(() => {});
   }
@@ -106,10 +106,10 @@
     if (isInstalled() || isExcludedPage() || localStorage.getItem(DISMISS_KEY) === "1") {
       return;
     }
-    event.preventDefault();
     installPrompt = event;
     showBanner();
   });
+
   window.addEventListener("appinstalled", () => {
     installPrompt = null;
     document.getElementById("kyk-install-banner")?.remove();

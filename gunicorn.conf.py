@@ -10,9 +10,10 @@ threads = 50
 worker_class = "gthread"
 worker_connections = 1000
 timeout = 120
-keepalive = 5
+keepalive = 65
 max_requests = 10000
 max_requests_jitter = 1000
 accesslog = "-"
 errorlog = "-"
 loglevel = "info"
+

@@ -113,8 +113,8 @@ socketio = SocketIO(
     cors_allowed_origins="*",
     async_mode="threading",
     manage_session=False,
-    ping_timeout=25,
-    ping_interval=10
+    ping_timeout=60,
+    ping_interval=25
 )
 
 # Trust one level of Render/nginx reverse-proxy headers so
