@@ -80,13 +80,16 @@
     document.body.appendChild(banner);
 
     banner.querySelector(".kyk-install-trigger").addEventListener("click", async () => {
-      if (!installPrompt) return;
-      installPrompt.prompt();
-      const choice = await installPrompt.userChoice;
-      if (choice.outcome === "accepted") {
-        localStorage.setItem(DISMISS_KEY, "1");
+      if (installPrompt) {
+        try {
+          installPrompt.prompt();
+          const choice = await installPrompt.userChoice;
+          if (choice && choice.outcome === "accepted") {
+            localStorage.setItem(DISMISS_KEY, "1");
+          }
+        } catch (e) {}
+        installPrompt = null;
       }
-      installPrompt = null;
       banner.remove();
     });
     banner.querySelector(".kyk-install-dismiss").addEventListener("click", () => {
@@ -98,7 +101,7 @@
   addManifest();
   addPwaMetaTags();
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/service-worker.js?v=20261102-v33", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/service-worker.js?v=20261102-v34", { updateViaCache: "none" })
       .then((reg) => { if (reg) reg.update(); })
       .catch(() => {});
   }

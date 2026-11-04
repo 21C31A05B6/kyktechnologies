@@ -1,4 +1,4 @@
-const CACHE_NAME = "kyk-shell-v31-turbo";
+const CACHE_NAME = "kyk-shell-v34-stable";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -18,23 +18,38 @@ const APP_SHELL = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.all(
+        APP_SHELL.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn("SW pre-cache notice for", url, err);
+          })
+        )
+      );
+    })
   );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(
-      keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-    ))
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+      )
+    )
   );
   self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
-  const url = new URL(request.url);
+  let url;
+  try {
+    url = new URL(request.url);
+  } catch (e) {
+    return;
+  }
 
   // CRITICAL: NEVER intercept Socket.IO, real-time polling, APIs, WebSockets, or video streams
   if (
@@ -55,20 +70,22 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (response && response.ok) {
+        if (response && response.status === 200) {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
         }
         return response;
       })
       .catch(async () => {
-        const cached = await caches.match(request);
-        if (cached) return cached;
-        if (request.mode === "navigate") {
-          const fallback = await caches.match("/index.html");
-          if (fallback) return fallback;
-        }
-        return new Response("Network unavailable", {
+        try {
+          const cached = await caches.match(request);
+          if (cached) return cached;
+          if (request.mode === "navigate") {
+            const fallback = await caches.match("/index.html");
+            if (fallback) return fallback;
+          }
+        } catch (e) {}
+        return new Response("Service Unavailable", {
           status: 503,
           statusText: "Service Unavailable",
           headers: { "Content-Type": "text/plain" }

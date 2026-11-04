@@ -904,7 +904,7 @@ async function loadOverview(){
             </div>
           `;
         }
-      }catch(e){console.error('HRMS employee overview error', e);}
+      }catch(e){console.warn('HRMS employee overview error', e);}
       return;
     }
 
@@ -959,7 +959,7 @@ async function loadOverview(){
             </div>
           `;
         }
-      }catch(e){console.error('HRMS manager overview error', e);}
+      }catch(e){console.warn('HRMS manager overview error', e);}
       return;
     }
 
@@ -1003,7 +1003,7 @@ async function loadOverview(){
           </div>
         `;
       }
-    }catch(e){console.error('HRMS admin overview error', e);}
+    }catch(e){console.warn('HRMS admin overview error', e);}
     return;
   }
 
@@ -1050,7 +1050,7 @@ async function loadOverview(){
           </div>
         `;
       }
-    }catch(e){console.error('Work employee overview error', e);}
+    }catch(e){console.warn('Work employee overview error', e);}
     return;
   }
 
@@ -1090,7 +1090,7 @@ async function loadOverview(){
           </button>
         `;
       }
-    }catch(e){console.error('Work manager overview error', e);}
+    }catch(e){console.warn('Work manager overview error', e);}
     return;
   }
 
@@ -1136,7 +1136,7 @@ async function loadOverview(){
           </div>
         `;
       }
-    }catch(e){console.error('Work content manager overview error', e);}
+    }catch(e){console.warn('Work content manager overview error', e);}
     return;
   }
 
@@ -1157,7 +1157,7 @@ async function loadOverview(){
       });
       loadOverviewChart();
       document.querySelectorAll('a[href*="hrms-portal"], .hrms-portal-link, .hrms-portal-btn, .hrms-sidebar-btn-box').forEach(el => el.remove());
-    }catch(e){console.error('Viewer overview error', e);}
+    }catch(e){console.warn('Viewer overview error', e);}
     return;
   }
 
@@ -1209,7 +1209,7 @@ async function loadOverview(){
       `;
     }
   }catch(e){
-    console.error('Admin overview error', e);
+    console.warn('Admin overview error', e);
   }
 }
 
@@ -1370,7 +1370,7 @@ async function updateAppStatus(id,status){
 }
 async function saveAppNotes(id,notes){
   try{ await api('/admin/applications/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes})}); }
-  catch(e){ console.error(e); }
+  catch(e){ console.warn(e); }
 }
 
 /* ────── PIPELINE (Kanban) ────── */
@@ -1448,7 +1448,7 @@ async function clearTalentResume(id){
   catch(e){ alert(e.message); }
 }
 async function updateTalentStage(id,stage){try{await api('/admin/talent/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({stage})});}catch(e){alert(e.message);}}
-async function saveTalentNotes(id,notes){try{await api('/admin/talent/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes})});}catch(e){console.error(e);}}
+async function saveTalentNotes(id,notes){try{await api('/admin/talent/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes})});}catch(e){console.warn(e);}}
 
 /* ────── CONTACTS ────── */
 async function loadContacts(){
@@ -1961,7 +1961,7 @@ async function refreshPunchStatus(){
       b.addEventListener('click', openCorrectionModal);
       outBtn.parentNode.appendChild(b);
     }
-  } catch(e){console.error('refreshPunchStatus error', e);}
+  } catch(e){console.warn('refreshPunchStatus error', e);}
 }
 
 on('checkInBtn','click',async()=>{
@@ -2023,7 +2023,7 @@ async function loadMyCalendar(){
       appendDayStatus(tr.cells[4],r);
       tbody.appendChild(tr);
     });
-  } catch(e){console.error(e);}
+  } catch(e){console.warn(e);}
 }
 on('myCalPrev','click',()=>{ myCalMonth--; if(myCalMonth<1){myCalMonth=12;myCalYear--;} loadMyCalendar(); });
 on('myCalNext','click',()=>{ myCalMonth++; if(myCalMonth>12){myCalMonth=1;myCalYear++;} loadMyCalendar(); });
@@ -2042,7 +2042,7 @@ async function loadAttendanceRegister(){
         sel.appendChild(o);
       });
       regEmployeesLoaded=true;
-    } catch(e){console.error(e);}
+    } catch(e){console.warn(e);}
   }
   await loadRegisterRows();
 }
@@ -2070,7 +2070,7 @@ async function loadRegisterRows(){
       appendDayStatus(tr.cells[6],r);
       tbody.appendChild(tr);
     });
-  } catch(e){console.error(e);}
+  } catch(e){console.warn(e);}
 }
 on('regCalPrev','click',()=>{ regCalMonth--; if(regCalMonth<1){regCalMonth=12;regCalYear--;} loadRegisterRows(); });
 on('regCalNext','click',()=>{ regCalMonth++; if(regCalMonth>12){regCalMonth=1;regCalYear++;} loadRegisterRows(); });
@@ -2108,7 +2108,7 @@ async function prefillTodayReport(){
       $('reportSubmitBtn').textContent='Submit report';
     }
     updateCharCounter();
-  } catch(e){console.error(e);}
+  } catch(e){console.warn(e);}
 }
 
 function updateCharCounter(){
@@ -2177,7 +2177,7 @@ async function loadMyReportHistory(){
       tr.cells[4].appendChild(reviewStatusBadge(r.reviewed));
       tbody.appendChild(tr);
     });
-  } catch(e){console.error(e);}
+  } catch(e){console.warn(e);}
 }
 async function loadReportHistory(){
   const source=$('reportHistBody'), target=$('reportHistoryBody');
@@ -2232,7 +2232,7 @@ async function loadReviewRows(){
           +d.missing.map(u=>esc(u.name||'—')).join(', ');
       }
     }
-  } catch(e){console.error(e);}
+  } catch(e){console.warn(e);}
 }
 on('reviewApplyBtn','click',loadReviewRows);
 on('reviewTodayBtn','click',()=>{ $('reviewDateFilter').value=new Date().toISOString().slice(0,10); loadReviewRows(); });
@@ -2278,7 +2278,7 @@ async function loadEmployees(){
       tr.cells[2].textContent=(u.role||'').replace(/_/g,' '); tr.cells[3].textContent=u.department||'—';
       tr.cells[4].textContent=u.status||'active'; tbody.appendChild(tr);
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 function showEmployeeDetails(user){
   let panel=$('employeeDetailsPanel');
@@ -2303,7 +2303,7 @@ async function loadPerformance(){
       const badge=document.createElement('span'); badge.className='badge '+(r.attention?'badge-rejected':'badge-hired'); badge.textContent=r.attention?'Needs attention':'On track';
       tr.cells[4].appendChild(badge); tbody.appendChild(tr);
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 on('performanceRefresh','click',loadPerformance);
 
@@ -2383,7 +2383,7 @@ async function loadNotifications(){
       list.appendChild(item);
     });
   }catch(e){
-    console.error('Notifs error', e);
+    console.warn('Notifs error', e);
   }
 }
 
@@ -2500,7 +2500,7 @@ async function loadDepartments(){
         }catch(err){ setFormMsg($('shMsg'), err.message, false); }
       });
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 /* ── Module 1 & 12: Branches ── */
@@ -2571,7 +2571,7 @@ async function loadBranches(){
         }catch(err){ setFormMsg($('brMsg'), err.message, false); }
       });
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 /* ── Module 4: Leave Management ── */
@@ -2644,7 +2644,7 @@ async function loadLeaveMgmt(){
         tBody.appendChild(tr);
       });
     }
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function decideLeave(id, decision){
@@ -2713,7 +2713,7 @@ async function loadMyLeaves(){
     on('applyLeaveBtn', 'click', () => {
       openApplyLeaveModal(types);
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 function openApplyLeaveModal(types){
@@ -2856,7 +2856,7 @@ async function loadPayroll(){
         }catch(err){ setFormMsg($('prMsg'), err.message, false); }
       });
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function approvePayrollRun(id){
@@ -2895,7 +2895,7 @@ async function loadMyPayslips(){
       `;
       tbody.appendChild(tr);
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function viewPayslipModal(slipId){
@@ -3010,7 +3010,7 @@ async function loadTimesheets(){
     }
 
     on('refreshTimesheetsBtn', 'click', loadTimesheets);
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function decideTimesheet(id, decision){
@@ -3085,7 +3085,7 @@ async function loadMyTimesheets(){
         }catch(err){ setFormMsg(msg, err.message, false); }
       });
     }
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 /* ── Module 6: Recruitment & ATS ── */
@@ -3137,7 +3137,7 @@ async function loadRecruitment(){
     }
 
     on('recruitmentRefresh', 'click', loadRecruitment);
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 function openConvertToEmployeeModal(cand){
@@ -3231,7 +3231,7 @@ async function loadOnboarding(){
       `;
       container.appendChild(card);
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function completeOnboardingTask(id){
@@ -3361,7 +3361,7 @@ async function loadDocuments(){
     on('docStatusFilter', 'change', loadDocuments);
     on('applyDocsFilterBtn', 'click', loadDocuments);
     on('refreshDocsBtn', 'click', loadDocuments);
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function approveDocument(docId){
@@ -3635,7 +3635,7 @@ async function loadMyDocuments(){
       openDocUploadModal();
     });
 
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 function openDocUploadModal(prefillType='', docId=null, previousReason='', isCorporate=false){
@@ -3841,7 +3841,7 @@ async function loadLifecycle(){
         tbody.appendChild(tr);
       });
     }
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function finalizeOffboarding(id){
@@ -3890,7 +3890,7 @@ async function loadReports(){
         deptBars.appendChild(item);
       });
     }
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 /* ── Module 12: Security & Audit Log ── */
@@ -3913,7 +3913,7 @@ async function loadAuditLog(){
       `;
       tbody.appendChild(tr);
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 /* ── Module 3 & 7: Manager Team Modules ── */
@@ -3955,7 +3955,7 @@ async function loadTeam(){
       `;
       grid.appendChild(card);
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function loadTeamAttendance(){
@@ -4001,7 +4001,7 @@ async function loadTeamAttendance(){
     }
 
     on('refreshTeamAttBtn', 'click', loadTeamAttendance);
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function loadTeamLeaves(){
@@ -4032,7 +4032,7 @@ async function loadTeamLeaves(){
       `;
       tbody.appendChild(tr);
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function loadTeamGoals(){
@@ -4088,7 +4088,7 @@ async function loadTeamGoals(){
         }catch(err){ setFormMsg($('goalMsg'), err.message, false); }
       });
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function loadTeamReviews(){
@@ -4122,7 +4122,7 @@ async function loadTeamReviews(){
       `;
       container.appendChild(card);
     });
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 async function submitManagerReview(e, id){
@@ -4169,7 +4169,7 @@ async function loadTeamCalendar(){
         `).join('') : '<tr><td colspan="4">No team leaves scheduled.</td></tr>'}
       </tbody></table>
     `;
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 /* ── Module 7: My Goals & Review (Employee) ── */
@@ -4226,7 +4226,7 @@ async function loadMyGoals(){
         revBox.appendChild(item);
       });
     }
-  }catch(e){console.error(e);}
+  }catch(e){console.warn(e);}
 }
 
 function updateGoalPreview(id, val){

@@ -3149,6 +3149,17 @@ def database_health():
         return jsonify({"backend": "sql", "database": "unreachable", "error": str(exc)}), 503
 
 
+@app.get("/favicon.ico")
+def serve_favicon():
+    target_dir = STATIC_DIR if os.path.isfile(os.path.join(STATIC_DIR, "kyk_logo.webp")) else BASE_DIR
+    if os.path.isfile(os.path.join(target_dir, "kyk_logo.webp")):
+        return send_from_directory(target_dir, "kyk_logo.webp", mimetype="image/webp")
+    return Response(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#E8622C"/><text x="50" y="66" font-size="50" fill="white" text-anchor="middle" font-family="sans-serif">K</text></svg>',
+        mimetype="image/svg+xml"
+    )
+
+
 @app.get("/kyk_logo.webp")
 def serve_logo():
     return send_from_directory(BASE_DIR, "kyk_logo.webp")

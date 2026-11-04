@@ -383,7 +383,7 @@
         selectConversation(conversations[0].id);
       }
     } catch (err) {
-      console.error('Failed to load conversations:', err);
+      console.warn('Failed to load conversations:', err);
     }
   }
 
@@ -875,7 +875,7 @@
       try {
         await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
       } catch (e) {
-        console.error('Error adding ICE candidate:', e);
+        console.warn('Error adding ICE candidate:', e);
       }
     }
   }
