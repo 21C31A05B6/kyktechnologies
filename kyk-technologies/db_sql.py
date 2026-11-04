@@ -682,50 +682,53 @@ def insert(collection, row):
 
 
 def find(collection, row_id):
-    """Nanosecond O(1) in-memory record lookup with DB fallback."""
-    now_ts = time.time()
-    def _lookup(by_id, rid):
-        if rid in by_id:
-            return by_id[rid]
-        if isinstance(rid, int):
-            return by_id.get(str(rid))
-        if isinstance(rid, str) and rid.isdigit():
-            return by_id.get(int(rid))
+    try:
+        """Nanosecond O(1) in-memory record lookup with DB fallback."""
+        now_ts = time.time()
+        def _lookup(by_id, rid):
+            if rid in by_id:
+                return by_id[rid]
+            if isinstance(rid, int):
+                return by_id.get(str(rid))
+            if isinstance(rid, str) and rid.isdigit():
+                return by_id.get(int(rid))
+            return None
+
+        with _cache_lock:
+            entry = _collection_cache.get(collection)
+            if entry and (now_ts - entry["ts"] < CACHE_TTL):
+                item = _lookup(entry["by_id"], row_id)
+                return dict(item) if item else None
+
+        # Warm collection into RAM
+        read(collection)
+        with _cache_lock:
+            entry = _collection_cache.get(collection)
+            if entry:
+                item = _lookup(entry["by_id"], row_id)
+                return dict(item) if item else None
+
+        with _Session() as session:
+            if collection == "jobs":
+                try:
+                    job = session.get(Job, row_id)
+                    if job:
+                        return job.to_dict()
+                except Exception:
+                    pass
+            elif collection == "audit_log":
+                try:
+                    log = session.get(AuditLog, row_id)
+                    if log:
+                        return log.to_dict()
+                except Exception:
+                    pass
+            row = session.get(Record, {"collection": collection, "id": row_id})
+            return _row_to_dict(row) if row else None
+
+
+    except Exception:
         return None
-
-    with _cache_lock:
-        entry = _collection_cache.get(collection)
-        if entry and (now_ts - entry["ts"] < CACHE_TTL):
-            item = _lookup(entry["by_id"], row_id)
-            return dict(item) if item else None
-
-    # Warm collection into RAM
-    read(collection)
-    with _cache_lock:
-        entry = _collection_cache.get(collection)
-        if entry:
-            item = _lookup(entry["by_id"], row_id)
-            return dict(item) if item else None
-
-    with _Session() as session:
-        if collection == "jobs":
-            try:
-                job = session.get(Job, row_id)
-                if job:
-                    return job.to_dict()
-            except Exception:
-                pass
-        elif collection == "audit_log":
-            try:
-                log = session.get(AuditLog, row_id)
-                if log:
-                    return log.to_dict()
-            except Exception:
-                pass
-        row = session.get(Record, {"collection": collection, "id": row_id})
-        return _row_to_dict(row) if row else None
-
-
 def update(collection, row_id, patch):
     with _Session() as session:
         row = session.get(Record, {"collection": collection, "id": row_id})

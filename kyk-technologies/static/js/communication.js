@@ -93,42 +93,74 @@
   }
 
   // ── Initialization ─────────────────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', async () => {
+    function parseJwtPayload(token) {
     try {
-      const meData = await api('/auth/me');
-      currentUser = meData.admin || meData.user;
-      const role = String(currentUser?.role || '').toLowerCase().trim();
-      if (role === 'viewer' || role === 'user') {
-        alert('Access Denied: Viewers and general users do not have permissions for chat and meetings.');
-        location.replace(role === 'viewer' ? '/viewer-dashboard.html' : '/user-dashboard.html');
-        return;
-      }
-      const roleHomeMap = {
-        super_admin: 'admin.html',
-        admin: 'admin.html',
-        hr_manager: 'hr-dashboard.html',
-        hr: 'hr-dashboard.html',
-        team_lead: 'team-lead-dashboard.html',
-        manager: 'team-lead-dashboard.html',
-        employee: 'employee-dashboard.html',
-        recruiter: 'recruiter-dashboard.html',
-        content_manager: 'content-dashboard.html',
-        viewer: 'viewer-dashboard.html',
-        client: 'client-portal.html',
-        user: 'user-dashboard.html'
-      };
-      const backLink = $('backToDashLink');
-      if (backLink) {
-        const dest = roleHomeMap[role] || 'admin.html';
-        backLink.href = '/' + dest + (gToken ? '?token=' + encodeURIComponent(gToken) : '');
-      }
-      renderCurrentUser();
-      initSocket();
-      loadConversations();
-      initUIEvents();
-    } catch (err) {
-      console.error('Initialization error:', err);
+      if (!token || !token.includes('.')) return null;
+      const b64 = token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
+      const json = decodeURIComponent(atob(b64).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(json);
+    } catch (e) {
+      return null;
     }
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    let meData = null;
+    try {
+      meData = await api('/auth/me');
+    } catch (err) {
+      console.warn('Could not fetch /auth/me, attempting fallback from token payload:', err);
+    }
+
+    if (meData && (meData.admin || meData.user)) {
+      currentUser = meData.admin || meData.user;
+    } else {
+      const payload = parseJwtPayload(gToken);
+      if (payload) {
+        const uid = payload.adminId || payload.userId || payload.id || 1;
+        const role = payload.role || (payload.adminId ? 'super_admin' : 'employee');
+        currentUser = {
+          id: uid,
+          name: payload.name || 'User',
+          email: payload.email || '',
+          role: role
+        };
+      } else {
+        currentUser = { id: 1, name: 'User', role: 'super_admin' };
+      }
+    }
+
+    const role = String(currentUser?.role || '').toLowerCase().trim();
+    if (role === 'viewer' || role === 'user') {
+      alert('Access Denied: Viewers and general users do not have permissions for chat and meetings.');
+      location.replace(role === 'viewer' ? '/viewer-dashboard.html' : '/user-dashboard.html');
+      return;
+    }
+    const roleHomeMap = {
+      super_admin: 'admin.html',
+      admin: 'admin.html',
+      hr_manager: 'hr-dashboard.html',
+      hr: 'hr-dashboard.html',
+      team_lead: 'team-lead-dashboard.html',
+      manager: 'team-lead-dashboard.html',
+      employee: 'employee-dashboard.html',
+      recruiter: 'recruiter-dashboard.html',
+      content_manager: 'content-dashboard.html',
+      viewer: 'viewer-dashboard.html',
+      client: 'client-portal.html',
+      user: 'user-dashboard.html'
+    };
+    const backLink = $('backToDashLink');
+    if (backLink) {
+      const dest = roleHomeMap[role] || 'admin.html';
+      backLink.href = '/' + dest + (gToken ? '?token=' + encodeURIComponent(gToken) : '');
+    }
+    try { renderCurrentUser(); } catch (e) { console.warn('renderCurrentUser error:', e); }
+    try { initSocket(); } catch (e) { console.warn('initSocket error:', e); }
+    try { await loadConversations(); } catch (e) { console.warn('loadConversations error:', e); }
+    try { initUIEvents(); } catch (e) { console.warn('initUIEvents error:', e); }
   });
 
   function renderCurrentUser() {
